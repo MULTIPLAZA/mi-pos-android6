@@ -1,0 +1,7 @@
+node_modules/
+dist/
+mockup-*.html
+mockup-tema-moderno.html
+docs/
+tutoriales-img/
+supabase-migrations/

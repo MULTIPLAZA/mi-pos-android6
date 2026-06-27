@@ -1,0 +1,53 @@
+# Cloudflare Workers Assets — patrones a EXCLUIR del deploy.
+# Sintaxis tipo .gitignore. Sin esto, Wrangler intenta subir TODO el repo
+# (incluyendo node_modules/) y el binario workerd (119 MiB) supera el límite
+# de 25 MiB por asset de Cloudflare Workers, abortando el deploy.
+
+# Dependencias Node — el build instala todo en /opt/buildhome/repo y queda acá
+node_modules/
+
+# Git interno
+.git/
+.gitignore
+.gitattributes
+
+# Config local de Wrangler
+.wrangler/
+wrangler.jsonc
+wrangler.toml
+
+# Tests E2E — no necesarios en runtime
+tests/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+playwright.config.js
+playwright.config.ts
+
+# Migrations SQL — corren server-side, no se sirven como assets
+supabase-migrations/
+
+# Mockups y docs internos
+*-mockup-*.html
+mockup-*.html
+README.md
+CONTRIBUTING.md
+LICENSE*
+docs/
+
+# Build artifacts y temporales
+*.log
+.DS_Store
+.env
+.env.*
+.vscode/
+.idea/
+*.tmp
+*.bak
+
+# Manifests/package files de Node
+package.json
+package-lock.json
+yarn.lock
+pnpm-lock.yaml

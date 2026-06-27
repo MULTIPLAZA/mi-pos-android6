@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mockup — Inventarios + Historial · mi-pos</title>
+<style>
+  :root{
+    --bg:#0f1115; --card:#1a1d24; --card2:#22262f; --border:#2c313b; --border2:#3a414e;
+    --text:#e6e8eb; --muted:#8a92a3; --label:#aeb6c5;
+    --blue:#3b82f6; --b2:#1e3a8a44;
+    --green:#22c55e; --g2:#14532d44;
+    --orange:#f59e0b; --o2:#92400e44;
+    --red:#ef4444; --r2:#7f1d1d44;
+    --purple:#a855f7; --p2:#581c8744;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:"Barlow","Segoe UI",sans-serif;background:#070a10;color:var(--text);padding:24px;line-height:1.4}
+  h1.section{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:48px 0 16px;font-weight:800}
+  h1.section:first-of-type{margin-top:0}
+
+  /* ── App shell mockup ─────────────────────────── */
+  .app{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:14px;overflow:hidden;min-height:760px}
+  .sidebar{width:220px;background:#0c0e13;padding:18px 14px;border-right:1px solid var(--border);font-size:13px;color:var(--label)}
+  .sidebar .logo{font-weight:800;font-size:18px;color:#fff;margin-bottom:4px}
+  .sidebar .plan{font-size:11px;color:var(--muted);margin-bottom:2px}
+  .sidebar .mail{font-size:11px;color:var(--muted);margin-bottom:22px;word-break:break-all}
+  .sidebar .grp{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#5a6377;margin:18px 0 6px;font-weight:700}
+  .sidebar .item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+  .sidebar .item:hover{background:var(--card)}
+  .sidebar .item.on{background:linear-gradient(90deg,var(--g2) 0%,transparent 100%);color:var(--green);font-weight:700}
+  .sidebar .item .ico{width:16px;height:16px;display:inline-block;text-align:center}
+
+  .main{flex:1;padding:24px 28px;overflow-x:auto}
+
+  /* ── Page header ─────────────────────────────── */
+  .ph{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:20px;gap:16px;flex-wrap:wrap}
+  .pt{font-size:22px;font-weight:800;color:#fff;line-height:1.1}
+  .ps{font-size:12px;color:var(--muted);margin-top:4px}
+  .ph-actions{display:flex;gap:8px;align-items:center}
+
+  /* ── Buttons ─────────────────────────────────── */
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:var(--card);color:var(--text);border-radius:8px;padding:8px 14px;font:600 12px/1 Barlow,sans-serif;cursor:pointer;text-transform:uppercase;letter-spacing:.4px}
+  .btn:hover{border-color:var(--border2);background:var(--card2)}
+  .btn.primary{background:var(--green);color:#000;border-color:var(--green);font-weight:700}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{background:var(--card);color:var(--text)}
+  .btn.danger{color:var(--red);border-color:#7f1d1d}
+  .btn.danger:hover{background:var(--r2)}
+
+  /* ── KPIs ────────────────────────────────────── */
+  .kg{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .kc{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--c);border-radius:10px;padding:14px 16px}
+  .kc-l{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .kc-v{font-size:26px;font-weight:800;color:var(--text);line-height:1}
+  .kc-d{font-size:11px;color:var(--muted);margin-top:6px}
+  .kc.blue{--c:var(--blue)}
+  .kc.orange{--c:var(--orange)}
+  .kc.red{--c:var(--red)}
+  .kc.green{--c:var(--green)}
+
+  /* ── Search + chips ──────────────────────────── */
+  .toolbar{display:flex;gap:10px;align-items:center;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:16px;flex-wrap:wrap}
+  .search{flex:1;min-width:240px;position:relative}
+  .search input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px 10px 36px;color:var(--text);font:14px Barlow,sans-serif}
+  .search input::placeholder{color:var(--muted)}
+  .search .ico{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:14px}
+  .select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font:13px Barlow,sans-serif;cursor:pointer}
+
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1px solid var(--border);border-radius:18px;padding:6px 11px 6px 11px;font:600 12px Barlow,sans-serif;color:var(--label);cursor:pointer}
+  .chip:hover{border-color:var(--border2)}
+  .chip.on{background:var(--g2);border-color:var(--green);color:var(--green)}
+  .chip.on.orange{background:var(--o2);border-color:var(--orange);color:var(--orange)}
+  .chip.on.red{background:var(--r2);border-color:var(--red);color:var(--red)}
+  .chip .n{background:rgba(255,255,255,.08);padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700}
+
+  /* ── Card / Table ─────────────────────────────── */
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .card-h{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--border)}
+  .card-t{font-size:13px;font-weight:700;color:var(--text)}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font:700 10px/1 Barlow,sans-serif;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:11px 14px;background:var(--card2);border-bottom:1px solid var(--border)}
+  td{padding:12px 14px;border-bottom:1px solid var(--border);font-size:13px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr.row{position:relative}
+  tr.row td:first-child{position:relative;padding-left:18px}
+  tr.row td:first-child::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:transparent}
+  tr.row.ok    td:first-child::before{background:var(--green)}
+  tr.row.bajo  td:first-child::before{background:var(--orange)}
+  tr.row.cero  td:first-child::before{background:var(--red)}
+  tr.row:hover{background:rgba(255,255,255,.02)}
+
+  /* product cell */
+  .prd{display:flex;align-items:center;gap:11px}
+  .prd .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .prd .name{font-weight:700;color:var(--text);font-size:13.5px}
+  .prd .meta{font-size:11px;color:var(--muted);margin-top:2px}
+  .prd .cat{display:inline-block;background:var(--card2);color:var(--label);padding:1px 7px;border-radius:8px;font-size:10px;font-weight:600;margin-left:6px;text-transform:uppercase;letter-spacing:.4px}
+
+  /* stock progress */
+  .stk{text-align:center}
+  .stk .v{font-weight:800;font-size:16px;color:var(--text);line-height:1}
+  .stk .v.red{color:var(--red)}
+  .stk .v.orange{color:var(--orange)}
+  .stk .bar{width:64px;height:4px;background:#11141a;border-radius:2px;margin:6px auto 0;overflow:hidden}
+  .stk .bar > span{display:block;height:100%;background:var(--green)}
+  .stk .bar > span.orange{background:var(--orange)}
+  .stk .bar > span.red{background:var(--red)}
+  .stk .min{font-size:10px;color:var(--muted);margin-top:3px}
+
+  /* status tag */
+  .tag{display:inline-block;padding:3px 9px;border-radius:6px;font:700 10px Barlow,sans-serif;text-transform:uppercase;letter-spacing:.6px}
+  .tag.ok{background:var(--g2);color:var(--green)}
+  .tag.bajo{background:var(--o2);color:var(--orange)}
+  .tag.cero{background:var(--r2);color:var(--red)}
+
+  /* row actions */
+  .ract{display:flex;gap:4px;justify-content:flex-end}
+  .ract .ab{background:transparent;border:1px solid transparent;color:var(--muted);padding:5px 9px;border-radius:7px;font:600 11px Barlow,sans-serif;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .ract .ab:hover{background:var(--card2);color:var(--text);border-color:var(--border)}
+  .ract .ab.primary{color:var(--blue)}
+  .ract .ab.primary:hover{background:var(--b2);border-color:var(--blue)}
+
+  /* ── Modal Historial ─────────────────────────── */
+  .modal-wrap{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;max-width:900px;margin:0 auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .m-head{display:flex;justify-content:space-between;align-items:center;padding:16px 22px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,var(--card2) 0%,var(--card) 100%)}
+  .m-head .ptl{display:flex;align-items:center;gap:14px}
+  .m-head .ptl .dot{width:14px;height:14px;border-radius:50%}
+  .m-head .ptl .info .name{font-size:18px;font-weight:800}
+  .m-head .ptl .info .meta{font-size:12px;color:var(--muted);margin-top:2px}
+  .m-head .stk-now{text-align:right}
+  .m-head .stk-now .l{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:3px}
+  .m-head .stk-now .v{font-size:28px;font-weight:800;color:var(--green);line-height:1}
+  .m-head .x{background:var(--card2);border:1px solid var(--border);color:var(--text);width:32px;height:32px;border-radius:8px;font-size:14px;cursor:pointer}
+
+  /* tabs */
+  .tabs{display:flex;gap:0;border-bottom:1px solid var(--border);padding:0 22px;background:var(--card)}
+  .tabs .tab{padding:13px 18px;font:700 12px Barlow,sans-serif;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;letter-spacing:.4px;text-transform:uppercase;display:inline-flex;align-items:center;gap:8px}
+  .tabs .tab.on{color:var(--green);border-bottom-color:var(--green)}
+  .tabs .tab:hover:not(.on){color:var(--text)}
+
+  /* período + filtros */
+  .m-filt{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:12px}
+  .m-filt .dates{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .m-filt .dates input{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:6px 9px;color:var(--text);font:12px Barlow,sans-serif}
+  .m-period{display:flex;gap:5px}
+  .m-period .pchip{padding:5px 12px;border:1px solid var(--border);border-radius:14px;font:600 11px Barlow,sans-serif;color:var(--muted);cursor:pointer;background:var(--card2)}
+  .m-period .pchip.on{background:var(--green);color:#000;border-color:var(--green)}
+
+  /* KPIs modal */
+  .m-kpi{display:grid;grid-template-columns:repeat(4,1fr);gap:0;padding:18px 22px;border-bottom:1px solid var(--border);background:var(--card)}
+  .m-kpi .item{padding:0 16px;border-right:1px solid var(--border);position:relative}
+  .m-kpi .item:last-child{border-right:none}
+  .m-kpi .item:first-child{padding-left:0}
+  .m-kpi .item .l{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:6px}
+  .m-kpi .item .v{font-size:24px;font-weight:800;line-height:1}
+  .m-kpi .item .arrow{position:absolute;right:-8px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:16px;background:var(--card);padding:0 4px}
+  .m-kpi .item:last-child .arrow{display:none}
+  .m-kpi .ini .v{color:var(--muted)}
+  .m-kpi .ent .v{color:var(--blue)}
+  .m-kpi .sal .v{color:var(--red)}
+  .m-kpi .fin .v{color:var(--green)}
+  .m-kpi .fin{background:var(--g2);border-radius:8px;padding:8px 16px;margin:-8px 0 -8px}
+
+  /* mini gráfico */
+  .m-chart{padding:14px 22px;border-bottom:1px solid var(--border);background:var(--card)}
+  .m-chart svg{display:block;width:100%;height:80px}
+
+  /* tabla movimientos */
+  .m-tbl table th{background:var(--card2)}
+  .mov-type{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border-radius:6px;font:700 10px Barlow,sans-serif;text-transform:uppercase;letter-spacing:.5px}
+  .mov-type.compra{background:var(--g2);color:var(--green)}
+  .mov-type.venta{background:var(--r2);color:var(--red)}
+  .mov-type.ajuste{background:var(--b2);color:var(--blue)}
+  .mov-type.conteo{background:var(--p2);color:var(--purple)}
+  .mov-cant{font-weight:800;font-size:14px;font-family:"Consolas",monospace}
+  .mov-cant.pos{color:var(--green)}
+  .mov-cant.neg{color:var(--red)}
+  .mov-saldo{font-weight:700;font-size:14px;font-family:"Consolas",monospace}
+
+  /* footer modal */
+  .m-foot{display:flex;justify-content:space-between;align-items:center;padding:14px 22px;border-top:1px solid var(--border);background:var(--card2);font-size:12px;color:var(--muted)}
+
+  /* note */
+  .note{margin:16px 0;padding:12px 16px;background:#1e2a3a;border-left:3px solid var(--blue);border-radius:8px;font-size:12px;color:var(--label)}
+  .note b{color:var(--blue)}
+</style>
+</head>
+<body>
+
+<h1 class="section">▼ Inventarios — rediseño</h1>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="logo">PIZZERIA EXPRESS</div>
+    <div class="plan">Plan 3</div>
+    <div class="mail">yesseniaescudero@hotmail.es</div>
+
+    <div class="grp">Principal</div>
+    <div class="item"><span class="ico">📊</span>Dashboard</div>
+    <div class="item"><span class="ico">🖥️</span>Terminales</div>
+
+    <div class="grp">Operaciones</div>
+    <div class="item"><span class="ico">💰</span>Cajas / Turnos</div>
+
+    <div class="grp">Catálogo</div>
+    <div class="item"><span class="ico">📦</span>Productos</div>
+    <div class="item"><span class="ico">🥬</span>Insumos</div>
+    <div class="item"><span class="ico">📥</span>Importar productos</div>
+
+    <div class="grp">Inventario</div>
+    <div class="item on"><span class="ico">📋</span>Inventarios</div>
+    <div class="item"><span class="ico">📈</span>Extracto de Producto</div>
+    <div class="item"><span class="ico">🛒</span>Compras</div>
+    <div class="item"><span class="ico">🔄</span>Movimientos de Stock</div>
+    <div class="item"><span class="ico">✓</span>Conteo Físico</div>
+  </div>
+
+  <div class="main">
+    <!-- Page header -->
+    <div class="ph">
+      <div>
+        <div class="pt">Inventarios</div>
+        <div class="ps">Sucursal: <strong style="color:var(--text)">Todas</strong> · 21 productos · valor total Gs 4.250.000</div>
+      </div>
+      <div class="ph-actions">
+        <button class="btn">⇄ Transferir</button>
+        <button class="btn">🔄 Reconciliar</button>
+        <button class="btn ghost">⋯</button>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kg">
+      <div class="kc blue"><div class="kc-l">Productos</div><div class="kc-v">21</div><div class="kc-d">activos en catálogo</div></div>
+      <div class="kc orange"><div class="kc-l">Stock bajo</div><div class="kc-v">2</div><div class="kc-d">por debajo del mínimo</div></div>
+      <div class="kc red"><div class="kc-l">Sin stock</div><div class="kc-v">3</div><div class="kc-d">requieren reposición</div></div>
+      <div class="kc green"><div class="kc-l">Valor en inventario</div><div class="kc-v">Gs 4.25M</div><div class="kc-d">cantidad × costo</div></div>
+    </div>
+
+    <!-- Toolbar: search + filtros + chips -->
+    <div class="toolbar">
+      <div class="search">
+        <span class="ico">🔍</span>
+        <input placeholder="Buscar producto por nombre, código o categoría...">
+      </div>
+      <select class="select">
+        <option>Todas las sucursales</option>
+        <option>San Lorenzo</option>
+        <option>Asunción</option>
+        <option>Capiatá</option>
+      </select>
+      <div class="chips" style="margin-left:auto">
+        <div class="chip on">Todos <span class="n">21</span></div>
+        <div class="chip">OK <span class="n">16</span></div>
+        <div class="chip">Bajo <span class="n">2</span></div>
+        <div class="chip">Sin stock <span class="n">3</span></div>
+      </div>
+    </div>
+
+    <!-- Tabla productos -->
+    <div class="card">
+      <div class="card-h">
+        <span class="card-t">21 productos · ordenados por estado</span>
+        <span style="font-size:11px;color:var(--muted)">Última actualización: hace 2 min</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th style="text-align:center">Stock / Mínimo</th>
+            <th style="text-align:right">Costo unit.</th>
+            <th style="text-align:right">Valor</th>
+            <th>Estado</th>
+            <th style="text-align:right;width:160px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="row cero">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#ef4444"></span>
+                <div>
+                  <div class="name">CARNE</div>
+                  <div class="meta">#3081 <span class="cat">Clásicas</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v red">−27</div>
+              <div class="bar"><span class="red" style="width:0%"></span></div>
+              <div class="min">mín. 5</div>
+            </td>
+            <td style="text-align:right;color:var(--muted);font-family:Consolas">12.000</td>
+            <td style="text-align:right;color:var(--red);font-weight:700;font-family:Consolas">−324.000</td>
+            <td><span class="tag cero">Sin stock</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row cero">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#a855f7"></span>
+                <div>
+                  <div class="name">BUTIFARRA</div>
+                  <div class="meta">#3082 <span class="cat">Clásicas</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v red">0</div>
+              <div class="bar"><span class="red" style="width:0%"></span></div>
+              <div class="min">mín. 3</div>
+            </td>
+            <td style="text-align:right;color:var(--muted);font-family:Consolas">8.500</td>
+            <td style="text-align:right;color:var(--muted);font-family:Consolas">0</td>
+            <td><span class="tag cero">Sin stock</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row cero">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#f59e0b"></span>
+                <div>
+                  <div class="name">CHORI VIENA SIN PICANTE</div>
+                  <div class="meta">#3084 <span class="cat">Clásicas</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v red">0</div>
+              <div class="bar"><span class="red" style="width:0%"></span></div>
+              <div class="min">mín. 2</div>
+            </td>
+            <td style="text-align:right;color:var(--muted);font-family:Consolas">6.200</td>
+            <td style="text-align:right;color:var(--muted);font-family:Consolas">0</td>
+            <td><span class="tag cero">Sin stock</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row bajo">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#3b82f6"></span>
+                <div>
+                  <div class="name">BONDIOLA DE CERDO</div>
+                  <div class="meta">#3085 <span class="cat">Clásicas</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v orange">8</div>
+              <div class="bar"><span class="orange" style="width:40%"></span></div>
+              <div class="min">mín. 20</div>
+            </td>
+            <td style="text-align:right;font-family:Consolas">15.000</td>
+            <td style="text-align:right;font-weight:700;font-family:Consolas">120.000</td>
+            <td><span class="tag bajo">Stock bajo</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row ok">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#22c55e"></span>
+                <div>
+                  <div class="name">ARROLLADITO DE POLLO C/ JAMÓN Y QUESO</div>
+                  <div class="meta">#3079 <span class="cat">Gourmet</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v">8</div>
+              <div class="bar"><span style="width:80%"></span></div>
+              <div class="min">mín. 5</div>
+            </td>
+            <td style="text-align:right;font-family:Consolas">22.000</td>
+            <td style="text-align:right;font-weight:700;font-family:Consolas">176.000</td>
+            <td><span class="tag ok">Stock OK</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row ok">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#06b6d4"></span>
+                <div>
+                  <div class="name">CARNE CON PANCETA</div>
+                  <div class="meta">#3086 <span class="cat">Gourmet</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v">5</div>
+              <div class="bar"><span style="width:100%"></span></div>
+              <div class="min">mín. —</div>
+            </td>
+            <td style="text-align:right;font-family:Consolas">18.500</td>
+            <td style="text-align:right;font-weight:700;font-family:Consolas">92.500</td>
+            <td><span class="tag ok">Stock OK</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+
+          <tr class="row ok">
+            <td>
+              <div class="prd">
+                <span class="dot" style="background:#84cc16"></span>
+                <div>
+                  <div class="name">CHORI VIENA CON PICANTE</div>
+                  <div class="meta">#3087 <span class="cat">Clásicas</span></div>
+                </div>
+              </div>
+            </td>
+            <td class="stk">
+              <div class="v">2</div>
+              <div class="bar"><span style="width:100%"></span></div>
+              <div class="min">mín. —</div>
+            </td>
+            <td style="text-align:right;font-family:Consolas">5.800</td>
+            <td style="text-align:right;font-weight:700;font-family:Consolas">11.600</td>
+            <td><span class="tag ok">Stock OK</span></td>
+            <td>
+              <div class="ract">
+                <button class="ab primary">📊 Historial</button>
+                <button class="ab">✏️ Ajustar</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <b>Cambios respecto al actual:</b>
+      • KPI nuevo "Valor en inventario" (cantidad × costo).
+      • Borde-izquierdo de fila por estado (verde / naranja / rojo).
+      • Stock con barra de progreso vs mínimo.
+      • Acciones directas en cada fila (Historial + Ajustar — antes Ajustar estaba enterrado en el modal).
+      • Chips de filtro con contador en lugar de dropdown.
+      • Ordenamiento: primero los críticos (sin stock → bajo → ok).
+    </div>
+  </div>
+</div>
+
+
+<h1 class="section">▼ Modal Historial — rediseño</h1>
+
+<div class="modal-wrap">
+  <!-- Header con producto destacado -->
+  <div class="m-head">
+    <div class="ptl">
+      <span class="dot" style="background:#ef4444"></span>
+      <div class="info">
+        <div class="name">CARNE</div>
+        <div class="meta">#3081 · Clásicas · Depósito SAN LORENZO</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:18px">
+      <div class="stk-now">
+        <div class="l">Stock actual</div>
+        <div class="v" style="color:var(--red)">−27</div>
+      </div>
+      <button class="x">✕</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab on">📋 Movimientos</div>
+    <div class="tab">📈 Gráfico</div>
+    <div class="tab">✏️ Ajustar stock</div>
+  </div>
+
+  <!-- Filtros: período + fechas -->
+  <div class="m-filt">
+    <div class="m-period">
+      <div class="pchip">Hoy</div>
+      <div class="pchip">Semana</div>
+      <div class="pchip on">Mes</div>
+      <div class="pchip">Año</div>
+    </div>
+    <div class="dates">
+      <span>Desde</span><input type="date" value="2026-04-23">
+      <span>Hasta</span><input type="date" value="2026-05-23">
+    </div>
+  </div>
+
+  <!-- KPIs: saldo inicial → entradas → salidas → saldo final -->
+  <div class="m-kpi">
+    <div class="item ini">
+      <div class="l">Saldo inicial</div>
+      <div class="v">15</div>
+      <span class="arrow">→</span>
+    </div>
+    <div class="item ent">
+      <div class="l">Entradas</div>
+      <div class="v">+8</div>
+      <span class="arrow">−</span>
+    </div>
+    <div class="item sal">
+      <div class="l">Salidas</div>
+      <div class="v">−50</div>
+      <span class="arrow">=</span>
+    </div>
+    <div class="item fin">
+      <div class="l">Saldo final</div>
+      <div class="v">−27</div>
+    </div>
+  </div>
+
+  <!-- Mini gráfico de evolución -->
+  <div class="m-chart">
+    <svg viewBox="0 0 800 80" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="gradStock" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#22c55e" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#22c55e" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <!-- línea cero -->
+      <line x1="0" y1="60" x2="800" y2="60" stroke="#3a414e" stroke-width="1" stroke-dasharray="3,3"/>
+      <text x="6" y="58" font-size="9" fill="#8a92a3">0</text>
+      <!-- area -->
+      <path d="M0,20 L100,15 L180,18 L260,30 L340,28 L420,45 L500,55 L580,68 L660,75 L740,78 L800,80 L800,80 L0,80 Z" fill="url(#gradStock)"/>
+      <!-- línea -->
+      <path d="M0,20 L100,15 L180,18 L260,30 L340,28 L420,45 L500,55 L580,68 L660,75 L740,78 L800,80" stroke="#22c55e" stroke-width="2" fill="none"/>
+      <!-- punto final crítico -->
+      <circle cx="800" cy="80" r="4" fill="#ef4444" stroke="#0f1115" stroke-width="2"/>
+      <text x="775" y="74" font-size="10" fill="#ef4444" font-weight="700">−27</text>
+    </svg>
+  </div>
+
+  <!-- Tabla movimientos compacta -->
+  <div class="m-tbl">
+    <table>
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Referencia</th>
+          <th style="text-align:right">Movimiento</th>
+          <th style="text-align:right">Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="font-size:12px;color:var(--muted)">23/04 09:12</td>
+          <td colspan="3" style="font-style:italic;color:var(--muted);font-size:11px">— Saldo anterior al período —</td>
+          <td style="text-align:right" class="mov-saldo">15</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px">25/04 14:30</td>
+          <td><span class="mov-type compra">Compra</span></td>
+          <td style="font-size:12px;color:var(--muted)">COMP-1773</td>
+          <td style="text-align:right" class="mov-cant pos">+8</td>
+          <td style="text-align:right" class="mov-saldo">23</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px">02/05 13:18</td>
+          <td><span class="mov-type venta">Venta</span></td>
+          <td style="font-size:12px;color:var(--muted)">VTA-2241</td>
+          <td style="text-align:right" class="mov-cant neg">−12</td>
+          <td style="text-align:right" class="mov-saldo">11</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px">08/05 19:42</td>
+          <td><span class="mov-type venta">Venta</span></td>
+          <td style="font-size:12px;color:var(--muted)">VTA-2317</td>
+          <td style="text-align:right" class="mov-cant neg">−15</td>
+          <td style="text-align:right" class="mov-saldo" style="color:var(--red)">−4</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px">15/05 21:30</td>
+          <td><span class="mov-type venta">Venta</span></td>
+          <td style="font-size:12px;color:var(--muted)">VTA-2392</td>
+          <td style="text-align:right" class="mov-cant neg">−18</td>
+          <td style="text-align:right" class="mov-saldo" style="color:var(--red)">−22</td>
+        </tr>
+        <tr>
+          <td style="font-size:12px">17/05 15:17</td>
+          <td><span class="mov-type conteo">Conteo</span></td>
+          <td style="font-size:12px;color:var(--muted)">CONTEO-003</td>
+          <td style="text-align:right" class="mov-cant neg">−5</td>
+          <td style="text-align:right" class="mov-saldo" style="color:var(--red)">−27</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer del modal -->
+  <div class="m-foot">
+    <span>6 movimientos · período 23/04 → 23/05</span>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost">📤 Exportar</button>
+      <button class="btn primary">+ Nuevo ajuste</button>
+    </div>
+  </div>
+</div>
+
+<div class="note" style="max-width:900px;margin:16px auto">
+  <b>Cambios respecto al actual:</b>
+  • Header con producto destacado y stock actual prominente (a la derecha).
+  • Tabs <code>Movimientos / Gráfico / Ajustar</code> (antes todo mezclado en una sola vista).
+  • Chips de período rápido (Hoy/Semana/Mes/Año).
+  • KPIs como secuencia visual: Inicial → +Entradas → −Salidas → <b>Final destacado</b>.
+  • Mini gráfico SVG de evolución (saldo en el tiempo).
+  • Saldo acumulado por fila (antes solo entrada/salida sin acumulado).
+  • Tabla compacta a 5 columnas (antes 7).
+  • Botón "+ Nuevo ajuste" como acción primaria en footer (antes en header confundía).
+</div>
+
+</body>
+</html>

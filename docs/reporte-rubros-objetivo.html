@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mi-pos · Plan por rubro: retail, electrónica, ropa, spa/barbería</title>
+<style>
+  :root{
+    --nodo:#ee7c00; --nodo-hi:#f0b000; --nodo-deep:#c85000;
+    --ink:#1c2530; --muted:#5b6775; --line:#e4e8ee; --bg:#f6f8fb;
+    --card:#ffffff; --ok:#1f9d57; --warn:#d98a00; --bad:#d23f3f;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.55;font-size:15px;}
+  .wrap{max-width:980px;margin:0 auto;padding:0 24px 80px;}
+  header.top{background:linear-gradient(135deg,#1c2530,#2b3a4d);color:#fff;padding:40px 24px 32px;}
+  header.top .inner{max-width:980px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.5px;}
+  .brand .dot{width:14px;height:14px;border-radius:50%;background:var(--nodo);box-shadow:0 0 0 4px rgba(238,124,0,.25);}
+  h1{font-size:29px;margin:18px 0 6px;line-height:1.15;}
+  .sub{color:#c9d3df;font-size:15px;max-width:720px;}
+  .meta{margin-top:18px;font-size:13px;color:#9fb0c2;}
+  h2{font-size:22px;margin:46px 0 12px;padding-top:12px;border-top:3px solid var(--nodo);display:inline-block;}
+  h3{font-size:18px;margin:26px 0 8px;color:var(--nodo-deep);}
+  h4{font-size:15px;margin:18px 0 6px;color:var(--ink);}
+  p{margin:10px 0;}
+  a{color:var(--nodo-deep);}
+  code{background:#eef1f5;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:13px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#324;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;
+    box-shadow:0 1px 2px rgba(20,30,45,.04);}
+  .verdict{border-left:5px solid var(--nodo);background:#fffaf3;}
+  .grpA{border-left:5px solid var(--ok);}
+  .grpB{border-left:5px solid var(--warn);}
+  .grpC{border-left:5px solid var(--bad);}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#f0f3f7;color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;}
+  tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;}
+  .t-s{background:#eef7f1;color:var(--ok);}
+  .t-m{background:#fff6e6;color:var(--warn);}
+  .t-l{background:#fdecec;color:var(--bad);}
+  .nav{position:sticky;top:0;background:rgba(246,248,251,.95);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:8px;z-index:5;font-size:13px;}
+  .nav .inner{max-width:980px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;}
+  .nav a{color:var(--muted);text-decoration:none;font-weight:600;}
+  .nav a:hover{color:var(--nodo-deep);}
+  ul,ol{margin:8px 0;padding-left:22px;} li{margin:6px 0;}
+  .lead{font-size:16px;}
+  .ref{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace;}
+  .step{display:flex;gap:14px;margin:12px 0;}
+  .step .num{flex:0 0 30px;height:30px;border-radius:50%;background:var(--nodo);color:#fff;font-weight:800;font-size:14px;
+    display:flex;align-items:center;justify-content:center;}
+  .step .body{flex:1;}
+  .pill{font-size:11px;padding:2px 8px;border-radius:6px;background:#eef1f5;color:var(--muted);font-weight:600;}
+  .ok{color:var(--ok);font-weight:700;} .no{color:var(--bad);font-weight:700;}
+  footer{margin-top:50px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);text-align:center;}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0;}
+  .kpi .box{flex:1;min-width:150px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .kpi .n{font-size:22px;font-weight:800;color:var(--nodo-deep);}
+  .kpi .lbl{font-size:12.5px;color:var(--muted);}
+  @media print{.nav{display:none;}header.top{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> NODO · mi-pos</div>
+    <h1>Plan por rubro: retail, electrónica, ropa y spa/barbería</h1>
+    <div class="sub">Qué le falta a mi-pos para cada uno de los 4 rubros objetivo, agrupados por distancia, con el paso a paso concreto de qué cambiar — partiendo de la Fase 0 (tipo de negocio) ya construida.</div>
+    <div class="meta">Para Emiliano Vitale · 2 de junio de 2026 · continúa el reporte general de adaptación multi-rubro</div>
+  </div>
+</header>
+
+<div class="nav"><div class="inner">
+  <a href="#partida">Punto de partida</a>
+  <a href="#resumen">Resumen por rubro</a>
+  <a href="#grupoA">A · Retail + Electrónica</a>
+  <a href="#grupoB">B · Ropa / Boutique</a>
+  <a href="#grupoC">C · Spa / Barbería</a>
+  <a href="#datos">Modelo de datos</a>
+  <a href="#flags">Flags por rubro</a>
+  <a href="#roadmap">Secuencia</a>
+</div></div>
+
+<div class="wrap">
+
+  <h2 id="partida">Punto de partida: el chasis ya está</h2>
+  <div class="card verdict">
+    <p class="lead">La <strong>Fase 0 ya está implementada</strong> (rama <code>feature/tipo-negocio-retail</code>, sin deploy): existe <code>js/rubro.js</code> con <code>tipo_negocio</code> y flags que ocultan lo gastronómico (mesas, comanda, delivery, mitades) con <strong>regresión cero</strong>. Sobre ese chasis montamos cada rubro prendiendo/apagando features y agregando lo que falte. <strong>No se reescribe nada: se extiende.</strong></p>
+    <div class="kpi">
+      <div class="box"><div class="n">Listo</div><div class="lbl">Chasis tipo_negocio + flags (Fase 0)</div></div>
+      <div class="box"><div class="n">Casi free</div><div class="lbl">Retail general y electrónica (Fase 0 + barcode)</div></div>
+      <div class="box"><div class="n">Inversión real</div><div class="lbl">Ropa (variantes) y spa/barbería (servicios+agenda)</div></div>
+    </div>
+  </div>
+  <p>Los 4 rubros caen naturalmente en <strong>3 grupos por esfuerzo</strong>. Esto importa para el orden: empezar por lo barato que ya casi funciona y dejar para el final lo que es casi un producto nuevo.</p>
+
+  <h2 id="resumen">Resumen: cuánto le falta a cada rubro</h2>
+  <table>
+    <tr><th>Rubro</th><th>Grupo</th><th>Qué le falta sobre Fase 0</th><th>Esfuerzo</th></tr>
+    <tr><td><strong>Retail general</strong> (kiosco, librería, regalería, bazar)</td><td>A</td><td>Código de barras en el buscador del POS. Nada más.</td><td><span class="tag t-s">S</span></td></tr>
+    <tr><td><strong>Electrónica / tecnología</strong></td><td>A</td><td>Barcode + nº de serie/IMEI opcional + garantía en el ticket.</td><td><span class="tag t-m">M chico</span></td></tr>
+    <tr><td><strong>Ropa / boutique / calzado</strong></td><td>B</td><td>Variantes talla × color con stock por variante. Toca catálogo, POS, stock, ticket.</td><td><span class="tag t-l">L</span></td></tr>
+    <tr><td><strong>Spa / barbería / peluquería</strong></td><td>C</td><td>Servicios (sin stock) + profesionales + comisiones + (opcional) agenda de citas. Conceptos NUEVOS.</td><td><span class="tag t-l">L (o XL con agenda)</span></td></tr>
+  </table>
+  <p class="ref">S = 1-3 días · M = 1-2 semanas · L = 3+ semanas. Estimaciones orientativas, sobre el chasis ya hecho.</p>
+
+  <!-- ===================== GRUPO A ===================== -->
+  <h2 id="grupoA">Grupo A · Retail general + Electrónica</h2>
+  <div class="card grpA">
+    <p><strong>Por qué van juntos:</strong> ambos venden productos físicos con stock y se apoyan 100% en lo que mi-pos ya hace bien (catálogo, stock, cobro, factura SIFEN, turno). La Fase 0 ya les saca mesas/cocina/delivery. El único músculo nuevo común es el <strong>código de barras de verdad</strong> en la venta.</p>
+  </div>
+
+  <h3>Estado actual</h3>
+  <ul>
+    <li>El producto <span class="ok">ya tiene campo "Código de barras / Referencia"</span> <span class="ref">(admin-productos.js:79, index.html:948)</span> y se busca por código en la gestión <span class="ref">(productos.js:569)</span>.</li>
+    <li>Pero el <span class="no">buscador de venta del POS no agrega por código</span> <span class="ref">(asistente.js no matchea por codigo)</span>. Hoy el cajero busca por nombre.</li>
+  </ul>
+
+  <h3>Paso a paso — Retail general (Fase 1)</h3>
+  <div class="step"><div class="num">1</div><div class="body"><strong>Buscar por código en el POS.</strong> Que el buscador principal (<code>asistente.js</code>) matchee también <code>p.codigo</code>, no solo el nombre.</div></div>
+  <div class="step"><div class="num">2</div><div class="body"><strong>Modo lector.</strong> Un lector USB/Bluetooth "tipea" el código + Enter. Capturar ese Enter en el input de búsqueda: si hay match exacto por código, <strong>agregar al carrito directo</strong> (sin abrir lista). Ese es el 90% del flujo de un kiosco/minimercado.</div></div>
+  <div class="step"><div class="num">3</div><div class="body"><strong>Alta de producto con foco en código.</strong> En el form de producto, permitir escanear para llenar el campo código. Validar unicidad del código por licencia.</div></div>
+  <div class="step"><div class="num">4</div><div class="body"><strong>Packs de catálogo semilla</strong> (opcional): categorías típicas por rubro al activar (librería, bazar, etc.).</div></div>
+  <p>Con esto, retail general queda <strong>plenamente vendible</strong>. Esfuerzo <span class="tag t-s">S</span>.</p>
+
+  <h3>Paso a paso — Electrónica (Fase 1 + extra)</h3>
+  <p>Todo lo de retail general, más estas piezas chicas para artículos de valor con número de serie:</p>
+  <div class="step"><div class="num">1</div><div class="body"><strong>Flag de producto <code>usa_serie</code></strong> (ej. celulares, notebooks). Al venderlo, el POS pide capturar el <strong>nº de serie / IMEI</strong> de la unidad y lo guarda en la línea de venta.</div></div>
+  <div class="step"><div class="num">2</div><div class="body"><strong>Garantía en el ticket.</strong> Campo "garantía (meses)" por producto; el ticket imprime "Garantía: N meses" y la serie vendida. Útil para reclamos.</div></div>
+  <div class="step"><div class="num">3</div><div class="body"><strong>Campos marca / modelo</strong> (opcional) para ordenar el catálogo de electrónica.</div></div>
+  <div class="step"><div class="num">4</div><div class="body"><strong>Reporte de series vendidas</strong> (opcional): buscar a qué venta pertenece una serie/IMEI (postventa).</div></div>
+  <p>Esfuerzo <span class="tag t-m">M chico</span>. La serie/IMEI se guarda como dato de la línea (en el JSON de <code>items</code> de <code>pos_ventas</code>), sin tabla nueva obligatoria.</p>
+
+  <!-- ===================== GRUPO B ===================== -->
+  <h2 id="grupoB">Grupo B · Ropa / Boutique / Calzado</h2>
+  <div class="card grpB">
+    <p><strong>El salto real.</strong> Una remera no es un producto: es un producto con <strong>variantes</strong> (talle S/M/L/XL × color blanco/negro/rojo), y <strong>cada combinación tiene su propio stock</strong>. mi-pos hoy maneja "un producto = un stock". Esto toca catálogo, POS, inventario, ticket y reportes. Es la inversión más profunda de los rubros de productos.</p>
+  </div>
+
+  <h3>Estado actual</h3>
+  <ul><li><span class="no">No existe el concepto de variante.</span> El stock es plano por producto <span class="ref">(pos_productos.stock)</span>.</li></ul>
+
+  <h3>Paso a paso — Variantes</h3>
+  <div class="step"><div class="num">1</div><div class="body"><strong>Modelo de datos.</strong> Nueva tabla <code>pos_variantes</code> (producto_id, talle, color, sku/código, stock, precio_override opcional). Flag <code>tiene_variantes</code> en el producto. El stock del producto "padre" pasa a ser la suma de sus variantes.</div></div>
+  <div class="step"><div class="num">2</div><div class="body"><strong>Editor de variantes (admin).</strong> Al marcar "tiene variantes", el alta muestra dos listas (talles, colores) y genera la <strong>matriz</strong> de combinaciones; el dueño carga stock por celda. Genera SKU/código por variante (escaneable).</div></div>
+  <div class="step"><div class="num">3</div><div class="body"><strong>Selector de variante en el POS.</strong> Al tocar un producto con variantes, abrir un picker (talle → color) y agregar al carrito la <strong>variante específica</strong>. <span class="ref">Se puede reutilizar el patrón del modal de "pizza mitad" (2 selectores) que ya existe en productos.js:1435.</span></div></div>
+  <div class="step"><div class="num">4</div><div class="body"><strong>Descuento de stock por variante.</strong> La venta resta stock de la variante, no del padre. Tocar el flujo de cobro/stock <span class="ref">(cobro.js, admin-inventario.js)</span>.</div></div>
+  <div class="step"><div class="num">5</div><div class="body"><strong>Ticket e inventario por variante.</strong> El ticket imprime "Remera Pima — M / Negro". Conteo, movimientos y extracto operan a nivel variante.</div></div>
+  <div class="step"><div class="num">6</div><div class="body"><strong>Reportes.</strong> Stock y ventas desglosados por talle/color (qué talle se vende más).</div></div>
+  <p>Esfuerzo <span class="tag t-l">L</span>. Recomendación: hacerlo solo cuando haya demanda concreta de ropa que lo pague, porque es el desarrollo más caro de los 4.</p>
+
+  <!-- ===================== GRUPO C ===================== -->
+  <h2 id="grupoC">Grupo C · Spa / Barbería / Peluquería</h2>
+  <div class="card grpC">
+    <p><strong>Esto no es un POS de productos — es casi otro producto.</strong> Acá no se vende mercadería con stock: se venden <strong>servicios</strong> (corte, color, masaje) que ejecuta una <strong>persona</strong> (el barbero/estilista), normalmente con <strong>comisión</strong>, y muchas veces con <strong>cita previa (agenda)</strong>. mi-pos hoy <span class="no">no tiene ninguno de esos tres conceptos</span>: no hay identidad de empleados (el login es por licencia/dispositivo), no hay comisiones, no hay agenda.</p>
+  </div>
+
+  <h3>Estado actual</h3>
+  <ul>
+    <li><span class="no">No hay profesionales/empleados</span> como entidad (el "cajero" es solo el conteo de caja, <code>turno.usuario</code> = email de la cuenta).</li>
+    <li><span class="no">No hay comisiones</span> ni liquidación por persona.</li>
+    <li><span class="no">No hay agenda/citas</span> (el "turno" de mi-pos es apertura/cierre de caja, no una reserva).</li>
+  </ul>
+
+  <h3>Estrategia: partirlo en C1 (sin agenda) y C2 (con agenda)</h3>
+  <p>Un barbershop de "te sentás y te corto" (walk-in) <strong>no necesita agenda</strong>: necesita facturar el servicio, anotar quién lo hizo y cuánto le toca de comisión. Eso es C1 y es alcanzable. La agenda (C2) es un subsistema de calendario aparte, mucho más caro, y puede esperar o vivir como app compañera.</p>
+
+  <h4>C1 — Servicios + profesionales + comisiones <span class="tag t-l">L</span></h4>
+  <div class="step"><div class="num">1</div><div class="body"><strong>Servicios como "producto sin stock".</strong> Flag <code>es_servicio</code> en el producto (reutiliza el patrón de <code>es_insumo</code> que ya existe): sin control de stock, sin comanda, con duración opcional. El catálogo pasa a ser la lista de servicios + los productos de reventa (shampoo, etc.) conviven en el mismo carrito.</div></div>
+  <div class="step"><div class="num">2</div><div class="body"><strong>Tabla <code>pos_profesionales</code></strong> (id, nombre, activo, % comisión o comisión por servicio). ABM simple en el admin.</div></div>
+  <div class="step"><div class="num">3</div><div class="body"><strong>Asignar profesional a la línea de venta.</strong> Al agregar un servicio al carrito, elegir <strong>quién lo realizó</strong>. Se guarda en el ítem de <code>pos_ventas</code>. (Hoy <code>mesero_id</code> existe a nivel pedido en modo satélite — sirve de patrón, pero acá lo queremos por línea.)</div></div>
+  <div class="step"><div class="num">4</div><div class="body"><strong>Reporte y liquidación de comisiones.</strong> Por período y por profesional: total facturado, comisión a pagar. Es lo que el dueño realmente quiere de este rubro.</div></div>
+  <div class="step"><div class="num">5</div><div class="body"><strong>Terminología.</strong> "mesa" → (oculto), "comanda" → (oculto), foco en cliente + profesional + servicio.</div></div>
+
+  <h4>C2 — Agenda de citas <span class="tag t-l">XL</span> (postergar / app aparte)</h4>
+  <div class="step"><div class="num">1</div><div class="body"><strong>Tabla <code>pos_citas</code></strong> (cliente, profesional, servicio, fecha/hora, duración, estado).</div></div>
+  <div class="step"><div class="num">2</div><div class="body"><strong>Vista calendario</strong> por profesional/día, crear/mover/cancelar cita, evitar choques de horario.</div></div>
+  <div class="step"><div class="num">3</div><div class="body"><strong>Cita → venta:</strong> al llegar el cliente, la cita se convierte en venta en el POS (precarga servicio + profesional).</div></div>
+  <div class="step"><div class="num">4</div><div class="body"><strong>(Opcional) recordatorio por WhatsApp</strong> y reserva online del cliente — esto ya es un producto en sí.</div></div>
+  <p><strong>Recomendación honesta:</strong> hacer C1 si hay un cliente barbería/peluquería que lo pida; tratar C2 como proyecto separado (incluso como app independiente que se integra), no meterlo de una en mi-pos.</p>
+
+  <!-- ===================== DATOS ===================== -->
+  <h2 id="datos">Modelo de datos: qué se agrega (todo opcional/compatible)</h2>
+  <table>
+    <tr><th>Rubro</th><th>Cambio en datos</th><th>Tipo</th></tr>
+    <tr><td>Retail / electrónica</td><td>Usar el <code>codigo</code> ya existente; flag <code>usa_serie</code> + <code>garantia_meses</code> en producto; serie/IMEI dentro del JSON <code>items</code> de la venta</td><td>Campos nuevos, nullable</td></tr>
+    <tr><td>Ropa</td><td>Tabla nueva <code>pos_variantes</code> + flag <code>tiene_variantes</code>; stock pasa a nivel variante</td><td>Tabla nueva</td></tr>
+    <tr><td>Spa/barbería C1</td><td>Flag <code>es_servicio</code> en producto; tabla nueva <code>pos_profesionales</code>; profesional en el ítem de venta</td><td>Tabla nueva + campo</td></tr>
+    <tr><td>Spa/barbería C2</td><td>Tabla nueva <code>pos_citas</code></td><td>Subsistema nuevo</td></tr>
+  </table>
+  <p>Regla de oro (igual que Fase 0): <strong>todo nace opcional/nullable</strong> y apagado por default. Un negocio gastronómico o retail no ve nada de esto.</p>
+
+  <!-- ===================== FLAGS ===================== -->
+  <h2 id="flags">Flags por rubro (extender <code>rubro.js</code>)</h2>
+  <p><code>tipo_negocio</code> gana presets que setean defaults de flags, sin perder el override individual:</p>
+  <table>
+    <tr><th>Preset</th><th>Flags que prende</th><th>Flags que apaga</th></tr>
+    <tr><td><code>gastronomia</code> (default)</td><td>mesas, cocina, delivery, mitades</td><td>—</td></tr>
+    <tr><td><code>retail</code></td><td>código/lector</td><td>mesas, cocina, delivery, mitades</td></tr>
+    <tr><td><code>electronica</code></td><td>código/lector, <code>usa_serie</code>, garantía</td><td>mesas, cocina, delivery, mitades</td></tr>
+    <tr><td><code>indumentaria</code></td><td>código/lector, <code>tiene_variantes</code></td><td>mesas, cocina, delivery, mitades</td></tr>
+    <tr><td><code>servicios</code></td><td><code>es_servicio</code>, <code>usa_profesionales</code>, comisiones</td><td>mesas, cocina, delivery, mitades, stock estricto</td></tr>
+  </table>
+
+  <!-- ===================== ROADMAP ===================== -->
+  <h2 id="roadmap">Secuencia recomendada</h2>
+  <div class="step"><div class="num">0</div><div class="body"><strong>Cerrar Fase 0</strong> (ya hecha en rama): probar en tablet y deployar. Habilita retail básico ya.</div></div>
+  <div class="step"><div class="num">1</div><div class="body"><strong>Fase 1 — Código de barras en el POS</strong> <span class="tag t-s">S</span>. Desbloquea retail general en serio y es base de electrónica y ropa. Mejor relación valor/esfuerzo.</div></div>
+  <div class="step"><div class="num">2</div><div class="body"><strong>Pack electrónica</strong> <span class="tag t-m">M chico</span>: serie/IMEI + garantía. Barato sobre Fase 1.</div></div>
+  <div class="step"><div class="num">3</div><div class="body"><strong>Ropa — variantes</strong> <span class="tag t-l">L</span>: solo con demanda concreta que lo pague.</div></div>
+  <div class="step"><div class="num">4</div><div class="body"><strong>Spa/barbería C1</strong> <span class="tag t-l">L</span>: servicios + profesionales + comisiones. Sin agenda.</div></div>
+  <div class="step"><div class="num">5</div><div class="body"><strong>Agenda C2</strong> <span class="tag t-l">XL</span>: proyecto aparte, evaluar como app compañera.</div></div>
+
+  <div class="card verdict" style="margin-top:28px">
+    <h3 style="margin-top:0">Recomendación en una frase</h3>
+    <p><strong>Retail y electrónica son casi gratis</strong> (Fase 0 + un poco de barcode): salí a vender esos dos ya. <strong>Ropa y spa/barbería son inversiones reales</strong> — hacelas contra demanda concreta, no en abstracto. Y <strong>la agenda del spa tratala como un producto aparte</strong>, no como una feature más del POS, porque ahí es donde se te puede ir el alcance de las manos.</p>
+    <p>Si te cierra el orden, el próximo paso de desarrollo es la <strong>Fase 1 (código de barras en el POS)</strong>. Decime y se lo paso a Info.Dev con su DTF, igual que la Fase 0.</p>
+  </div>
+
+  <footer>
+    NODO Informática · (0992) 316-979 · www.nodoinformatica.com.py · info@nodoinformatica.com.py<br>
+    Basado en lectura del código de mi-pos al 2 de junio de 2026. Estimaciones de esfuerzo orientativas. Complementa a <code>reporte-adaptacion-rubros.html</code>.
+  </footer>
+
+</div>
+</body>
+</html>

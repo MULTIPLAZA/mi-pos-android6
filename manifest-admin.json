@@ -1,0 +1,18 @@
+{
+  "name": "Ampersand Admin",
+  "short_name": "Admin",
+  "description": "Panel del negocio — Ampersand POS",
+  "start_url": "/admin-negocio.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f0f0f",
+  "theme_color": "#4caf50",
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" }
+  ],
+  "prefer_related_applications": false,
+  "categories": ["business", "productivity"]
+}

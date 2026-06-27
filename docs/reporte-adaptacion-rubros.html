@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>mi-pos · Reporte de adaptación a otros rubros</title>
+<style>
+  :root{
+    --nodo:#ee7c00; --nodo-hi:#f0b000; --nodo-deep:#c85000;
+    --ink:#1c2530; --muted:#5b6775; --line:#e4e8ee; --bg:#f6f8fb;
+    --card:#ffffff; --ok:#1f9d57; --warn:#d98a00; --bad:#d23f3f;
+    --s:#eef7f1; --m:#fff6e6; --l:#fdecec;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    color:var(--ink);background:var(--bg);line-height:1.55;font-size:15px;}
+  .wrap{max-width:960px;margin:0 auto;padding:0 24px 80px;}
+  header.top{background:linear-gradient(135deg,#1c2530,#2b3a4d);color:#fff;padding:40px 24px 32px;}
+  header.top .inner{max-width:960px;margin:0 auto;}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.5px;}
+  .brand .dot{width:14px;height:14px;border-radius:50%;background:var(--nodo);box-shadow:0 0 0 4px rgba(238,124,0,.25);}
+  h1{font-size:30px;margin:18px 0 6px;line-height:1.15;}
+  .sub{color:#c9d3df;font-size:15px;max-width:680px;}
+  .meta{margin-top:18px;font-size:13px;color:#9fb0c2;}
+  h2{font-size:22px;margin:44px 0 12px;padding-top:12px;border-top:3px solid var(--nodo);display:inline-block;}
+  h3{font-size:17px;margin:26px 0 8px;color:var(--nodo-deep);}
+  p{margin:10px 0;}
+  a{color:var(--nodo-deep);}
+  code{background:#eef1f5;border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:13px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:#324;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin:16px 0;
+    box-shadow:0 1px 2px rgba(20,30,45,.04);}
+  .verdict{border-left:5px solid var(--nodo);background:#fffaf3;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr;}}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px;}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:#f0f3f7;color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.4px;}
+  tr:last-child td{border-bottom:none;}
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;}
+  .t-ok{background:var(--s);color:var(--ok);}
+  .t-mid{background:var(--m);color:var(--warn);}
+  .t-bad{background:var(--l);color:var(--bad);}
+  .t-s{background:var(--s);color:var(--ok);}
+  .t-m{background:var(--m);color:var(--warn);}
+  .t-l{background:var(--l);color:var(--bad);}
+  .nav{position:sticky;top:0;background:rgba(246,248,251,.95);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);padding:10px 0;margin-bottom:8px;z-index:5;font-size:13px;}
+  .nav .inner{max-width:960px;margin:0 auto;padding:0 24px;display:flex;flex-wrap:wrap;gap:14px;}
+  .nav a{color:var(--muted);text-decoration:none;font-weight:600;}
+  .nav a:hover{color:var(--nodo-deep);}
+  ul{margin:8px 0;padding-left:22px;} li{margin:5px 0;}
+  .lead{font-size:16px;}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0;}
+  .kpi .box{flex:1;min-width:150px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;}
+  .kpi .n{font-size:26px;font-weight:800;color:var(--nodo-deep);}
+  .kpi .lbl{font-size:12.5px;color:var(--muted);}
+  .step{display:flex;gap:14px;margin:14px 0;}
+  .step .num{flex:0 0 36px;height:36px;border-radius:50%;background:var(--nodo);color:#fff;font-weight:800;
+    display:flex;align-items:center;justify-content:center;}
+  .step .body{flex:1;}
+  .ref{font-size:12px;color:var(--muted);font-family:ui-monospace,monospace;}
+  footer{margin-top:50px;padding-top:20px;border-top:1px solid var(--line);font-size:13px;color:var(--muted);text-align:center;}
+  .pill{font-size:11px;padding:2px 8px;border-radius:6px;background:#eef1f5;color:var(--muted);font-weight:600;}
+  @media print{.nav{display:none;}header.top{background:#1c2530 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> NODO · mi-pos</div>
+    <h1>Cómo adaptar mi-pos a otros rubros</h1>
+    <div class="sub">Reporte técnico y de producto: qué tan lejos está el POS de comida de servir a despensas, ferreterías, kioscos, tecnología, ropa y farmacia — y el camino más barato para llegar.</div>
+    <div class="meta">Preparado para Emiliano Vitale · 2 de junio de 2026 · basado en lectura del código fuente actual (repo emivita94/mi-pos)</div>
+  </div>
+</header>
+
+<div class="nav"><div class="inner">
+  <a href="#tldr">Veredicto</a>
+  <a href="#hoy">Qué es hoy</a>
+  <a href="#mapa">Genérico vs comida</a>
+  <a href="#decision">La decisión clave</a>
+  <a href="#motor">Motor de rubros</a>
+  <a href="#rubros">Rubros candidatos</a>
+  <a href="#gaps">Gaps transversales</a>
+  <a href="#roadmap">Roadmap</a>
+  <a href="#riesgos">Riesgos</a>
+</div></div>
+
+<div class="wrap">
+
+  <h2 id="tldr">Veredicto en una frase</h2>
+  <div class="card verdict">
+    <p class="lead"><strong>mi-pos ya es ~80% un POS genérico con disfraz de gastronomía.</strong> No hace falta reescribirlo ni clonarlo por cliente: alcanza con <strong>esconder lo de comida detrás de un interruptor de "tipo de negocio"</strong> y sumar 3–4 capacidades transversales (código de barras de verdad, venta por peso, variantes y lotes). Con eso, el mismo código atiende despensa, kiosco, ferretería, librería, tecnología y —con más trabajo— ropa y farmacia.</p>
+    <div class="kpi">
+      <div class="box"><div class="n">~80%</div><div class="lbl">del código ya es genérico (productos, stock, caja, ventas, SIFEN, offline, multisucursal)</div></div>
+      <div class="box"><div class="n">~20%</div><div class="lbl">casado a comida (mesas, comanda de cocina, pizza mitad, tipo de pedido)</div></div>
+      <div class="box"><div class="n">1–2 días</div><div class="lbl">para el "modo retail" que ya habilita kiosco / librería / despensa básica</div></div>
+    </div>
+  </div>
+
+  <h2 id="hoy">Qué es mi-pos hoy</h2>
+  <p>Es una PWA (HTML/CSS/JS vanilla) con backend Supabase, <strong>offline-first</strong> (cachea en IndexedDB y sincroniza), <strong>multitenant</strong> por licencia, y ya pensada como plataforma:</p>
+  <ul>
+    <li><strong>Catálogo y productos</strong> — nombre, precio, costo, IVA, color, foto, control de stock, y <em>ya tiene un campo "Código de barras / Referencia"</em> <span class="ref">(admin-productos.js:79, index.html:948)</span>.</li>
+    <li><strong>Inventario completo</strong> — compras, conteo físico, movimientos, transferencias entre depósitos, extracto por producto, insumos.</li>
+    <li><strong>Caja y cobro</strong> — turnos (apertura/cierre), formas de pago, pago dividido, descuentos.</li>
+    <li><strong>Facturación SIFEN</strong> — timbrados autoimpresor y electrónico, puntos de expedición (vía sifen-engine).</li>
+    <li><strong>Multisucursal / multidepósito</strong>, clientes rápidos, dashboard y finanzas (P&amp;G, IVA, gastos).</li>
+    <li><strong>Dos modos de terminal ya configurables</strong>: <code>caja</code> (cobra y factura) y <code>satelite</code> (toma pedidos y los manda a la caja/cocina) <span class="ref">(licencia.js:31)</span>. Es la prueba de que la arquitectura ya soporta "comportarse distinto según un flag".</li>
+  </ul>
+
+  <h2 id="mapa">Mapa: qué se reusa y qué está casado a comida</h2>
+  <p>El sistema se divide limpio en tres baldes:</p>
+
+  <h3>Reutilizable tal cual (sirve a cualquier rubro)</h3>
+  <table>
+    <tr><th>Pieza</th><th>Dónde vive</th></tr>
+    <tr><td>Productos, catálogo, precios, costo, IVA, foto</td><td><span class="ref">productos.js, admin-productos.js</span></td></tr>
+    <tr><td>Stock, compras, conteo, movimientos, transferencias, insumos</td><td><span class="ref">admin-inventario.js</span></td></tr>
+    <tr><td>Caja, cobro, turnos, pago dividido, descuentos</td><td><span class="ref">cobro.js, turno.js</span></td></tr>
+    <tr><td>Ventas, tickets, reimpresión, facturación SIFEN</td><td><span class="ref">ventas.js, impresion.js</span></td></tr>
+    <tr><td>Multisucursal/depósito, clientes, dashboard, finanzas</td><td><span class="ref">licencia.js, admin-dashboard.js, admin-finanzas.js</span></td></tr>
+    <tr><td>Offline + sincronización + ticket térmico 58/80mm</td><td><span class="ref">sync.js, impresion.js</span></td></tr>
+  </table>
+
+  <h3>Hay que generalizar (parametrizar o renombrar)</h3>
+  <table>
+    <tr><th>Concepto de comida</th><th>Equivalente genérico</th><th>Dónde</th></tr>
+    <tr><td>Tipo de pedido <code>local / llevar / delivery</code></td><td>Tipo de venta configurable (mostrador / pedido / envío)</td><td><span class="ref">state.js:16, ventas.js</span></td></tr>
+    <tr><td>"Comanda de cocina"</td><td>"Vale de preparación / despacho" opcional</td><td><span class="ref">impresion.js:541 (generarHTMLComanda)</span></td></tr>
+    <tr><td>Categorías y productos semilla</td><td>Packs de catálogo por rubro</td><td><span class="ref">productos.js</span></td></tr>
+  </table>
+
+  <h3>Casado a comida (ocultar por flag, no borrar)</h3>
+  <table>
+    <tr><th>Pieza</th><th>Acción</th><th>Dónde</th></tr>
+    <tr><td>Salones y mesas (módulo completo)</td><td>Ocultar con <code>usa_mesas=false</code></td><td><span class="ref">mesas.js (100%), tablas pos_salones / pos_mesas</span></td></tr>
+    <tr><td>Pizza mitad-y-mitad</td><td>Ocultar con <code>usa_mitades=false</code></td><td><span class="ref">productos.js:1435</span></td></tr>
+    <tr><td>Impresión de comanda a cocina</td><td>Apagar con <code>usa_cocina=false</code> (ya existe <code>comandasHabilitadas</code>)</td><td><span class="ref">app.js:149, impresion.js</span></td></tr>
+    <tr><td>Cargo de delivery como ítem</td><td>Ocultar con <code>usa_delivery=false</code></td><td><span class="ref">ventas.js:225</span></td></tr>
+  </table>
+
+  <h2 id="decision">La decisión clave: un solo código, no un fork por cliente</h2>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0;color:var(--ok)">Recomendado: "tipo de negocio" en un solo mi-pos</h3>
+      <ul>
+        <li>Un interruptor por licencia define el rubro y prende/apaga features.</li>
+        <li>Cada arreglo y cada mejora SIFEN llega a todos los rubros a la vez.</li>
+        <li>Un solo deploy, un solo <code>sw.js</code>/<code>APP_VERSION</code>, un solo soporte.</li>
+        <li>Alineado con la filosofía anti-fork del NODO Shell.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0;color:var(--bad)">A evitar: clonar el repo por rubro/cliente</h3>
+      <ul>
+        <li>Cada bug hay que arreglarlo N veces; las versiones se desincronizan.</li>
+        <li>El cambio normativo de SIFEN te explota en todos los forks.</li>
+        <li>El white-label (ej. Distrisa) es la excepción comercial, no la regla técnica.</li>
+      </ul>
+    </div>
+  </div>
+  <p>La buena noticia: el toggle <code>MODO_TERMINAL</code> ya demuestra que el sistema sabe comportarse distinto según un flag guardado en local + Supabase. Replicamos ese patrón para el rubro.</p>
+
+  <h2 id="motor">El "motor de rubros" (lo que hay que construir una vez)</h2>
+  <p>Tres piezas, reutilizando lo que ya existe (<code>pos_config</code> guarda cualquier config como clave/valor):</p>
+  <ol>
+    <li><strong>Flag <code>tipo_negocio</code> + flags de feature</strong> en la config del negocio: <code>usa_mesas</code>, <code>usa_cocina</code>, <code>usa_delivery</code>, <code>usa_mitades</code>, <code>usa_peso</code>, <code>usa_variantes</code>, <code>usa_lotes</code>. Default = gastronomía con todo prendido (cero impacto en clientes actuales).</li>
+    <li><strong>Terminología parametrizable</strong> — un diccionario por rubro que cambie etiquetas de UI: "mesa" → (oculto), "comanda" → "vale de despacho", "delivery" → "envío". Sin tocar la lógica.</li>
+    <li><strong>Packs de catálogo semilla</strong> — al activar un rubro, ofrecer categorías y productos típicos de arranque (ej. ferretería: tornillería, electricidad, pinturas) para que el cliente no parta de cero.</li>
+  </ol>
+
+  <h2 id="rubros">Rubros candidatos para Paraguay</h2>
+  <p>Esfuerzo estimado <span class="tag t-s">S = chico (1-3 d)</span> &nbsp; <span class="tag t-m">M = medio (1-2 sem)</span> &nbsp; <span class="tag t-l">L = grande (3+ sem)</span> — sobre el motor de rubros ya hecho.</p>
+  <table>
+    <tr><th>Rubro</th><th>Encaje</th><th>Qué le falta a mi-pos</th><th>Esfuerzo</th></tr>
+    <tr>
+      <td><strong>Kiosco / librería / papelería</strong></td>
+      <td><span class="tag t-ok">Inmediato</span></td>
+      <td>Solo apagar mesas/cocina/delivery. Ya funciona con el "modo retail".</td>
+      <td><span class="tag t-s">S</span></td>
+    </tr>
+    <tr>
+      <td><strong>Despensa / minimercado / autoservicio</strong></td>
+      <td><span class="tag t-ok">Muy alto</span></td>
+      <td>Lector de código de barras real en el buscador del POS; (luego) venta por peso para granel.</td>
+      <td><span class="tag t-s">S</span> → <span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td><strong>Tecnología / accesorios de celular</strong> <span class="pill">cliente MultiCompra</span></td>
+      <td><span class="tag t-ok">Alto</span></td>
+      <td>Código de barras; opcional número de serie/IMEI por unidad; garantías.</td>
+      <td><span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td><strong>Ferretería / corralón</strong></td>
+      <td><span class="tag t-mid">Alto con matices</span></td>
+      <td>Unidades de medida (metro, kg, litro), presupuestos/cotización, a veces venta por peso.</td>
+      <td><span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td><strong>Verdulería / carnicería / fiambrería</strong></td>
+      <td><span class="tag t-mid">Medio</span></td>
+      <td>Venta por peso + integración con balanza (o ingreso manual de kg). El bloqueante es el peso.</td>
+      <td><span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td><strong>Farmacia / perfumería</strong></td>
+      <td><span class="tag t-mid">Medio</span></td>
+      <td>Lotes + vencimiento (ya prototipado en el mockup de heladería, reutilizable). Control de recetas: no.</td>
+      <td><span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td><strong>Ropa / calzado / boutique</strong></td>
+      <td><span class="tag t-bad">El más caro</span></td>
+      <td>Variantes de producto (talla × color) con stock por variante — toca catálogo, stock, ventas e impresión. Es el gap más profundo.</td>
+      <td><span class="tag t-l">L</span></td>
+    </tr>
+  </table>
+
+  <h2 id="gaps">Gaps transversales (cada uno desbloquea varios rubros)</h2>
+  <p>Ordenados por relación valor/esfuerzo:</p>
+  <table>
+    <tr><th>Capacidad</th><th>Estado hoy</th><th>Desbloquea</th><th>Esfuerzo</th></tr>
+    <tr>
+      <td>Código de barras en el POS (escanear → agregar al carrito)</td>
+      <td>Campo de producto existe y se busca en gestión <span class="ref">(productos.js:569)</span>; falta en el buscador de venta <span class="ref">(asistente.js)</span></td>
+      <td>Despensa, tecnología, ferretería, farmacia, librería</td>
+      <td><span class="tag t-s">S</span></td>
+    </tr>
+    <tr>
+      <td>Ocultar mesas/cocina/delivery + terminología por rubro</td>
+      <td>Existe <code>comandasHabilitadas</code> y modo caja/satélite; falta generalizar a flags de rubro</td>
+      <td>Todos los no-gastronómicos</td>
+      <td><span class="tag t-s">S</span></td>
+    </tr>
+    <tr>
+      <td>Venta por peso / balanza</td>
+      <td>No existe</td>
+      <td>Verdulería, carnicería, fiambrería, despensa a granel, ferretería</td>
+      <td><span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td>Lotes y vencimiento por producto</td>
+      <td>No existe en mi-pos; sí prototipado en mockup de heladería</td>
+      <td>Farmacia, perfumería, alimentos, cosmética</td>
+      <td><span class="tag t-m">M</span></td>
+    </tr>
+    <tr>
+      <td>Variantes (talla × color, stock por variante)</td>
+      <td>No existe</td>
+      <td>Ropa, calzado, boutique</td>
+      <td><span class="tag t-l">L</span></td>
+    </tr>
+  </table>
+
+  <h2 id="roadmap">Roadmap sugerido (de menor a mayor riesgo)</h2>
+
+  <div class="step"><div class="num">0</div><div class="body">
+    <h3 style="margin-top:0">Modo retail — 1 a 2 días</h3>
+    <p>Flag <code>tipo_negocio</code> + flags de feature. Apagar mesas, comanda, delivery, mitades y renombrar etiquetas. <strong>Sin tocar gastronomía</strong> (default = todo prendido). Resultado: kiosco, librería, papelería y despensa básica ya vendibles esta semana.</p>
+  </div></div>
+
+  <div class="step"><div class="num">1</div><div class="body">
+    <h3 style="margin-top:0">Código de barras de verdad + packs de catálogo</h3>
+    <p>Agregar al buscador del POS el "escaneá y se suma al carrito" (el lector USB/Bluetooth tipea el código + Enter). Sumar catálogos semilla por rubro. Desbloquea despensa, tecnología y ferretería en serio.</p>
+  </div></div>
+
+  <div class="step"><div class="num">2</div><div class="body">
+    <h3 style="margin-top:0">Venta por peso</h3>
+    <p>Producto "por kg" con precio por kilo e ingreso de peso (manual primero; integración con balanza después). Abre verdulería, carnicería, fiambrería y granel.</p>
+  </div></div>
+
+  <div class="step"><div class="num">3</div><div class="body">
+    <h3 style="margin-top:0">Lotes y vencimiento</h3>
+    <p>Reutilizar el módulo de lotes ya prototipado en el mockup de heladería. Abre farmacia, perfumería y alimentos con control de caducidad.</p>
+  </div></div>
+
+  <div class="step"><div class="num">4</div><div class="body">
+    <h3 style="margin-top:0">Variantes (talla × color)</h3>
+    <p>El más caro y el último. Solo si hay demanda real de ropa/calzado que justifique tocar catálogo, stock, ventas e impresión.</p>
+  </div></div>
+
+  <h2 id="riesgos">Riesgos y principios para no romper nada</h2>
+  <ul>
+    <li><strong>Compatibilidad total con gastronomía:</strong> los clientes actuales no deben notar nada. Default de todos los flags = comportamiento de hoy.</li>
+    <li><strong>Feature flags, no ramas:</strong> todo nuevo entra apagado y se prende por licencia. Nada de forks por cliente.</li>
+    <li><strong>Cache/versión:</strong> cada deploy actualizar <code>sw.js</code> CACHE y <code>APP_VERSION</code> juntos (ya es una regla conocida del proyecto) para que los dispositivos tomen la versión nueva.</li>
+    <li><strong>Datos legacy:</strong> respetar las tablas y campos existentes; los nuevos campos (peso, variante, lote) nacen opcionales/nullable.</li>
+    <li><strong>Probar el flujo satélite</strong> en los rubros donde aplique (o desactivarlo donde no tenga sentido).</li>
+  </ul>
+
+  <div class="card verdict" style="margin-top:30px">
+    <h3 style="margin-top:0">Próximo paso concreto</h3>
+    <p>Si te cierra, el movimiento de mayor retorno y menor riesgo es la <strong>Fase 0 (modo retail)</strong>: en un par de días tenés mi-pos vendible para kiosco, librería y despensa, sin riesgo para los clientes de comida. Eso valida la demanda de otros rubros antes de invertir en peso, lotes o variantes.</p>
+    <p>Decime y armamos el plan de implementación de la Fase 0 (qué flags, dónde se setean, cómo se ve el alta de un negocio "retail" vs "gastronomía") para pasarlo a desarrollo.</p>
+  </div>
+
+  <footer>
+    NODO Informática · (0992) 316-979 · www.nodoinformatica.com.py · info@nodoinformatica.com.py<br>
+    Reporte basado en lectura del código fuente de mi-pos al 2 de junio de 2026. Las estimaciones de esfuerzo son orientativas.
+  </footer>
+
+</div>
+</body>
+</html>

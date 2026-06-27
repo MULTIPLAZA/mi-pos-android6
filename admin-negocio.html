@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ampersand Admin</title>
+<meta name="description" content="Panel del negocio — Ampersand POS">
+<meta name="theme-color" content="#4caf50">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Admin">
+<link rel="manifest" href="/manifest-admin.json">
+<link rel="apple-touch-icon" href="/icon.png">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginWrap">
+  <div class="lbox">
+    <div class="l-ico"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg></div>
+    <div class="l-t">Panel del Negocio</div>
+    <div class="l-s">Ingresá con el email de tu licencia</div>
+    <div class="fi"><label>Email</label><input type="email" id="loginEmail" placeholder="tu@email.com"></div>
+    <div class="fi"><label>Clave de licencia</label><input type="text" id="loginClave" placeholder="XXXX-XXXX-XXXX" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="btn-p" id="loginBtn" onclick="doLogin()">INGRESAR</button>
+    <div class="l-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="sb-hd">
+      <div class="sb-brand" id="sbNeg">Mi Negocio</div>
+      <div style="font-size:11px;color:var(--green);font-weight:700;margin-top:2px;" id="sbPlan">Plan —</div>
+      <div style="font-size:11px;color:var(--muted);" id="sbEmail">—</div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-sep">Principal</div>
+      <div class="sb-i on" id="sbi-dashboard" onclick="goTo('dashboard')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</div>
+      <div class="sb-i" id="sbi-terminales" onclick="goTo('terminales')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>Terminales</div>
+      <div class="sb-sep">Operaciones</div>
+      <div class="sb-i" id="sbi-cajas" onclick="goTo('cajas')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>Cajas / Turnos</div>
+      <div class="sb-sep">Catálogo</div>
+      <div class="sb-i" id="sbi-productos" onclick="goTo('productos')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Productos</div>
+      <div class="sb-i" id="sbi-insumos" onclick="goTo('insumos')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>Insumos</div>
+      <div class="sb-i" id="sbi-importar" onclick="goTo('importar')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Importar productos</div>
+      <div class="sb-sep">Inventario</div>
+      <div class="sb-i" id="sbi-inventarios" onclick="goTo('inventarios')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>Inventarios</div>
+      <div class="sb-i" id="sbi-extracto" onclick="goTo('extracto')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Extracto de Producto</div>
+      <div class="sb-i" id="sbi-compras" onclick="goTo('compras')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>Compras</div>
+      <div class="sb-i" id="sbi-movstock" onclick="goTo('movstock')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Movimientos de Stock</div>
+      <div class="sb-i" id="sbi-conteo" onclick="goTo('conteo')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Conteo Físico</div>
+      <div class="sb-sep">Finanzas</div>
+      <div class="sb-i" id="sbi-gastos" onclick="goTo(&apos;gastos&apos;)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Gastos Fijos</div>
+      <div class="sb-i" id="sbi-plan-gastos" onclick="goTo(&apos;plan-gastos&apos;)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>Plan de Gastos</div>
+      <div class="sb-i" id="sbi-balance" onclick="goTo(&apos;balance&apos;)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>Balance P&amp;G</div>
+      <div class="sb-i" id="sbi-iva" onclick="goTo(&apos;iva&apos;)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Liquidación IVA</div>
+      <div class="sb-sep">Reportes</div>
+      <div class="sb-i" id="sbi-ventas" onclick="goTo('ventas')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Historial de Ventas</div>
+      <div class="sb-i" id="sbi-rep-productos" onclick="goTo('rep-productos')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h2v5H7zM11 5h2v8h-2zM15 10h2v3h-2z"/></svg>Ventas por Producto</div>
+      <div class="sb-i" id="sbi-rep-compras" onclick="goTo(&apos;rep-compras&apos;)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>Reporte de Compras</div>
+      <div class="sb-sep">Ayuda</div>
+      <div class="sb-i" id="sbi-tutoriales" onclick="goTo('tutoriales')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.74V17h8v-2.26A7 7 0 0 0 12 2z"/></svg>Tutoriales</div>
+      <div class="sb-sep">Sistema</div>
+      <div class="sb-i" id="sbi-admin" onclick="goTo('admin')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Administración</div>
+      <div class="sb-i" id="sbi-config" onclick="goTo('config')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M16.24 7.76a6 6 0 0 1 0 8.49M6.34 17.66a6 6 0 0 1 0-8.49M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>Configuración</div>
+    </div>
+    <div class="sb-ft">
+      <div class="sb-av" id="sbAv">?</div>
+      <div style="flex:1;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="sbUser">—</div>
+      <button id="sbThemeBtn" onclick="toggleAdminTheme()" title="Cambiar tema" style="background:none;border:none;cursor:pointer;padding:4px;flex-shrink:0;color:var(--muted);display:flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+      <button style="background:none;border:none;color:var(--muted);cursor:pointer;" onclick="doLogout()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+  <div id="sbOv" onclick="closeSB()"></div>
+
+  <!-- Topbar mobile -->
+  <div id="topbar">
+    <div style="display:flex;align-items:center;">
+      <button class="menu-btn" onclick="toggleSB()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="tb-brand">Panel del Negocio</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span style="font-size:12px;color:var(--muted);" id="topTitle">Dashboard</span>
+      <button class="btn-ic" id="themeToggleBtn" onclick="toggleAdminTheme()" title="Cambiar tema" style="padding:4px 6px;display:flex;align-items:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
+      <button class="btn-ic" onclick="doLogout()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+    </div>
+  </div>
+
+  <!-- *** SINGLE CONTENT DIV — content injected here *** -->
+  <div id="content"></div>
+
+  <!-- Bottom nav -->
+  <div id="bnav">
+    <div class="bn on" id="bni-dashboard" onclick="goTo('dashboard')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg><span>Inicio</span></div>
+    <div class="bn" id="bni-ventas" onclick="goTo('ventas')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><span>Ventas</span></div>
+    <div class="bn" id="bni-cajas" onclick="goTo('cajas')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg><span>Cajas</span></div>
+    <div class="bn" id="bni-admin" onclick="goTo('admin')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg><span>Admin</span></div>
+    <div class="bn" id="bni-config" onclick="goTo('config')">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg><span>Config</span></div>
+  </div>
+</div>
+
+<!-- MODAL ASIGNAR TERMINALES -->
+<div id="mAsignarOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarModalAsignar()">
+  <div style="background:var(--card);border-radius:18px 18px 0 0;width:100%;max-width:520px;padding:20px 18px 40px;max-height:92vh;overflow-y:auto;">
+    <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:800;color:var(--text);">Asignar Terminales</div>
+      <button onclick="cerrarModalAsignar()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:20px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+    <div id="mAsignarBody"></div>
+  </div>
+</div>
+
+<!-- MODAL TIMBRADO -->
+<div id="mTimOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)closeMTim()">
+  <div style="background:var(--card);border-radius:18px 18px 0 0;width:100%;max-width:520px;padding:20px 18px 40px;max-height:92vh;overflow-y:auto;">
+    <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:18px;color:var(--text);" id="mTimTitle">Nuevo Punto de Expedición</div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Tipo</label>
+      <div style="display:flex;gap:8px;">
+        <button id="btnAuto" onclick="selTipo('autoimpresor')" style="flex:1;background:var(--g2);border:1.5px solid var(--green);border-radius:8px;color:var(--green);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:10px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg> Autoimpresor</button>
+        <button id="btnElec" onclick="selTipo('electronico')" style="flex:1;background:#1e1e1e;border:1.5px solid #333;border-radius:8px;color:var(--muted);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:10px;cursor:pointer;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Electrónico</button>
+      </div>
+      <input type="hidden" id="mTipo" value="autoimpresor">
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Número de Timbrado * (8 dígitos)</label>
+      <input id="mNro" type="text" maxlength="8" placeholder="12345678" oninput="this.value=this.value.replace(/\D/g,'');updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:18px;font-weight:800;letter-spacing:3px;padding:12px 14px;outline:none;text-align:center;">
+    </div>
+    <div id="vigFinRow" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Inicio vigencia *</label>
+        <input id="mVigIni" type="date" oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;padding:10px 12px;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Fin vigencia</label>
+        <input id="mVigFin" type="date" oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;padding:10px 12px;outline:none;">
+        <div style="font-size:10px;color:#444;margin-top:3px;">Electrónico: sin límite</div>
+      </div>
+    </div>
+    <!-- Certificado digital (solo electrónico) -->
+    <div id="certRow" style="display:none;background:rgba(66,165,245,.08);border:1px solid rgba(66,165,245,.2);border-radius:8px;padding:12px 14px;margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:700;color:var(--blue);margin-bottom:10px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg> Certificado Digital</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Vencimiento certificado</label>
+          <input id="mCertVenc" type="date" oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;padding:10px 12px;outline:none;">
+        </div>
+        <div>
+          <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Entidad emisora</label>
+          <input id="mCertEmis" type="text" placeholder="Ej: DNIT, GlobalSign..." oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;padding:10px 12px;outline:none;">
+        </div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">N° Sucursal *</label>
+        <input id="mSuc" type="text" maxlength="3" placeholder="001" value="001" oninput="this.value=this.value.replace(/\D/g,'');updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:16px;font-weight:700;letter-spacing:2px;padding:10px 12px;outline:none;text-align:center;">
+        <div style="font-size:10px;color:#444;margin-top:3px;text-align:center;">3 dígitos ej: 001</div>
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Punto Expedición *</label>
+        <input id="mPEx" type="text" maxlength="3" placeholder="001" value="001" oninput="this.value=this.value.replace(/\D/g,'');updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:16px;font-weight:700;letter-spacing:2px;padding:10px 12px;outline:none;text-align:center;">
+        <div style="font-size:10px;color:#444;margin-top:3px;text-align:center;">3 dígitos ej: 001</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Desde *</label>
+        <input id="mDesde" type="number" placeholder="1" value="1" min="1" oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;font-weight:700;padding:10px 12px;outline:none;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Hasta *</label>
+        <input id="mHasta" type="number" placeholder="5000" value="5000" min="1" oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;font-weight:700;padding:10px 12px;outline:none;">
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Nombre sucursal (referencia)</label>
+      <input id="mNomSuc" type="text" placeholder="Ej: Casa Central" oninput="updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;padding:10px 12px;outline:none;">
+    </div>
+    <div id="mPrev" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px;font-family:'Courier New',monospace;font-size:12px;color:#888;line-height:1.9;"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="closeMTim()" style="flex:1;background:var(--card2);border:none;border-radius:8px;color:var(--muted);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;">CANCELAR</button>
+      <button onclick="guardarTim()" style="flex:2;background:var(--green);border:none;border-radius:8px;color:#fff;font-family:'Barlow',sans-serif;font-size:14px;font-weight:800;padding:14px;cursor:pointer;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="js/config.js"></script>
+<!-- ARCH-001 compat: sin type=module para Android 6 / Chrome <61 -->
+<script src="js/lib/index-compat.js"></script>
+<!-- Solo se carga el dashboard up-front; el resto son lazy-loaded por goTo() (PERF-001) -->
+<script src="js/admin-dashboard.js"></script>
+<script>
+// ── LAZY LOADER de modulos admin ─────────────────────────────────────
+// Mapea cada "page" del admin a su archivo JS y carga bajo demanda
+// solo cuando el usuario navega a esa seccion. Ahorra ~340 KB en la carga inicial.
+window._adminModules = {
+  // dashboard ya esta cargado
+  productos:    'js/admin-productos.js',
+  insumos:      'js/admin-productos.js',
+  importar:     'js/admin-productos.js',
+  inventarios:  'js/admin-inventario.js',
+  extracto:     'js/admin-inventario.js',
+  compras:      'js/admin-inventario.js',
+  movstock:     'js/admin-inventario.js',
+  conteo:       'js/admin-inventario.js',
+  gastos:       'js/admin-finanzas.js',
+  'plan-gastos':'js/admin-finanzas.js',
+  balance:      'js/admin-finanzas.js',
+  iva:          'js/admin-finanzas.js',
+  'rep-productos': 'js/admin-finanzas.js',
+  'rep-compras':'js/admin-finanzas.js',
+  admin:        'js/admin-finanzas.js',
+  tutoriales:   'js/admin-tutoriales.js'
+};
+window._adminLoaded = {};
+window._adminLoading = {};
+window.ensureAdminModule = function(page){
+  var src = window._adminModules[page];
+  if(!src) return Promise.resolve();
+  if(window._adminLoaded[src]) return Promise.resolve();
+  if(window._adminLoading[src]) return window._adminLoading[src];
+  window._adminLoading[src] = new Promise(function(resolve, reject){
+    var s = document.createElement('script');
+    s.src = src + '?v=' + (Date.now()); // cache-bust en dev
+    s.async = false;
+    s.onload = function(){ window._adminLoaded[src] = true; resolve(); };
+    s.onerror = function(){ reject(new Error('Error cargando '+src)); };
+    document.head.appendChild(s);
+  });
+  return window._adminLoading[src];
+};
+</script>
+<script>
+var _iconMoon = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+var _iconSun  = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+function toggleAdminTheme(){
+  var current = document.documentElement.getAttribute('data-theme') || 'dark';
+  var next = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('admin_theme', next);
+  var icon = next === 'dark' ? _iconMoon : _iconSun;
+  var btn = document.getElementById('themeToggleBtn');
+  var sbBtn = document.getElementById('sbThemeBtn');
+  if(btn) btn.innerHTML = icon;
+  if(sbBtn) sbBtn.innerHTML = icon;
+}
+
+function applyAdminTheme(){
+  var saved = localStorage.getItem('admin_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  var icon = saved === 'dark' ? _iconMoon : _iconSun;
+  var btn = document.getElementById('themeToggleBtn');
+  var sbBtn = document.getElementById('sbThemeBtn');
+  if(btn) btn.innerHTML = icon;
+  if(sbBtn) sbBtn.innerHTML = icon;
+}
+
+// ── CREDENCIALES vienen de js/config.js ──
+const TIM_KEY   = 'pos_timbrados';
+
+let SE=null, SP=null, SV=null, SLI=null, curPage='dashboard';
+let filtroD='hoy', filtroV='hoy', filtroCj='todas';
+let allVP=[], allPrds=[], allCjs=[];
+let timbrados=[], timEditIdx=null;
+
+// ── UTILS ─────────────────────────────────────────────────
+const gs  = n => '₲'+Math.round(n||0).toLocaleString('es-PY');
+const pad  = n => String(n).padStart(2,'0');
+const pad3 = n => String(n||0).padStart(3,'0');
+const padN = n => String(n||0).padStart(7,'0');
+const fmt  = f => { if(!f) return '—'; const d=new Date(f+'T00:00:00'); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); };
+const fmtDT= f => { if(!f) return '—'; const d=new Date(f); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); };
+const fmtH = f => { if(!f) return '—'; const d=new Date(f); return pad(d.getHours())+':'+pad(d.getMinutes()); };
+
+function toast(m,dur){
+  dur=dur||2200;
+  var t=document.getElementById('toast');
+  if(!t) return;
+  t.textContent=m; t.classList.add('on');
+  setTimeout(function(){ t.classList.remove('on'); },dur);
+}
+
+// ── SUPABASE ──────────────────────────────────────────────
+// supaGet, supaPost, supaPatch, supaDelete, supaRPC vienen de js/config.js
+// Aliases para compatibilidad con código existente en este archivo:
+var sg   = supaGet;
+var srpc = supaRPC;
+
+// ── DATE HELPERS ──────────────────────────────────────────
+function getFD(f){
+  var h=new Date(), p2=function(n){return String(n).padStart(2,'0');};
+  var fmt2=function(d){return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());};
+  if(f==='hoy') return {d:fmt2(h)+'T00:00:00',h:fmt2(h)+'T23:59:59'};
+  if(f==='semana'){var l=new Date(h);l.setDate(h.getDate()-((h.getDay()||7)-1));return {d:fmt2(l)+'T00:00:00',h:fmt2(h)+'T23:59:59'};}
+  if(f==='mes'){var i=new Date(h.getFullYear(),h.getMonth(),1);return {d:fmt2(i)+'T00:00:00',h:fmt2(h)+'T23:59:59'};}
+  if(f==='30d'){var t=new Date(h);t.setDate(h.getDate()-29);return {d:fmt2(t)+'T00:00:00',h:fmt2(h)+'T23:59:59'};}
+  if(typeof f==='string'&&f.startsWith('custom_')){var pts=f.slice(7).split('_');return {d:(pts[0]||fmt2(h))+'T00:00:00',h:(pts[1]||fmt2(h))+'T23:59:59'};}
+  return {d:f+'T00:00:00',h:f+'T23:59:59'};
+}
+function getFDLabel(f){
+  var mn=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  var fl=function(iso){var p=iso.split('-');return p[2]+' '+mn[+p[1]-1]+' '+p[0];};
+  var fd=getFD(f),d1=fd.d.slice(0,10),d2=fd.h.slice(0,10);
+  var p1=d1.split('-'),p2=d2.split('-');
+  if(d1===d2) return fl(d1);
+  if(p1[0]===p2[0]&&p1[1]===p2[1]) return p1[2]+' – '+p2[2]+' '+mn[+p1[1]-1]+' '+p1[0];
+  return fl(d1)+' – '+fl(d2);
+}
+
+// ── LOGIN ─────────────────────────────────────────────────
+async function doLogin(){
+  var email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  var clave = document.getElementById('loginClave').value.trim().toUpperCase();
+  var err   = document.getElementById('loginErr');
+  var btn   = document.getElementById('loginBtn');
+  err.style.display='none';
+
+  if(!email||!clave){err.textContent='Completá todos los campos';err.style.display='block';return;}
+  if(!email.includes('@')){err.textContent='Ingresá un email válido';err.style.display='block';return;}
+  if(clave.length < 6){err.textContent='Código de licencia inválido';err.style.display='block';return;}
+
+  if(btn){btn.disabled=true;btn.textContent='Verificando...';}
+
+  try{
+    var lic = null;
+    var emailMismatch = false; // la clave existe pero el email no es el dueño
+
+    // La CLAVE es el secreto que identifica la licencia. Buscamos por clave y
+    // verificamos que el email sea el dueño (email_cliente). Esto blinda el
+    // login: no se puede entrar a una licencia ajena solo por tener la clave,
+    // y siempre obtenemos el licencia_id real (SLI nunca queda null).
+    var rows = await sg('licencias',
+      'clave=eq.'+encodeURIComponent(clave)+'&activa=eq.true&select=id,plan_id,fecha_vence,email_cliente&limit=1'
+    );
+    if(rows && rows.length > 0){
+      var L = rows[0];
+      var dueno = (L.email_cliente||'').toLowerCase().trim();
+      if(dueno && dueno !== email){
+        emailMismatch = true; // clave válida pero de otro dueño
+      } else {
+        lic = { id: L.id, plan: L.plan_id||'Pro', vence: L.fecha_vence||'—' };
+      }
+    }
+
+    // Fallback RPC SOLO si no existe ninguna licencia con esa clave (caso raro:
+    // licencia que aún no tiene fila consultable). Igual exigimos dueño correcto.
+    if(!lic && !emailMismatch){
+      try{
+        var d = await srpc('activar_licencia',{p_clave:clave,p_email:email,p_device_id:'admin_web_'+Date.now()});
+        if(d && d.ok){
+          // Resolver el id real para no dejar SLI en null y re-verificar dueño.
+          var lr2 = await sg('licencias','clave=eq.'+encodeURIComponent(clave)+'&select=id,plan_id,fecha_vence,email_cliente&limit=1');
+          if(lr2 && lr2.length){
+            var L2 = lr2[0]; var dueno2 = (L2.email_cliente||'').toLowerCase().trim();
+            if(dueno2 && dueno2 !== email){ emailMismatch = true; }
+            else { lic = { id: L2.id, plan: L2.plan_id||d.plan||'Pro', vence: L2.fecha_vence||d.vence||'—' }; }
+          } else {
+            lic = { plan: d.plan||'Pro', vence: d.vence||'—' };
+          }
+        }
+      }catch(e2){ console.warn('[Login] RPC fallback failed:', e2.message); }
+    }
+
+    if(emailMismatch){
+      err.textContent='Ese email no corresponde a esta licencia.';
+      err.style.display='block';
+      if(btn){btn.disabled=false;btn.textContent='INGRESAR';}
+      return;
+    }
+    if(!lic){
+      err.textContent='Email o código de licencia incorrecto';
+      err.style.display='block';
+      if(btn){btn.disabled=false;btn.textContent='INGRESAR';}
+      return;
+    }
+
+    // Verificar vencimiento
+    if(lic.vence && lic.vence!=='—' && lic.vence!=='2999-12-31'){
+      if(new Date(lic.vence+'T23:59:59') < new Date()){
+        err.textContent='Tu licencia venció el '+lic.vence+'. Contactá al administrador.';
+        err.style.display='block';
+        if(btn){btn.disabled=false;btn.textContent='INGRESAR';}
+        return;
+      }
+    }
+
+    // Login exitoso
+    SE=email; SP=lic.plan; SV=lic.vence; SLI=lic.id||null;
+    localStorage.setItem('ae',SE); localStorage.setItem('ap',SP); localStorage.setItem('av',SV); if(SLI) localStorage.setItem('ali',SLI);
+    showApp();
+
+  }catch(e){
+    err.textContent='Error de conexión: '+e.message+'. Verificá tu internet.';
+    err.style.display='block';
+    if(btn){btn.disabled=false;btn.textContent='INGRESAR';}
+    console.warn('[Login] Error:', e.message);
+  }
+}
+
+function doLogout(){
+  // Limpiar TODO el estado de sesión, incluido 'ali' (licencia_id) y 'an'
+  // (negocio). Antes 'ali' quedaba pegado y podía dejar al usuario apuntando
+  // a una licencia vieja/equivocada tras re-loguear.
+  ['ae','ap','av','ali','an'].forEach(function(k){localStorage.removeItem(k);});
+  SE=null; SP=null; SV=null; SLI=null;
+  document.getElementById('app').style.display='none';
+  document.getElementById('loginWrap').style.display='flex';
+}
+
+function showApp(){
+  document.getElementById('loginWrap').style.display='none';
+  document.getElementById('app').style.display='block';
+  var neg=localStorage.getItem('an')||'Mi Negocio';
+  document.getElementById('sbNeg').textContent=neg;
+  document.getElementById('sbPlan').textContent='Plan '+(SP||'—');
+  document.getElementById('sbEmail').textContent=SE||'—';
+  document.getElementById('sbAv').textContent=(SE||'?')[0].toUpperCase();
+  document.getElementById('sbUser').textContent=SE||'—';
+  // BUG side-effect fix: testConexion vive en admin-finanzas.js que se carga
+  // dinámicamente — puede no estar disponible al momento del login.
+  setTimeout(function(){ if(typeof testConexion === 'function') testConexion(); }, 1000);
+  aplicarRubroAdminUI();
+  goTo('dashboard');
+}
+
+// Retail: ocultar accesos de comida en el menú lateral de admin-negocio.
+// Insumos = producción / recetas (productos es_insumo), sin sentido en retail.
+// Lee pos_tipo_negocio de localStorage (mismo patrón que renderConfig).
+function aplicarRubroAdminUI(){
+  var esRetail = (localStorage.getItem('pos_tipo_negocio') === 'retail');
+  var sbInsumos = document.getElementById('sbi-insumos');
+  if(sbInsumos) sbInsumos.style.display = esRetail ? 'none' : '';
+}
+
+// ── NAVIGATION ────────────────────────────────────────────
+function toggleSB(){document.getElementById('sidebar').classList.toggle('open');document.getElementById('sbOv').style.display='block';}
+function closeSB(){document.getElementById('sidebar').classList.remove('open');document.getElementById('sbOv').style.display='none';}
+
+function goTo(p){
+  curPage=p; closeSB();
+  document.querySelectorAll('.sb-i').forEach(function(el){el.classList.toggle('on',el.id==='sbi-'+p);});
+  document.querySelectorAll('.bn').forEach(function(el){el.classList.toggle('on',el.id==='bni-'+p);});
+  var titles={dashboard:'Dashboard',ventas:'Ventas',terminales:'Terminales',cajas:'Cajas / Turnos',cierres:'Cierres de Turno',importar:'Importar productos',productos:'Productos',insumos:'Insumos',inventarios:'Inventarios',extracto:'Extracto de Producto',compras:'Compras',movstock:'Movimientos de Stock',conteo:'Conteo Físico','rep-productos':'Ventas por Producto','rep-compras':'Reporte de Compras',gastos:'Gastos Fijos','plan-gastos':'Plan de Gastos',balance:'Balance P&G',iva:'Liquidación IVA',tutoriales:'Tutoriales',admin:'Administración',config:'Configuración'};
+  document.getElementById('topTitle').textContent=titles[p]||p;
+  var c=document.getElementById('content');
+  c.innerHTML='<div class="loading"><span class="sp"></span>Cargando...</div>';
+  // PERF-001: cargar el modulo JS de la pagina si todavia no esta en memoria
+  (window.ensureAdminModule ? window.ensureAdminModule(p) : Promise.resolve())
+    .then(function(){ setTimeout(function(){renderPage(p);}, 10); })
+    .catch(function(err){
+      console.error('[lazy-load]', err);
+      c.innerHTML = '<div class="loading" style="color:#ef5350">Error al cargar el modulo. Recargá la página.</div>';
+    });
+}
+
+function renderPage(p){
+  if(p==='dashboard')   renderDashboard();
+  else if(p==='ventas') renderVentas();
+  else if(p==='terminales') renderTerminales();
+  else if(p==='cajas')  renderCajas();
+  else if(p==='importar') renderImportar();
+  else if(p==='productos') renderProductos();
+  else if(p==='insumos') renderInsumos();
+  else if(p==='inventarios') renderInventarios();
+  else if(p==='extracto') renderExtracto();
+  else if(p==='compras') renderCompras();
+  else if(p==='movstock') renderMovStock();
+  else if(p==='conteo') renderConteo();
+  else if(p==='rep-productos') renderRepProductos();
+  else if(p==='rep-compras') renderRepCompras();
+  else if(p==='gastos') renderGastos();
+  else if(p==='plan-gastos') renderPlanGastos();
+  else if(p==='balance') renderBalance();
+  else if(p==='iva') renderIVA();
+  else if(p==='tutoriales') renderTutoriales();
+  else if(p==='admin')  renderAdmin();
+  else if(p==='config') renderConfig();
+}
+
+
+// -- Dashboard: ver js/admin-dashboard.js --
+// -- Productos: ver js/admin-productos.js --
+// -- Inventario: ver js/admin-inventario.js --
+// -- Finanzas: ver js/admin-finanzas.js --
+
+// ── SUCURSALES ────────────────────────────────────────────
+async function renderSucursalesTab(tc){
+  tc.innerHTML='<div class="loading"><span class="sp"></span>Cargando...</div>';
+  try{
+    var fd=getFD('mes');
+    var v=await sg('pos_ventas','licencia_email=ilike.'+encodeURIComponent(SE)+'&fecha=gte.'+fd.d+'&fecha=lte.'+fd.h+'&select=sucursal,total&limit=500');
+    var m={};
+    v.forEach(function(x){var s=x.sucursal||'Principal';if(!m[s])m[s]={tot:0,ops:0};m[s].tot+=x.total||0;m[s].ops++;});
+    tc.innerHTML=Object.entries(m).length?Object.entries(m).map(function(entry){var s=entry[0];var d=entry[1];return '<div class="li"><div class="li-ic" style="background:var(--g2);color:var(--green)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="li-inf"><div class="li-t">'+s+'</div><div class="li-s">'+d.ops+' ventas este mes</div></div><div class="li-r"><div class="li-v" style="color:var(--green)">'+gs(d.tot)+'</div></div></div>';}).join(''):'<div class="empty"><div class="empty-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg></div><div class="empty-t">Sin sucursales</div></div>';
+  }catch(e){tc.innerHTML='<div class="loading">Sin datos</div>';}
+}
+
+// ── CONFIG ────────────────────────────────────────────────
+async function renderConfig(){
+  var v=function(k){return localStorage.getItem(k)||'';};
+  var tipo   = localStorage.getItem('pos_tipo_negocio') || 'gastronomia';
+  var fMesas    = localStorage.getItem('pos_flag_mesas');
+  var fCocina   = localStorage.getItem('pos_flag_cocina');
+  var fDelivery = localStorage.getItem('pos_flag_delivery');
+  var fMitades  = localStorage.getItem('pos_flag_mitades');
+  // defaults según tipo cuando el flag no está seteado explícitamente
+  function flagVal(stored, defGastro, defRetail){
+    if(stored === '1') return true;
+    if(stored === '0') return false;
+    return tipo === 'retail' ? defRetail : defGastro;
+  }
+  var vMesas    = flagVal(fMesas,    true,  false);
+  var vCocina   = flagVal(fCocina,   !!(localStorage.getItem('pos_comandas')==='1'), false);
+  var vDelivery = flagVal(fDelivery, true,  false);
+  var vMitades  = flagVal(fMitades,  true,  false);
+
+  function chk(val){ return val ? 'checked' : ''; }
+  function selOpt(cur, val){ return cur===val ? 'selected' : ''; }
+
+  var rubroSection = [
+    '<div class="cfg-s">',
+      '<div class="cfg-st">Tipo de negocio</div>',
+      '<div class="cfg-r">',
+        '<div><div class="cfg-rl">Tipo</div><div class="cfg-rs">Define comportamiento predeterminado de las funciones</div></div>',
+        '<select class="cfg-inp" id="cfgTipoNegocio" onchange="onChangeTipoNegocio()" style="max-width:200px;">',
+          '<option value="gastronomia" '+selOpt(tipo,'gastronomia')+'>Gastronomia</option>',
+          '<option value="retail" '+selOpt(tipo,'retail')+'>Comercio (retail)</option>',
+        '</select>',
+      '</div>',
+      '<div class="cfg-st" style="margin-top:12px;font-size:11px;">Funciones activas</div>',
+      '<div class="cfg-r"><div><div class="cfg-rl">Mesas y salones</div><div class="cfg-rs">Gestionar mesas y asignar pedidos</div></div>',
+        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagMesas" '+chk(vMesas)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
+      '</div>',
+      '<div class="cfg-r"><div><div class="cfg-rl">Comanda a cocina</div><div class="cfg-rs">Imprimir comanda al guardar pedido</div></div>',
+        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagCocina" '+chk(vCocina)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
+      '</div>',
+      '<div class="cfg-r"><div><div class="cfg-rl">Delivery</div><div class="cfg-rs">Tipo de pedido delivery + cargo de envio</div></div>',
+        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagDelivery" '+chk(vDelivery)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
+      '</div>',
+      '<div class="cfg-r"><div><div class="cfg-rl">Venta por mitades</div><div class="cfg-rs">Opcion pizza mitad y mitad en productos</div></div>',
+        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagMitades" '+chk(vMitades)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
+      '</div>',
+    '</div>',
+  ].join('');
+
+  document.getElementById('content').innerHTML=
+    '<div class="ph"><div><div class="pt">Configuracion</div><div class="ps">Datos del negocio y terminales</div></div><button class="btn-sv" onclick="saveConf()">GUARDAR</button></div>'+
+    '<div class="cfg-s"><div class="cfg-st">Datos del negocio</div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Razon social</div></div><input class="cfg-inp" id="cfgN" value="'+v('an')+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">RUC</div></div><input class="cfg-inp" id="cfgRuc" value="'+v('ar')+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Direccion</div></div><input class="cfg-inp" id="cfgD" value="'+v('ad')+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Telefono</div></div><input class="cfg-inp" id="cfgT" value="'+v('at')+'"></div>'+
+    '</div>'+
+    rubroSection+
+    '<div class="cfg-s"><div class="cfg-st">Licencia</div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Email</div><div class="cfg-rs">'+(SE||'—')+'</div></div><span class="tag tag-g">Plan '+(SP||'—')+'</span></div>'+
+    '</div>'+
+    '<div class="cfg-s"><div class="cfg-st">Sesion</div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Cerrar sesion</div></div><button class="btn-dn" onclick="doLogout()">SALIR</button></div>'+
+    '</div>';
+}
+
+// Cambia el tipo y resetea los flags a los defaults del tipo nuevo
+function onChangeTipoNegocio(){
+  var tipo = (document.getElementById('cfgTipoNegocio')||{}).value || 'gastronomia';
+  localStorage.setItem('pos_tipo_negocio', tipo);
+  // Limpiar overrides para que los defaults del tipo nuevo entren
+  localStorage.removeItem('pos_flag_mesas');
+  localStorage.removeItem('pos_flag_cocina');
+  localStorage.removeItem('pos_flag_delivery');
+  localStorage.removeItem('pos_flag_mitades');
+  // Sincronizar cocina con sistema legacy
+  var defCocina = tipo === 'retail' ? false : !!(localStorage.getItem('pos_comandas') === '1');
+  localStorage.setItem('pos_comandas', defCocina ? '1' : '0');
+  // Guardar en Supabase
+  _saveRubroSupabase(tipo, null, null, null, null);
+  // Actualizar el menú lateral en vivo (ocultar/mostrar Insumos)
+  aplicarRubroAdminUI();
+  toast('Tipo de negocio actualizado — los cambios se aplican al abrir el POS');
+  // Re-render para reflejar nuevos defaults
+  renderConfig();
+}
+
+// Guarda un flag individual modificado por el toggle
+async function saveFlagRubro(){
+  var tipo     = localStorage.getItem('pos_tipo_negocio') || 'gastronomia';
+  var vMesas    = (document.getElementById('cfgFlagMesas')   ||{}).checked;
+  var vCocina   = (document.getElementById('cfgFlagCocina')  ||{}).checked;
+  var vDelivery = (document.getElementById('cfgFlagDelivery')||{}).checked;
+  var vMitades  = (document.getElementById('cfgFlagMitades') ||{}).checked;
+  localStorage.setItem('pos_flag_mesas',    vMesas    ? '1' : '0');
+  localStorage.setItem('pos_flag_cocina',   vCocina   ? '1' : '0');
+  localStorage.setItem('pos_flag_delivery', vDelivery ? '1' : '0');
+  localStorage.setItem('pos_flag_mitades',  vMitades  ? '1' : '0');
+  // Sincronizar cocina con sistema legacy pos_comandas
+  localStorage.setItem('pos_comandas', vCocina ? '1' : '0');
+  await _saveRubroSupabase(tipo, vMesas, vCocina, vDelivery, vMitades);
+  toast('Guardado');
+}
+
+async function _saveRubroSupabase(tipo, fMesas, fCocina, fDelivery, fMitades){
+  if(!SE) return;
+  try {
+    await supaPost('pos_config',{
+      licencia_email: SE,
+      clave: 'rubro_config',
+      valor: JSON.stringify({
+        tipo_negocio: tipo,
+        flag_mesas:    fMesas,
+        flag_cocina:   fCocina,
+        flag_delivery: fDelivery,
+        flag_mitades:  fMitades,
+      }),
+    },'licencia_email,clave',true);
+  } catch(e){ console.warn('[Rubro admin] Error guardando:', e.message); }
+}
+
+async function saveConf(){
+  var cfg={an:document.getElementById('cfgN').value,ar:document.getElementById('cfgRuc').value,ad:document.getElementById('cfgD').value,at:document.getElementById('cfgT').value};
+  Object.entries(cfg).forEach(function(e){localStorage.setItem(e[0],e[1]);});
+  document.getElementById('sbNeg').textContent=cfg.an||'Mi Negocio';
+  try{
+    await supaPost('pos_config',{licencia_email:SE,clave:'negocio_config',valor:JSON.stringify(cfg)},'licencia_email,clave');
+    toast('Guardado y sincronizado');
+  }catch(e){toast('Guardado localmente');}
+}
+
+// ── AUTO LOGIN ────────────────────────────────────────────
+(function(){
+  applyAdminTheme();
+  var e=localStorage.getItem('ae'),p=localStorage.getItem('ap'),v=localStorage.getItem('av');
+  var li=localStorage.getItem('ali');
+  if(e&&p&&p!=='Demo'){
+    SE=e.toLowerCase().trim();SP=p;SV=v;SLI=li?parseInt(li):null;
+    // Verificar sesión contra Supabase (previene bypass por DevTools en localStorage)
+    sg('licencias','email_cliente=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id&limit=1')
+      .then(function(rows){
+        if(rows&&rows.length){
+          showApp();
+        } else {
+          doLogout();
+        }
+      })
+      .catch(function(){
+        showApp(); // Sin conexión — confiar en sesión cacheada
+      });
+  }
+})();
+
+
+</script>
+
+<!-- MODAL ASIGNACIÓN TERMINALES -->
+<div id="mAsignarOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9998;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarModalAsignar()">
+  <div style="background:var(--card);border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:90vh;overflow-y:auto;">
+    <div style="padding:16px 18px 0;">
+      <div style="width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 14px;"></div>
+      <div style="font-size:17px;font-weight:800;color:var(--text);margin-bottom:4px;">Asignar terminales</div>
+    </div>
+    <div id="mAsignarBody" style="padding:0 18px;"></div>
+    <div style="padding:14px 18px 36px;display:flex;gap:10px;">
+
+    </div>
+  </div>
+</div>
+<script>
+// Admin panel no necesita SW — limpiar cualquier SW previo y todos los caches
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(r){ r.unregister().then(function(ok){ if(ok) console.log('[Admin] SW desregistrado:', r.scope); }); });
+  });
+}
+if('caches' in window){
+  caches.keys().then(function(keys){
+    keys.forEach(function(k){ caches.delete(k).then(function(){ console.log('[Admin] Caché eliminado:', k); }); });
+  });
+}
+</script>
+</body>
+</html>

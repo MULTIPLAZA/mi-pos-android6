@@ -1,0 +1,55 @@
+# Cloudflare Pages/Workers — Headers para PWA correcta
+
+# Permitir conexion a servidor local USB (mixed content exception para 127.0.0.1)
+# y WebSocket seguro (wss:) para Supabase Realtime
+/*
+  Content-Security-Policy: connect-src 'self' https: wss: http://127.0.0.1:9200 http://127.0.0.1:8080
+  Permissions-Policy: screen-wake-lock=(self)
+
+
+# Service Workers — CRÍTICO: deben ser application/javascript
+/sw.js
+  Content-Type: application/javascript
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+/sw-admin.js
+  Content-Type: application/javascript
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+/sw-superadmin.js
+  Content-Type: application/javascript
+  Cache-Control: no-cache, no-store, must-revalidate
+  Service-Worker-Allowed: /
+
+# Manifests — deben ser application/manifest+json
+/manifest.json
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+/manifest-admin.json
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+/manifest-superadmin.json
+  Content-Type: application/manifest+json
+  Cache-Control: no-cache
+
+# HTML — sin cache para que siempre estén frescos
+/*.html
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# JS modules — sin cache HTTP para que siempre traiga la última versión
+/js/*.js
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: application/javascript
+
+# CSS — sin cache HTTP
+/css/*.css
+  Cache-Control: no-cache, no-store, must-revalidate
+  Content-Type: text/css
+
+# Íconos — pueden cachearse
+/icon*.png
+  Cache-Control: public, max-age=86400
