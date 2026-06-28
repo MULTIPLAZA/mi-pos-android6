@@ -939,7 +939,11 @@ function _procesarCodigoScanner(raw){
     sinput.focus();
     if(typeof filterP === 'function') filterP();
   }
-  if(filtrados.length === 0) _buscarCodigoEnAPI(raw);
+  if(filtrados.length === 0){
+    // Limpiar sinput antes de la llamada async para que el siguiente scan no se concatene
+    if(sinput){ sinput.value = ''; if(typeof filterP === 'function') filterP(); }
+    _buscarCodigoEnAPI(raw);
+  }
 }
 
 if(document.readyState === 'loading'){
