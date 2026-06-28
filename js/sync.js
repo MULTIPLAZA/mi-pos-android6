@@ -665,7 +665,14 @@ async function reintentarSyncItem(itemId){
     if(!item) return;
     const datos = JSON.parse(item.datos);
     const tabla = 'pos_' + item.tabla;
-    await supaFetch('POST', tabla, datos);
+    if(item.operacion === 'delete'){
+      await supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id });
+    } else if(item.operacion === 'update'){
+      const { id: itemId2, ...datosUpdate } = datos;
+      await supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId2 });
+    } else {
+      await supaFetch('POST', tabla, datos, null, 'return=representation');
+    }
     await db.sync_queue.update(itemId, { sincronizado: 1 });
     toast('Venta sincronizada correctamente');
     updSyncBadge();

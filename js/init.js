@@ -523,7 +523,7 @@ async function recuperarConfigTerminalSupabase(){
     // Útil cuando se borró caché y se perdió el device_id
     const data2 = await supaGet('pos_config',
       'licencia_email=eq.'+encodeURIComponent(email)
-      +'&clave=like.terminal_config_*&select=valor,clave&order=id.desc&limit=1');
+      +'&clave=like.terminal_config_%25&select=valor,clave&order=id.desc&limit=1');
     if(data2 && data2[0]){
       const cfg = JSON.parse(data2[0].valor);
       // Si tiene config válida, restaurar y guardar el device_id que estaba en esa config
