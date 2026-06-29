@@ -2191,15 +2191,28 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
   if(prev) prev.remove();
   var valNombre = nombrePrefill ? nombrePrefill.replace(/"/g,'&quot;') : '';
   var valPrecio = precioPrefill ? String(precioPrefill) : '';
-  var focusId   = nombrePrefill ? '_mnpPrecio' : '_mnpNombre';
   // En landscape el bottom-sheet queda detrás del teclado — usar modal centrado
   var isLandscape = window.innerWidth > window.innerHeight;
   var wrapStyle = isLandscape
     ? 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.82);display:flex;align-items:center;justify-content:center;padding:12px;'
     : 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center;';
   var cardStyle = isLandscape
-    ? 'background:#1a1a1a;border-radius:16px;width:100%;max-width:560px;padding:18px 20px 20px;font-family:Barlow,sans-serif;overflow-y:auto;max-height:96vh;'
+    ? 'background:#1a1a1a;border-radius:16px;width:100%;max-width:480px;padding:18px 20px 20px;font-family:Barlow,sans-serif;overflow-y:auto;max-height:96vh;'
     : 'background:#1a1a1a;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 32px;font-family:Barlow,sans-serif;';
+
+  // Numpad para precio — mismo estilo que precioModalOv
+  var nb = 'background:#2a2a2a;border:1px solid #3a3a3a;border-radius:8px;color:#fff;font-family:\'Barlow\',sans-serif;font-weight:600;padding:15px 0;cursor:pointer;width:100%;';
+  var numpadHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;">';
+  var numKeys = ['1','2','3','4','5','6','7','8','9','000','0','⌫'];
+  for (var ki = 0; ki < numKeys.length; ki++) {
+    var d = numKeys[ki];
+    var act = d === '⌫' ? '_mnpNumDel()' : '_mnpNum(\'' + d + '\')';
+    var fsz = d === '000' ? '16' : '20';
+    numpadHtml += '<button onclick="' + act + '" style="' + nb + 'font-size:' + fsz + 'px;">' + d + '</button>';
+  }
+  numpadHtml += '</div>';
+
+  var dispVal = valPrecio ? gs(parseInt(valPrecio)) : '₲ 0';
 
   var m = document.createElement('div');
   m.id = '_modalNuevoProd';
@@ -2216,7 +2229,7 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
           '<div style="font-size:11px;color:#666;margin-top:1px;">Código: ' + codigo + '</div>' +
         '</div>' +
       '</div>' +
-      // Botón "toca para escribir" — solo se muestra cuando no hay prefill (producto nuevo sin datos)
+      // Botón "toca para escribir" — solo cuando no hay prefill
       (nombrePrefill ? '' :
         '<button id="_mnpTeclado" onclick="_mnpFocusNombre()" ' +
         'style="width:100%;background:#1e3a1e;border:2px dashed #4caf50;border-radius:12px;color:#4caf50;font-family:Barlow,sans-serif;' +
@@ -2227,9 +2240,9 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
         'style="width:100%;box-sizing:border-box;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;' +
         'color:#fff;font-family:Barlow,sans-serif;font-size:16px;font-weight:600;padding:14px 16px;margin-bottom:12px;outline:none;letter-spacing:.3px;">' +
       '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Precio (Gs)</div>' +
-      '<input id="_mnpPrecio" type="text" inputmode="numeric" placeholder="0" value="' + valPrecio + '" ' +
-        'style="width:100%;box-sizing:border-box;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;' +
-        'color:#fff;font-family:Barlow,sans-serif;font-size:22px;font-weight:800;padding:14px 16px;margin-bottom:16px;outline:none;">' +
+      '<div id="_mnpPrecioDisp" style="font-size:26px;font-weight:800;color:#fff;text-align:right;padding:12px 16px;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;margin-bottom:8px;">' + dispVal + '</div>' +
+      '<input type="hidden" id="_mnpPrecio" value="' + valPrecio + '">' +
+      numpadHtml +
       '<div style="display:flex;gap:10px;">' +
         '<button onclick="document.getElementById(\'_modalNuevoProd\').remove()" ' +
           'style="flex:1;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;color:#888;font-family:Barlow,sans-serif;font-size:14px;font-weight:700;padding:14px;cursor:pointer;">Cancelar</button>' +
@@ -2238,18 +2251,38 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
       '</div>' +
     '</div>';
   document.body.appendChild(m);
-  // Exponer helper global para el onclick inline del botón
+
+  // Estado del numpad (raw dígitos)
+  window._mnpNumVal = valPrecio || '';
+  window._mnpNum = function(d) {
+    var v = window._mnpNumVal + d;
+    if (v.length > 10) return;
+    window._mnpNumVal = v;
+    var n = parseInt(v) || 0;
+    var disp = document.getElementById('_mnpPrecioDisp');
+    var inp  = document.getElementById('_mnpPrecio');
+    if (disp) disp.textContent = gs(n);
+    if (inp)  inp.value = n ? String(n) : '';
+  };
+  window._mnpNumDel = function() {
+    window._mnpNumVal = window._mnpNumVal.slice(0, -1);
+    var n = parseInt(window._mnpNumVal) || 0;
+    var disp = document.getElementById('_mnpPrecioDisp');
+    var inp  = document.getElementById('_mnpPrecio');
+    if (disp) disp.textContent = window._mnpNumVal ? gs(n) : '₲ 0';
+    if (inp)  inp.value = window._mnpNumVal ? String(n) : '';
+  };
+  // Exponer helper para el botón de teclado nombre
   window._mnpFocusNombre = function() {
-    var el = document.getElementById('_mnpNombre');
+    var el  = document.getElementById('_mnpNombre');
     var btn = document.getElementById('_mnpTeclado');
     if (btn) btn.style.display = 'none';
     if (el) { el.focus(); el.click(); }
   };
-  // Auto-focus solo cuando no hay prefill (producto nuevo manual, sin datos de la API)
-  // Con prefill el usuario solo toca "AGREGAR AL CARRITO" — no necesita teclado
+  // Auto-focus solo cuando no hay prefill (producto manual sin datos)
   if (!nombrePrefill) {
     setTimeout(function(){
-      var el = document.getElementById(focusId);
+      var el = document.getElementById('_mnpNombre');
       if (el) {
         el.focus();
         if (document.activeElement === el) {
@@ -2265,7 +2298,7 @@ function _confirmarNuevoProducto(codigo){
   var nombre = (document.getElementById('_mnpNombre').value || '').trim().toUpperCase();
   var precio  = parseFloat(document.getElementById('_mnpPrecio').value) || 0;
   if(!nombre){ document.getElementById('_mnpNombre').style.border='1.5px solid #f44336'; return; }
-  if(!precio){ document.getElementById('_mnpPrecio').style.border='1.5px solid #f44336'; return; }
+  if(!precio){ document.getElementById('_mnpPrecioDisp').style.border='1.5px solid #f44336'; return; }
   document.getElementById('_modalNuevoProd').remove();
   var newProd = {
     id: nextProdId, prodId: nextProdId,

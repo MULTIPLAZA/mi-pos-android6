@@ -248,6 +248,20 @@
   @keyframes syncCloudPulse {
     0%,100% { opacity:1; } 50% { opacity:.5; }
   }
+  @keyframes scannerDotPulse {
+    0%,100% { opacity:.4; transform:scale(.85); }
+    50%     { opacity:1;   transform:scale(1.15); }
+  }
+  .scanner-badge {
+    display:flex; align-items:center; gap:5px; flex-shrink:0; margin-right:8px;
+    background:rgba(76,175,80,.1); border:1px solid rgba(76,175,80,.25); border-radius:6px;
+    padding:4px 9px; font-family:'Barlow',sans-serif; font-size:10px; font-weight:800;
+    color:#4caf50; letter-spacing:.6px; white-space:nowrap; user-select:none;
+  }
+  .scanner-dot {
+    width:7px; height:7px; border-radius:50%; background:#4caf50; flex-shrink:0;
+    animation: scannerDotPulse 1.6s ease-in-out infinite;
+  }
 
   /* ── PANEL SYNC ─────────────────────────────────────────── */
   .sync-section { padding: 12px 14px 0; }
