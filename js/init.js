@@ -143,11 +143,13 @@ async function iniciarApp(){
       if(mac) BTPrinter.iniciar();
     }
   });
-  // Mostrar versión en drawer y configuración
+  // Mostrar versión en drawer, configuración y pantalla de activación
   const _vEl = document.getElementById('drawerVersion');
   if(_vEl) _vEl.textContent = APP_VERSION + ' · by Nodo Informática';
   const _vCfg = document.getElementById('configVersion');
   if(_vCfg) _vCfg.textContent = APP_VERSION + ' · by Nodo Informática';
+  const _vAct = document.getElementById('scActivacionVersion');
+  if(_vAct) _vAct.textContent = APP_VERSION;
 
   // ── Auto-save del cart cada 1.5s ─────────────────────────
   // Anti-perdida: si el cajero esta cargando una venta y la app se recarga
