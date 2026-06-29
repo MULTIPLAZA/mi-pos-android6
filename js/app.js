@@ -936,11 +936,11 @@ function _procesarCodigoScanner(raw){
   if(sbar && sinput){
     sbar.classList.add('open');
     sinput.value = raw;
-    sinput.focus();
     if(typeof filterP === 'function') filterP();
+    // Quitar teclado: el scanner no lo necesita; el usuario lo abre tocando el input
+    sinput.blur();
   }
   if(filtrados.length === 0){
-    // Limpiar sinput antes de la llamada async para que el siguiente scan no se concatene
     if(sinput){ sinput.value = ''; if(typeof filterP === 'function') filterP(); }
     _buscarCodigoEnAPI(raw);
   }
@@ -972,7 +972,7 @@ function sinputKeydown(e){
     document.getElementById('sinput').value = '';
     filterP();
     _mostrarTicketMobile();
-    if(!showTkt) document.getElementById('sinput').focus();
+    document.getElementById('sinput').blur();
     return;
   }
 
@@ -986,15 +986,18 @@ function sinputKeydown(e){
     document.getElementById('sinput').value = '';
     filterP();
     _mostrarTicketMobile();
-    if(!showTkt) document.getElementById('sinput').focus();
+    document.getElementById('sinput').blur();
     return;
   }
 
-  // 3. Sin coincidencia única: consultar API externa
+  // 3. Sin coincidencia única: consultar API o mostrar sugerencias
   if(filtrados.length === 0){
     document.getElementById('sinput').value = '';
     filterP();
     _buscarCodigoEnAPI(raw);
+  } else {
+    // Múltiples sugerencias: quitar teclado para que el usuario vea la lista
+    document.getElementById('sinput').blur();
   }
 }
 
