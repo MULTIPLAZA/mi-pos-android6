@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.nodo.ampersandpos",
+      "sha256_cert_fingerprints": ["FB:4F:00:35:34:6C:4C:35:72:0E:B8:11:0F:05:06:FB:03:36:FD:EE:D6:E0:85:B0:40:10:C6:22:32:4E:52:B1"]
+    }
+  }
+]
