@@ -668,8 +668,9 @@ async function reintentarSyncItem(itemId){
     if(item.operacion === 'delete'){
       await supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id });
     } else if(item.operacion === 'update'){
-      const { id: itemId2, ...datosUpdate } = datos;
-      await supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId2 });
+      var datosUpdate = Object.assign({}, datos);
+      delete datosUpdate.id;
+      await supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+datos.id });
     } else {
       await supaFetch('POST', tabla, datos, null, 'return=representation');
     }
