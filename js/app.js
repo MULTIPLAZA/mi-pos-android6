@@ -2216,16 +2216,18 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
           '<div style="font-size:11px;color:#666;margin-top:1px;">Código: ' + codigo + '</div>' +
         '</div>' +
       '</div>' +
-      // Botón "toca para escribir" — necesario en Android 6 donde focus() no abre el teclado sin gesto del usuario
-      '<button id="_mnpTeclado" onclick="_mnpFocusNombre()" ' +
+      // Botón "toca para escribir" — solo se muestra cuando no hay prefill (producto nuevo sin datos)
+      (nombrePrefill ? '' :
+        '<button id="_mnpTeclado" onclick="_mnpFocusNombre()" ' +
         'style="width:100%;background:#1e3a1e;border:2px dashed #4caf50;border-radius:12px;color:#4caf50;font-family:Barlow,sans-serif;' +
-        'font-size:13px;font-weight:800;padding:11px 16px;margin-bottom:12px;cursor:pointer;letter-spacing:.5px;text-align:left;">⌨  TOCA AQUÍ PARA ESCRIBIR EL NOMBRE</button>' +
+        'font-size:13px;font-weight:800;padding:11px 16px;margin-bottom:12px;cursor:pointer;letter-spacing:.5px;text-align:left;">⌨  TOCA AQUÍ PARA ESCRIBIR EL NOMBRE</button>'
+      ) +
       '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Nombre</div>' +
       '<input id="_mnpNombre" autocomplete="off" autocapitalize="characters" placeholder="Ej: COCA COLA 500ML" value="' + valNombre + '" ' +
         'style="width:100%;box-sizing:border-box;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;' +
         'color:#fff;font-family:Barlow,sans-serif;font-size:16px;font-weight:600;padding:14px 16px;margin-bottom:12px;outline:none;letter-spacing:.3px;">' +
       '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Precio (Gs)</div>' +
-      '<input id="_mnpPrecio" type="number" inputmode="numeric" placeholder="0" value="' + valPrecio + '" ' +
+      '<input id="_mnpPrecio" type="text" inputmode="numeric" placeholder="0" value="' + valPrecio + '" ' +
         'style="width:100%;box-sizing:border-box;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;' +
         'color:#fff;font-family:Barlow,sans-serif;font-size:22px;font-weight:800;padding:14px 16px;margin-bottom:16px;outline:none;">' +
       '<div style="display:flex;gap:10px;">' +
@@ -2243,18 +2245,20 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
     if (btn) btn.style.display = 'none';
     if (el) { el.focus(); el.click(); }
   };
-  // Intentar focus automático (funciona en Chrome moderno, no en Android 6 — el botón es el fallback)
-  setTimeout(function(){
-    var el = document.getElementById(focusId);
-    if (el) {
-      el.focus();
-      // Si el focus funcionó, ocultar el botón de teclado
-      if (document.activeElement === el) {
-        var btn = document.getElementById('_mnpTeclado');
-        if (btn) btn.style.display = 'none';
+  // Auto-focus solo cuando no hay prefill (producto nuevo manual, sin datos de la API)
+  // Con prefill el usuario solo toca "AGREGAR AL CARRITO" — no necesita teclado
+  if (!nombrePrefill) {
+    setTimeout(function(){
+      var el = document.getElementById(focusId);
+      if (el) {
+        el.focus();
+        if (document.activeElement === el) {
+          var btn = document.getElementById('_mnpTeclado');
+          if (btn) btn.style.display = 'none';
+        }
       }
-    }
-  }, 120);
+    }, 120);
+  }
 }
 
 function _confirmarNuevoProducto(codigo){
