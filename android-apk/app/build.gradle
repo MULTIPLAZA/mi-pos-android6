@@ -1,0 +1,39 @@
+apply plugin: 'com.android.application'
+
+android {
+    namespace 'com.nodo.ampersandpos'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.nodo.ampersandpos'
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("${rootProject.projectDir}/keystore.jks")
+            storePassword 'nodopos2024!'
+            keyAlias 'ampersandpos'
+            keyPassword 'nodopos2024!'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
+}

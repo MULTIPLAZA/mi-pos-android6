@@ -1,0 +1,108 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Gradle 8.1
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.1'
+
+      - name: Generate keystore (solo primera vez)
+        run: |
+          if [ ! -f android-apk/keystore.jks ]; then
+            keytool -genkey -v \
+              -keystore android-apk/keystore.jks \
+              -alias ampersandpos \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass 'nodopos2024!' -keypass 'nodopos2024!' \
+              -dname "CN=Ampersand POS, O=NODO Informatica, C=PY"
+            echo "Keystore generado"
+          else
+            echo "Usando keystore existente"
+          fi
+
+      - name: Extraer fingerprint SHA-256
+        id: fp
+        run: |
+          FP=$(keytool -list -v \
+            -keystore android-apk/keystore.jks \
+            -alias ampersandpos \
+            -storepass 'nodopos2024!' 2>/dev/null | \
+            grep "SHA256:" | awk '{print $2}')
+          echo "sha256=$FP" >> $GITHUB_OUTPUT
+          echo "Fingerprint: $FP"
+
+      - name: Crear assetlinks.json
+        run: |
+          mkdir -p .well-known
+          cat > .well-known/assetlinks.json << ASSETEOF
+          [
+            {
+              "relation": ["delegate_permission/common.handle_all_urls"],
+              "target": {
+                "namespace": "android_app",
+                "package_name": "com.nodo.ampersandpos",
+                "sha256_cert_fingerprints": ["${{ steps.fp.outputs.sha256 }}"]
+              }
+            }
+          ]
+          ASSETEOF
+          echo "assetlinks.json creado"
+          cat .well-known/assetlinks.json
+
+      - name: Preparar iconos
+        run: |
+          sudo apt-get install -y imagemagick -q
+          for DPI in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            DIR=$(echo $DPI | cut -d: -f1)
+            SIZE=$(echo $DPI | cut -d: -f2)
+            mkdir -p android-apk/app/src/main/res/mipmap-$DIR
+            convert icon-192.png -resize ${SIZE}x${SIZE} \
+              android-apk/app/src/main/res/mipmap-$DIR/ic_launcher.png
+            cp android-apk/app/src/main/res/mipmap-$DIR/ic_launcher.png \
+               android-apk/app/src/main/res/mipmap-$DIR/ic_launcher_round.png
+          done
+          echo "Iconos preparados"
+
+      - name: Build APK
+        working-directory: android-apk
+        run: |
+          gradle assembleRelease
+          echo "APK compilado"
+
+      - name: Commit keystore y assetlinks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add android-apk/keystore.jks .well-known/assetlinks.json
+          if ! git diff --staged --quiet; then
+            git commit -m "chore: keystore + assetlinks.json [skip ci]"
+            git push
+          fi
+
+      - name: Subir APK como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ampersand-pos-apk
+          path: android-apk/app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
