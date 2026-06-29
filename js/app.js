@@ -2168,12 +2168,17 @@ async function _buscarCodigoEnAPI(codigo){
   if(typeof APISQL_WORKER === 'undefined'){ toast('Sin producto: "' + codigo + '"'); return; }
   toast('Buscando código...');
   try {
-    var r = await fetch(APISQL_WORKER + '/sql', {
+    var url = APISQL_WORKER + '/sql';
+    var r = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ sp: "Exec SpCodigoBarra @CodigoBarra='" + codigo.replace(/'/g,"''") + "'" }),
     });
-    if(!r.ok) throw new Error('HTTP ' + r.status);
+    if(!r.ok){
+      var txt = '';
+      try { txt = await r.text(); } catch(_){}
+      throw new Error('HTTP ' + r.status + (txt ? ': ' + txt.substring(0,80) : ''));
+    }
     var datos = await r.json();
     var fila = Array.isArray(datos) && datos.length > 0 ? datos[0] : null;
     if(!fila){
@@ -2182,7 +2187,8 @@ async function _buscarCodigoEnAPI(codigo){
     }
     _crearYVenderExterno(fila, codigo);
   } catch(e){
-    toast('Error al buscar: ' + e.message);
+    console.error('[API] buscarCodigo error:', e.name, e.message, 'url:', APISQL_WORKER);
+    toast('Error al buscar [' + e.name + ']: ' + e.message);
   }
 }
 
