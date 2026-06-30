@@ -767,20 +767,18 @@ function _getImgSrcSync(p){
 }
 
 function _tileProd(p){
-  var kiloBadge = p.esKilo ? '<span style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.45);color:#fff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:.3px;">&#9878; kg</span>' : '';
   const imgSrc = _getImgSrcSync(p);
   if(imgSrc){
-    return '<div class="ptile ptile-img" style="position:relative;background:'+getProductColor(p)+';" onclick="addCart('+p.id+',this)">'+
+    return '<div class="ptile ptile-img" style="background:'+getProductColor(p)+';" onclick="addCart('+p.id+',this)">'+
       '<img src="'+imgSrc+'" class="ptile-img-bg" onerror="this.style.display=\'none\'" loading="lazy">'+
       '<div class="ptile-img-overlay"></div>'+
       '<span class="pname ptile-img-name">'+p.name+'</span>'+
-      kiloBadge+
     '</div>';
   }
   if(p.itemLibre){
-    return '<div class="ptile" style="position:relative;background:#37474f;border:2px dashed #78909c;box-sizing:border-box;" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span>'+kiloBadge+'</div>';
+    return '<div class="ptile" style="background:#37474f;border:2px dashed #78909c;box-sizing:border-box;" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span></div>';
   }
-  return '<div class="ptile" style="position:relative;background:'+getProductColor(p)+'" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span>'+kiloBadge+'</div>';
+  return '<div class="ptile" style="background:'+getProductColor(p)+'" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span></div>';
 }
 
 function renderP(list){
