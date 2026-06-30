@@ -708,6 +708,7 @@ function nuevoArticulo(){
   document.getElementById('artMitad').checked = false;
   document.getElementById('artInventario').checked = false;
   document.getElementById('artComanda').checked = false;
+  document.getElementById('artEsKilo').checked = false;
   document.getElementById('btnEliminarArt').style.display = 'none';
   // Ocultar opciones gastronómicas si el negocio no las usa
   var _rowMitad = document.getElementById('artCheckMitad');
@@ -737,6 +738,7 @@ function editarArticulo(idx){
   document.getElementById('artMitad').checked = !!p.mitad;
   document.getElementById('artInventario').checked = !!p.inventario;
   document.getElementById('artComanda').checked = !!p.comanda;
+  document.getElementById('artEsKilo').checked = !!p.esKilo;
   document.getElementById('btnEliminarArt').style.display = 'flex';
   // Ocultar opciones gastronómicas si el negocio no las usa
   var _rowMitad2 = document.getElementById('artCheckMitad');
@@ -817,6 +819,7 @@ function guardarArticulo(){
   const mitad = document.getElementById('artMitad').checked;
   const inventario = document.getElementById('artInventario').checked;
   const comanda = document.getElementById('artComanda').checked;
+  const esKilo  = document.getElementById('artEsKilo').checked;
   if(!nombre){ toast('Ingresá el nombre del artículo'); return; }
 
   // Validar que ningún código ya esté en otro producto
@@ -837,7 +840,7 @@ function guardarArticulo(){
       name: nombre.toUpperCase(), price: precioVariable?0:precio,
       precioVariable, costo, codigo, codigos, color: artColorSel,
       colorPropio: artColorManual,
-      cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda,
+      cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda, esKilo,
       ...imgUpdate
     });
     const prod = PRODS[artEditIdx];
@@ -850,7 +853,7 @@ function guardarArticulo(){
       name: nombre.toUpperCase(), price: precioVariable?0:precio,
       precioVariable, costo, codigo, codigos, color: artColorSel,
       colorPropio: artColorManual,
-      cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda
+      cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda, esKilo
     };
     PRODS.push(newProd);
     nextProdId++;
