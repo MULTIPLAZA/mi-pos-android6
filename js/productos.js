@@ -1182,6 +1182,8 @@ async function supaUpsertProducto(prod){
       mitad:           prod.mitad || false,
       inventario:      prod.inventario || false,
       comanda:         prod.comanda || false,
+      es_kilo:         prod.esKilo || false,
+      es_favorito:     prod.esFavorito || false,
       activo:          prod.activo !== false,
       imagen:          prod.imagen || null,
       licencia_email:  email,
