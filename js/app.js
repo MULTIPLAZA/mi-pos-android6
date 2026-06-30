@@ -823,31 +823,16 @@ function _filterPInternal(){
            .filter(p=>!p.itemLibre && !p.esInsumo && p.activo!==false && p.activo!==0);
   if(q) l = l.filter(p=>p.name.toLowerCase().includes(q) || (p.codigo && p.codigo.toLowerCase().includes(q)));
 
-  // Ítem libre siempre al final (en todas las vistas, sin búsqueda activa)
+  // Kilo al tope, ítem libre siempre al final
   if(!q){
-    const libre = PRODS.find(p=>p.itemLibre);
-    if(libre) l = [...l, libre];
+    const kilos  = l.filter(p=> p.esKilo && !p.itemLibre);
+    const resto  = l.filter(p=>!p.esKilo && !p.itemLibre);
+    const libre  = PRODS.find(p=>p.itemLibre);
+    l = libre ? [...kilos, ...resto, libre] : [...kilos, ...resto];
   }
   renderP(l);
-  renderKiloStrip();
 }
 
-function renderKiloStrip(){
-  var strip = document.getElementById('kilo-strip');
-  if(!strip) return;
-  var kilos = (PRODS||[]).filter(function(p){
-    return p.esKilo && p.activo!==false && p.activo!==0 && !p.itemLibre;
-  });
-  if(!kilos.length){ strip.style.display='none'; return; }
-  strip.style.display='flex';
-  strip.innerHTML = kilos.map(function(p){
-    return '<div class="kilo-tile" onclick="addCart('+p.id+',this)" style="background:'+getProductColor(p)+'">'
-      +'<span class="kilo-tile-ico">&#9878;</span>'
-      +'<span class="kilo-tile-nom">'+p.name+'</span>'
-      +'<span class="kilo-tile-pre">'+gn(p.price)+'/kg</span>'
-      +'</div>';
-  }).join('');
-}
 
 function renderDescuentosTiles(){
   const g = document.getElementById('pgrid');

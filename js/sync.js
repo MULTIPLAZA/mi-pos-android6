@@ -171,7 +171,7 @@ async function dbLoadProductos(){
     if(typeof CATEGORIAS !== 'undefined' && CATEGORIAS.length === 0 && typeof derivarCategoriasDeProductos === 'function'){
       derivarCategoriasDeProductos();
     }
-    if(typeof renderKiloStrip === 'function') renderKiloStrip();
+    if(typeof filterP === 'function') filterP();
   } catch(e){ console.warn('[DB] Productos no disponibles aún:', e.message); }
 }
 
