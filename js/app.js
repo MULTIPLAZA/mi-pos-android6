@@ -187,6 +187,24 @@ function loadGeneralConfigInputs(){
   }
   // Cargar config precio mitad
   if(typeof loadCfgMitad === 'function') loadCfgMitad();
+
+  // Multi-moneda
+  var chkMM = document.getElementById('cfgMultiMoneda');
+  if(chkMM){
+    var mmAct = localStorage.getItem('mm_activo') === '1';
+    chkMM.checked = mmAct;
+    var mmPanel = document.getElementById('cfgMMPanel');
+    if(mmPanel) mmPanel.style.display = mmAct ? 'block' : 'none';
+    var inpBRL = document.getElementById('cfgCotBRL');
+    var inpARS = document.getElementById('cfgCotARS');
+    if(inpBRL) inpBRL.value = localStorage.getItem('mm_cotBRL') || '';
+    if(inpARS) inpARS.value = localStorage.getItem('mm_cotARS') || '';
+    var ultAct = document.getElementById('cfgMMUltAct');
+    if(ultAct){
+      var ts = localStorage.getItem('mm_updAt');
+      ultAct.textContent = ts ? 'Tipo de cambio actualizado: ' + ts : 'Tipo de cambio: no configurado';
+    }
+  }
 }
 
 // Toggle de sonidos con feedback auditivo instantáneo
@@ -1919,6 +1937,36 @@ function saveGeneralConfig(){
   }
   // Mostrar u ocultar botón comanda en cobro
   updBtnComandaCobro();
+
+  // Multi-moneda: guardar toggle + cotizaciones en localStorage
+  var _cfgMM = document.getElementById('cfgMultiMoneda');
+  if(_cfgMM){
+    var _mmActNuevo = _cfgMM.checked;
+    localStorage.setItem('mm_activo', _mmActNuevo ? '1' : '0');
+    var _mmPanelEl = document.getElementById('cfgMMPanel');
+    if(_mmPanelEl) _mmPanelEl.style.display = _mmActNuevo ? 'block' : 'none';
+    var _cfgBRL = document.getElementById('cfgCotBRL');
+    var _cfgARS = document.getElementById('cfgCotARS');
+    var _mmHuboActualizacion = false;
+    if(_cfgBRL && _cfgBRL.value !== '') {
+      localStorage.setItem('mm_cotBRL', _cfgBRL.value);
+      _mmHuboActualizacion = true;
+    }
+    if(_cfgARS && _cfgARS.value !== '') {
+      localStorage.setItem('mm_cotARS', _cfgARS.value);
+      _mmHuboActualizacion = true;
+    }
+    if(_mmHuboActualizacion){
+      var _padMM = function(n){ return String(n).padStart(2,'0'); };
+      var _nowMM = new Date();
+      var _tsMM = _padMM(_nowMM.getDate())+'/'+_padMM(_nowMM.getMonth()+1)+'/'+_nowMM.getFullYear()
+                +' '+_padMM(_nowMM.getHours())+':'+_padMM(_nowMM.getMinutes());
+      localStorage.setItem('mm_updAt', _tsMM);
+      var _ultEl = document.getElementById('cfgMMUltAct');
+      if(_ultEl) _ultEl.textContent = 'Tipo de cambio actualizado: ' + _tsMM;
+    }
+  }
+
   // Persistir también en Supabase (debounced para no spammear en cada tecla)
   _guardarConfigSupabaseDebounced();
 }

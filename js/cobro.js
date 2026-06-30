@@ -59,7 +59,36 @@ function _goCobrarSetup() {
 
   // Seleccionar Efectivo por defecto
   document.querySelectorAll('.pay-btn').forEach((b, i) => b.classList.toggle('sel', i === 0));
-  document.getElementById('efecSec').style.display = 'block';
+
+  // Multi-moneda: mostrar panel MM si esta activo, sino panel normal
+  var _mmActivoSetup = localStorage.getItem('mm_activo') === '1';
+  var _mmSecSetup = document.getElementById('mmSec');
+  if (_mmActivoSetup && _mmSecSetup) {
+    document.getElementById('efecSec').style.display = 'none';
+    _mmSecSetup.style.display = 'block';
+    // Reset valores MM al abrir la pantalla de cobro
+    _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0;
+    var _sgEl = document.getElementById('mmGsVal');
+    var _sbEl = document.getElementById('mmBrlVal');
+    var _saEl = document.getElementById('mmArsVal');
+    var _sbeEl = document.getElementById('mmBrlEq');
+    var _saeEl = document.getElementById('mmArsEq');
+    var _stEl = document.getElementById('mmTotalRec');
+    var _svEl = document.getElementById('mmVueltoAmt');
+    var _svrEl = document.getElementById('mmVueltoRow');
+    if (_sgEl) _sgEl.textContent = gs(0);
+    if (_sbEl) _sbEl.textContent = '0';
+    if (_saEl) _saEl.textContent = '0';
+    if (_sbeEl) _sbeEl.textContent = '= ' + gs(0);
+    if (_saeEl) _saeEl.textContent = '= ' + gs(0);
+    if (_stEl) _stEl.textContent = gs(0);
+    if (_svEl) _svEl.textContent = gs(0);
+    if (_svrEl) _svrEl.classList.remove('show');
+  } else {
+    document.getElementById('efecSec').style.display = 'block';
+    if (_mmSecSetup) _mmSecSetup.style.display = 'none';
+  }
+
   document.getElementById('vueltoRow').classList.remove('show');
   document.getElementById('compSec').classList.remove('open');
   document.getElementById('npLbl').textContent = 'Efectivo recibido';
@@ -79,7 +108,17 @@ function _goCobrarSetup() {
 function selPay(btn, m) {
   document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
-  document.getElementById('efecSec').style.display = m === 'efectivo' ? 'block' : 'none';
+
+  // Multi-moneda: cuando esta activo, EFECTIVO muestra el panel MM en vez del normal
+  var _mmAct = localStorage.getItem('mm_activo') === '1';
+  var _mmS = document.getElementById('mmSec');
+  if (_mmAct && m === 'efectivo') {
+    document.getElementById('efecSec').style.display = 'none';
+    if (_mmS) _mmS.style.display = 'block';
+  } else {
+    document.getElementById('efecSec').style.display = m === 'efectivo' ? 'block' : 'none';
+    if (_mmS) _mmS.style.display = 'none';
+  }
 
   const comp      = document.getElementById('compSec');
   const needsComp = m === 'pos' || m === 'transferencia';
@@ -148,6 +187,9 @@ function openNP(ctx) {
     shift:       'Efectivo inicial',
     cobrar:      'Efectivo recibido',
     comprobante: 'Nro. de Comprobante',
+    mm_gs:       'Guaranies recibidos',
+    mm_brl:      'Reales (R$)',
+    mm_ars:      'Pesos Arg. ($)',
   };
 
   if (!ctx.startsWith('cierre_')) {
@@ -158,6 +200,11 @@ function openNP(ctx) {
     const cur = document.getElementById('compDisplay').textContent;
     setNpVal((cur === '—' || cur === '') ? '' : cur);
   }
+
+  // Pre-poblar valores MM si ya se ingreso algo antes
+  if (ctx === 'mm_gs'  && _mmVals.gs  > 0) setNpVal(String(_mmVals.gs));
+  if (ctx === 'mm_brl' && _mmVals.brl > 0) setNpVal(String(_mmVals.brl));
+  if (ctx === 'mm_ars' && _mmVals.ars > 0) setNpVal(String(_mmVals.ars));
 
   if (ctx === 'cierreTotal') {
     setNpVal(cierreTotal > 0 ? String(cierreTotal) : '');
@@ -174,7 +221,17 @@ function openNP(ctx) {
     }
   }
 
-  document.getElementById('npDisp').textContent = npVal || (ctx === 'comprobante' ? '—' : '₲0');
+  // Display inicial del numpad segun contexto
+  var _npInitV = parseInt(npVal) || 0;
+  if (ctx === 'mm_brl') {
+    document.getElementById('npDisp').textContent = npVal ? 'R$ ' + _npInitV : 'R$ 0';
+  } else if (ctx === 'mm_ars') {
+    document.getElementById('npDisp').textContent = npVal ? '$ ' + _npInitV : '$ 0';
+  } else if (ctx === 'comprobante') {
+    document.getElementById('npDisp').textContent = npVal || '—';
+  } else {
+    document.getElementById('npDisp').textContent = npVal ? gs(_npInitV) : '₲0';
+  }
   document.getElementById('billetesRow').classList.toggle('show', ctx === 'cobrar');
   document.getElementById('npOverlay').classList.add('open');
 }
@@ -200,7 +257,14 @@ function npP(d) {
   } else {
     if (npVal === '0' && d !== '000') setNpVal(d); else setNpVal(npVal + d);
     if (npVal.length > 10) setNpVal(npVal.slice(0, 10));
-    document.getElementById('npDisp').textContent = gs(parseInt(npVal) || 0);
+    var _pV = parseInt(npVal) || 0;
+    if (npCtx === 'mm_brl') {
+      document.getElementById('npDisp').textContent = 'R$ ' + _pV;
+    } else if (npCtx === 'mm_ars') {
+      document.getElementById('npDisp').textContent = '$ ' + _pV;
+    } else {
+      document.getElementById('npDisp').textContent = gs(_pV);
+    }
   }
 }
 
@@ -211,7 +275,14 @@ function npD() {
   if (esTexto) {
     document.getElementById('npDisp').textContent = npVal || '—';
   } else {
-    document.getElementById('npDisp').textContent = gs(parseInt(npVal) || 0);
+    var _dV = parseInt(npVal) || 0;
+    if (npCtx === 'mm_brl') {
+      document.getElementById('npDisp').textContent = 'R$ ' + _dV;
+    } else if (npCtx === 'mm_ars') {
+      document.getElementById('npDisp').textContent = '$ ' + _dV;
+    } else {
+      document.getElementById('npDisp').textContent = gs(_dV);
+    }
   }
 }
 
@@ -311,6 +382,30 @@ function npOK() {
     document.getElementById('npOverlay').classList.remove('open');
     return;
 
+  } else if (npCtx === 'mm_gs') {
+    _mmVals.gs = v;
+    var _mmGsDisp = document.getElementById('mmGsVal');
+    if (_mmGsDisp) _mmGsDisp.textContent = gs(v);
+    updMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
+  } else if (npCtx === 'mm_brl') {
+    _mmVals.brl = v;
+    var _mmBrlDisp = document.getElementById('mmBrlVal');
+    if (_mmBrlDisp) _mmBrlDisp.textContent = String(v);
+    updMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
+  } else if (npCtx === 'mm_ars') {
+    _mmVals.ars = v;
+    var _mmArsDisp = document.getElementById('mmArsVal');
+    if (_mmArsDisp) _mmArsDisp.textContent = String(v);
+    updMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
   } else {
     // ctx === 'cobrar' → monto efectivo
     document.getElementById('efecVal').textContent = gs(v);
@@ -338,11 +433,29 @@ document.addEventListener('keydown', function (e) {
 // Si el billete tocado es MENOR al total, suma (por si el usuario va
 // acumulando billetes para llegar al total). Si es MAYOR, reemplaza.
 function setEfectivoBillete(monto) {
+  // Modo multi-moneda: los billetes rapidos suman al campo GS del panel MM
+  if (localStorage.getItem('mm_activo') === '1') {
+    var total    = calcTotal();
+    var cotBRL   = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+    var cotARS   = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+    var totalRec = _mmVals.gs + Math.round(_mmVals.brl * cotBRL) + Math.round(_mmVals.ars * cotARS);
+    if (_mmVals.gs === 0 || totalRec >= total) {
+      _mmVals.gs = monto;
+    } else {
+      _mmVals.gs = _mmVals.gs + monto;
+    }
+    var elGs = document.getElementById('mmGsVal');
+    if (elGs) elGs.textContent = gs(_mmVals.gs);
+    updMMTotal();
+    if (typeof sndTap === 'function') sndTap();
+    return;
+  }
+  // Modo normal: modifica el campo de efectivo GS unico
   var total = calcTotal();
   var current = parseInt((document.getElementById('efecVal').textContent || '0').replace(/[^0-9]/g,'')) || 0;
   var nuevo;
   if(current === 0 || current >= total){
-    // Primera tap o ya completó: reemplaza
+    // Primera tap o ya completo: reemplaza
     nuevo = monto;
   } else {
     // Va acumulando hasta llegar al total
@@ -357,6 +470,19 @@ function setEfectivoBillete(monto) {
 // ── EFECTIVO JUSTO — setea el monto exacto del total ──
 function setEfectivoJusto() {
   var total = calcTotal();
+  // Modo multi-moneda: pone el total exacto en GS y limpia BRL/ARS
+  if (localStorage.getItem('mm_activo') === '1') {
+    _mmVals.gs = total; _mmVals.brl = 0; _mmVals.ars = 0;
+    var elGs  = document.getElementById('mmGsVal');
+    var elBrl = document.getElementById('mmBrlVal');
+    var elArs = document.getElementById('mmArsVal');
+    if (elGs)  elGs.textContent  = gs(total);
+    if (elBrl) elBrl.textContent = '0';
+    if (elArs) elArs.textContent = '0';
+    updMMTotal();
+    if (typeof sndTap === 'function') sndTap();
+    return;
+  }
   document.getElementById('efecVal').textContent = gs(total);
   updVuelto(total);
   if(typeof sndTap === 'function') sndTap();
@@ -368,6 +494,9 @@ function setEfectivoJusto() {
  */
 var _vueltoVozTimer = null;
 var _vueltoUltimo = 0;
+
+// Estado de valores multi-moneda ingresados en el panel MM
+var _mmVals = { gs: 0, brl: 0, ars: 0 };
 function updVuelto(entregado) {
   const total  = calcTotal();
   const vuelto = entregado - total;
@@ -383,6 +512,42 @@ function updVuelto(entregado) {
     }
   } else {
     row.classList.remove('show');
+    _vueltoUltimo = 0;
+  }
+}
+
+// ── MULTI-MONEDA — recalcular total y vuelto ─────────────────
+/**
+ * Recalcula el total recibido en GS y el vuelto cuando hay pago multi-moneda.
+ * Lee _mmVals.gs / _mmVals.brl / _mmVals.ars y las cotizaciones de localStorage.
+ */
+function updMMTotal() {
+  var total    = calcTotal();
+  var cotBRL   = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  var cotARS   = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+  var brlEnGs  = Math.round(_mmVals.brl * cotBRL);
+  var arsEnGs  = Math.round(_mmVals.ars * cotARS);
+  var totalRec = _mmVals.gs + brlEnGs + arsEnGs;
+  var vuelto   = Math.max(0, totalRec - total);
+
+  var elBrlEq = document.getElementById('mmBrlEq');
+  var elArsEq = document.getElementById('mmArsEq');
+  var elTot   = document.getElementById('mmTotalRec');
+  var elVue   = document.getElementById('mmVueltoAmt');
+  var elVRow  = document.getElementById('mmVueltoRow');
+
+  if (elBrlEq) elBrlEq.textContent = '= ' + gs(brlEnGs);
+  if (elArsEq) elArsEq.textContent = '= ' + gs(arsEnGs);
+  if (elTot)   elTot.textContent   = gs(totalRec);
+  if (elVue)   elVue.textContent   = gs(vuelto);
+  if (elVRow)  elVRow.classList.toggle('show', vuelto > 0);
+
+  // Anunciar vuelto por voz con debounce (mismo patron que updVuelto)
+  if (vuelto > 0 && typeof hablarVuelto === 'function' && vuelto !== _vueltoUltimo) {
+    _vueltoUltimo = vuelto;
+    clearTimeout(_vueltoVozTimer);
+    _vueltoVozTimer = setTimeout(function(){ hablarVuelto(vuelto); }, 250);
+  } else if (vuelto === 0) {
     _vueltoUltimo = 0;
   }
 }
@@ -831,12 +996,37 @@ async function confirmarPago() {
   // ── Capturar datos ANTES de limpiar ───────────────────────
   const totalVenta        = calcTotal();
   const itemsVenta        = JSON.parse(JSON.stringify(cart));
-  const comprobante       = document.getElementById('compDisplay')?.textContent || '';
-  const efectivoEntregado = document.getElementById('efecVal')?.textContent || '';
-  const _vueltoRow        = document.getElementById('vueltoRow');
-  const vuelto            = (_vueltoRow && _vueltoRow.classList.contains('show'))
-                              ? (document.getElementById('vueltoAmt')?.textContent || '')
-                              : '';
+  const comprobante = document.getElementById('compDisplay') ? document.getElementById('compDisplay').textContent : '';
+
+  // Multi-moneda: capturar datos del pago antes de limpiar
+  var _mmActivoPago = localStorage.getItem('mm_activo') === '1';
+  var _mmCotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  var _mmCotARS = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+  var _mmPagosConf = null;
+  if (_mmActivoPago && (_mmVals.gs > 0 || _mmVals.brl > 0 || _mmVals.ars > 0)) {
+    var _mmBrlGs = Math.round(_mmVals.brl * _mmCotBRL);
+    var _mmArsGs = Math.round(_mmVals.ars * _mmCotARS);
+    var _mmTotalRec = _mmVals.gs + _mmBrlGs + _mmArsGs;
+    _mmPagosConf = {
+      pagoGS:    _mmVals.gs,
+      pagoBRL:   _mmVals.brl,   pagoBRLGs: _mmBrlGs,
+      pagoARS:   _mmVals.ars,   pagoARSGs: _mmArsGs,
+      cotBRL:    _mmCotBRL,
+      cotARS:    _mmCotARS,
+      totalGs:   _mmTotalRec,
+      vueltoGS:  Math.max(0, _mmTotalRec - totalVenta),
+    };
+  }
+
+  const efectivoEntregado = _mmPagosConf
+    ? gs(_mmPagosConf.totalGs)
+    : (document.getElementById('efecVal') ? document.getElementById('efecVal').textContent : '');
+  const _vueltoRow = document.getElementById('vueltoRow');
+  const vuelto = (_mmPagosConf && _mmPagosConf.vueltoGS > 0)
+    ? gs(_mmPagosConf.vueltoGS)
+    : ((_vueltoRow && _vueltoRow.classList.contains('show'))
+        ? (document.getElementById('vueltoAmt') ? document.getElementById('vueltoAmt').textContent : '')
+        : '');
   // Capturar descuento ANTES de resetTicketDescuento() y clearCart()
   const descTicketCopy    = ticketDescuento;
   const descMontoCopy     = calcDescuentoMonto();
@@ -892,6 +1082,11 @@ async function confirmarPago() {
   // Limpiar divPagos para que no contamine la próxima venta normal
   clearDivPagos();
 
+  // Limpiar valores multi-moneda
+  _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0;
+  var _mmSecLimpiar = document.getElementById('mmSec');
+  if (_mmSecLimpiar) _mmSecLimpiar.style.display = 'none';
+
   // Capturar supabasePedidoId ANTES de limpiar pendientes
   // para poder marcar el pedido satélite como cobrado en Supabase
   var _supabasePedidoId = null;
@@ -933,7 +1128,8 @@ async function confirmarPago() {
     clienteNombre:  clienteNombreCopy,
     efectivo:       efectivoEntregado,
     vuelto:         vuelto,
-    _supabasePedidoId, // UUID del pedido satélite (null si fue venta directa)
+    mmPagos:        _mmPagosConf,
+    _supabasePedidoId, // UUID del pedido satelite (null si fue venta directa)
   });
 
   // Sonido de cobro exitoso — la voz del total ya se dijo al entrar a scCobrar,
@@ -969,6 +1165,7 @@ async function confirmarPago() {
     divPagos:    divPagosCopia,
     clienteNombre: clienteNombreCopy,
     obs:         _obsGeneral,
+    mmPagos:     _mmPagosConf,
   });
   } finally {
     confirmarPago._running = false;

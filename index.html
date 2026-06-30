@@ -519,6 +519,34 @@
       </div>
     </div>
 
+    <!-- MULTI-MONEDA -->
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:700;padding:4px 0 8px;">Multi-moneda</div>
+    <div style="background:var(--bg-card);border-radius:8px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;">
+      <div class="general-field">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Multi-moneda</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Acepta Reales (BRL) y Pesos Arg. (ARS). Precios siempre en Gs. Vuelto siempre en Gs.</div>
+          </div>
+          <label class="toggle-switch" style="flex-shrink:0;">
+            <input type="checkbox" id="cfgMultiMoneda" onchange="saveGeneralConfig()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+      <div id="cfgMMPanel" style="display:none;">
+        <div class="general-field">
+          <span class="general-field-label">Cotizacion BRL — Gs por 1 Real</span>
+          <input class="general-field-input" id="cfgCotBRL" type="number" min="0" step="1" placeholder="Ej: 1100" oninput="saveGeneralConfig()">
+        </div>
+        <div class="general-field" style="border-bottom:none;">
+          <span class="general-field-label">Cotizacion ARS — Gs por 1 Peso Arg</span>
+          <input class="general-field-input" id="cfgCotARS" type="number" min="0" step="0.01" placeholder="Ej: 0.80" oninput="saveGeneralConfig()">
+        </div>
+        <div id="cfgMMUltAct" style="font-size:11px;color:var(--muted);padding:8px 14px 12px;"></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -1750,6 +1778,62 @@
         <span class="vuelto-amt" id="vueltoAmt">₲0</span>
       </div>
     </div>
+
+    <!-- PANEL MULTI-MONEDA — visible solo cuando mm_activo='1' -->
+    <div class="efec-sec" id="mmSec" style="display:none;">
+      <p class="efec-lbl">Pago multi-moneda <span style="color:var(--muted);font-size:11px;font-weight:500;">(vuelto siempre en Gs)</span></p>
+      <!-- Fila Guaranies -->
+      <div style="margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;min-width:36px;text-align:right;">GS</span>
+          <div class="efec-row" onclick="openNP('mm_gs')" style="flex:1;margin:0;">
+            <span class="efec-val" id="mmGsVal">₲0</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <!-- Fila Reales -->
+      <div style="margin-bottom:6px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;font-weight:800;color:#4fc3f7;letter-spacing:.5px;min-width:36px;text-align:right;">R$</span>
+          <div class="efec-row" onclick="openNP('mm_brl')" style="flex:1;margin:0;">
+            <span class="efec-val" id="mmBrlVal">0</span>
+            <span id="mmBrlEq" style="font-size:12px;color:var(--muted);margin-right:6px;white-space:nowrap;">= ₲0</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <!-- Fila Pesos Arg -->
+      <div style="margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:11px;font-weight:800;color:#a5d6a7;letter-spacing:.5px;min-width:36px;text-align:right;">ARS</span>
+          <div class="efec-row" onclick="openNP('mm_ars')" style="flex:1;margin:0;">
+            <span class="efec-val" id="mmArsVal">0</span>
+            <span id="mmArsEq" style="font-size:12px;color:var(--muted);margin-right:6px;white-space:nowrap;">= ₲0</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
+        </div>
+      </div>
+      <!-- Billetes rapidos GS -->
+      <div class="billetes-quick">
+        <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(5000)">5k</button>
+        <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(10000)">10k</button>
+        <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(20000)">20k</button>
+        <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(50000)">50k</button>
+        <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(100000)">100k</button>
+        <button type="button" class="billete-quick-btn justo" onclick="setEfectivoJusto()">JUSTO</button>
+      </div>
+      <!-- Totales MM -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;padding:8px 0 4px;border-top:1px solid var(--border);">
+        <span style="font-size:12px;color:var(--muted);font-weight:600;letter-spacing:.3px;text-transform:uppercase;">Total recibido</span>
+        <span id="mmTotalRec" style="font-size:17px;font-weight:800;color:var(--text);">₲0</span>
+      </div>
+      <div class="vuelto-row" id="mmVueltoRow">
+        <span class="vuelto-lbl">Vuelto (Gs)</span>
+        <span class="vuelto-amt" id="mmVueltoAmt">₲0</span>
+      </div>
+    </div>
+
     <div class="pay-list">
       <button class="pay-btn sel" onclick="selPay(this,'efectivo')">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
