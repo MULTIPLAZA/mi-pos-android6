@@ -73,6 +73,17 @@ function goTo(id) {
 
 // Manejar botón atrás del navegador/Android
 window.addEventListener('popstate', function(e) {
+  // Cerrar modales flotantes primero
+  const pesoOv = document.getElementById('pesoModalOv');
+  if(pesoOv && pesoOv.classList.contains('open')){
+    pesoOv.classList.remove('open');
+    return;
+  }
+  const precioOv = document.getElementById('precioModalOv');
+  if(precioOv && precioOv.classList.contains('open')){
+    precioOv.classList.remove('open');
+    return;
+  }
   const screen = e.state && e.state.screen;
   if (screen) {
     // Navegar a la pantalla anterior sin pushear al historial

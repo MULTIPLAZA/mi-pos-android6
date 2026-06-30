@@ -967,10 +967,12 @@ function addCartConPeso(id){
   _renderPesoNumpad();
   _updPesoDisp();
   document.getElementById('pesoModalOv').classList.add('open');
+  if(window.history && window.history.pushState)
+    window.history.pushState({ modal: 'peso' }, '');
 }
 
 function closePesoModal(e){
-  if(e.target === document.getElementById('pesoModalOv'))
+  if(!e || e.target === document.getElementById('pesoModalOv'))
     document.getElementById('pesoModalOv').classList.remove('open');
 }
 
