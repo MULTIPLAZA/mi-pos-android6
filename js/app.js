@@ -492,7 +492,7 @@ function renderTkt(){
           `<button class="qbtn" onclick="abrirObsRapida(${i.lineId})" title="${i.obs?'Editar observación':'Agregar observación'}" style="color:${i.obs?'var(--orange)':'var(--muted)'};">`+
             `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`+
           `</button>`+
-          `<button class="qbtn" onclick="chgQty(${i.lineId},-1)">−</button><span class="qnum">${i.qty}</span><button class="qbtn" onclick="chgQty(${i.lineId},1)">+</button>`+
+          `<button class="qbtn" onclick="chgQty(${i.lineId},-1)">−</button><span class="qnum">${i.esKilo ? (parseFloat(i.qty)||0).toFixed(3)+' kg' : i.qty}</span><button class="qbtn" onclick="chgQty(${i.lineId},1)">+</button>`+
         `</div>`+
         `<div class="tiprice">${gs(i.price*i.qty)}</div>`+
       `</div>`
@@ -767,18 +767,20 @@ function _getImgSrcSync(p){
 }
 
 function _tileProd(p){
+  var kiloBadge = p.esKilo ? '<span style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,.45);color:#fff;font-size:9px;font-weight:800;border-radius:4px;padding:1px 5px;letter-spacing:.3px;">&#9878; kg</span>' : '';
   const imgSrc = _getImgSrcSync(p);
   if(imgSrc){
-    return '<div class="ptile ptile-img" style="background:'+getProductColor(p)+';" onclick="addCart('+p.id+',this)">'+
+    return '<div class="ptile ptile-img" style="position:relative;background:'+getProductColor(p)+';" onclick="addCart('+p.id+',this)">'+
       '<img src="'+imgSrc+'" class="ptile-img-bg" onerror="this.style.display=\'none\'" loading="lazy">'+
       '<div class="ptile-img-overlay"></div>'+
       '<span class="pname ptile-img-name">'+p.name+'</span>'+
+      kiloBadge+
     '</div>';
   }
   if(p.itemLibre){
-    return '<div class="ptile" style="background:#37474f;border:2px dashed #78909c;box-sizing:border-box;" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span></div>';
+    return '<div class="ptile" style="position:relative;background:#37474f;border:2px dashed #78909c;box-sizing:border-box;" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span>'+kiloBadge+'</div>';
   }
-  return '<div class="ptile" style="background:'+getProductColor(p)+'" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span></div>';
+  return '<div class="ptile" style="position:relative;background:'+getProductColor(p)+'" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span>'+kiloBadge+'</div>';
 }
 
 function renderP(list){
@@ -827,6 +829,24 @@ function _filterPInternal(){
     if(libre) l = [...l, libre];
   }
   renderP(l);
+  renderKiloStrip();
+}
+
+function renderKiloStrip(){
+  var strip = document.getElementById('kilo-strip');
+  if(!strip) return;
+  var kilos = (PRODS||[]).filter(function(p){
+    return p.esKilo && p.activo!==false && p.activo!==0 && !p.itemLibre;
+  });
+  if(!kilos.length){ strip.style.display='none'; return; }
+  strip.style.display='flex';
+  strip.innerHTML = kilos.map(function(p){
+    return '<div class="kilo-tile" onclick="addCart('+p.id+',this)" style="background:'+getProductColor(p)+'">'
+      +'<span class="kilo-tile-ico">&#9878;</span>'
+      +'<span class="kilo-tile-nom">'+p.name+'</span>'
+      +'<span class="kilo-tile-pre">'+gn(p.price)+'/kg</span>'
+      +'</div>';
+  }).join('');
 }
 
 function renderDescuentosTiles(){
@@ -1054,6 +1074,13 @@ function renderDetalle(){
 }
 function detChgQty(lineId, delta){
   const idx = cart.findIndex(l=>l.lineId===lineId); if(idx<0) return;
+  if(cart[idx].esKilo){
+    if(delta > 0){ addCartConPeso(cart[idx].id); return; }
+    cart.splice(idx,1);
+    updUI(); updBtnGuardar();
+    if(calcTotal()===0){ goTo('scSale'); return; }
+    renderDetalle(); return;
+  }
   cart[idx].qty += delta;
   if(cart[idx].qty <= 0) cart.splice(idx,1);
   updUI(); updBtnGuardar();

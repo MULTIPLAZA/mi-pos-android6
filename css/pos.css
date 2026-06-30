@@ -2449,3 +2449,33 @@
 
   @keyframes _ripple { to { transform:scale(1); opacity:0; } }
   .tbadge { transition:transform .15s ease; }
+
+  /* ── KILO STRIP ─────────────────────────────────────── */
+  #kilo-strip {
+    display: flex;
+    gap: 6px;
+    padding: 6px 8px;
+    overflow-x: auto;
+    background: rgba(46,125,50,.08);
+    border-bottom: 1px solid rgba(46,125,50,.2);
+    flex-shrink: 0;
+    scrollbar-width: none;
+  }
+  #kilo-strip::-webkit-scrollbar { display: none; }
+  .kilo-tile {
+    flex-shrink: 0;
+    min-width: 70px;
+    border-radius: 8px;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+  }
+  .kilo-tile:active { opacity: .7; }
+  .kilo-tile-ico  { font-size: 14px; }
+  .kilo-tile-nom  { font-size: 10px; font-weight: 800; color: #fff; text-align: center; line-height: 1.2; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kilo-tile-pre  { font-size: 10px; color: rgba(255,255,255,.75); }

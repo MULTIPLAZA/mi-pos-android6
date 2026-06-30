@@ -433,8 +433,9 @@ function abrirProdPanel(prod){
   var pre  = prod ? (prod.precio||0)              : '';
   var cos  = prod ? (prod.costo||0)               : '';
   var iva  = prod ? (prod.iva||'10')              : '10';
-  var preV = prod ? !!prod.precio_variable        : false;
-  var com  = prod ? !!prod.comanda                : false;
+  var preV   = prod ? !!prod.precio_variable        : false;
+  var com    = prod ? !!prod.comanda                : false;
+  var esKilo = prod ? !!prod.es_kilo                : false;
   var col  = prod ? (prod.color||'#546e7a')       : '#546e7a';
   var cod  = prod ? _esc(prod.codigo||'')         : '';
   var fotoUrl = prod ? (prod.foto_url||'') : '';
@@ -504,6 +505,10 @@ function abrirProdPanel(prod){
             +'<input type="checkbox" id="ppCom"'+(com?' checked':'')+' style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">'
             +'<span style="font-size:13px;font-weight:600">Va a comanda</span></label>'
         +'</div>'
+        // Toggle kilo — fila propia debajo del grid
+        +'<label style="display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer">'
+          +'<input type="checkbox" id="ppEsKilo"'+(esKilo?' checked':'')+' style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">'
+          +'<span style="font-size:13px;font-weight:600">&#9878; Vender por kg</span></label>'
         // Color + Código
         +'<div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:end">'
           +'<div><label style="'+LBL+'">Color</label>'
@@ -556,6 +561,7 @@ async function _guardarProd(){
     precio:preV?0:pre, costo:cos, iva:iva,
     precio_variable:preV, comanda:com,
     color:col, codigo:cod,
+    es_kilo:document.getElementById('ppEsKilo').checked,
     activo:true, es_insumo:false, licencia_email:SE,
     updated_at:new Date().toISOString()
   };

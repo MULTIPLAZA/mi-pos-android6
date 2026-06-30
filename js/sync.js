@@ -114,6 +114,7 @@ async function dbSaveProducto(prod){
     item_libre:     prod.itemLibre || false,
     activo:         prod.activo !== false,
     imagen:         prod.imagen || null,
+    es_kilo:        prod.esKilo || false,
     updatedAt:      new Date().toISOString(),
   };
   await db.productos.put(data);
@@ -154,6 +155,7 @@ async function dbLoadProductos(){
         esDescuento:    p.es_descuento || false,
         descTipo:       p.desc_tipo || null,
         descValor:      p.desc_valor != null ? p.desc_valor : null,
+        esKilo:         p.es_kilo || false,
       });
     });
     _log('[DB] Productos cargados:', PRODS.length);
@@ -169,6 +171,7 @@ async function dbLoadProductos(){
     if(typeof CATEGORIAS !== 'undefined' && CATEGORIAS.length === 0 && typeof derivarCategoriasDeProductos === 'function'){
       derivarCategoriasDeProductos();
     }
+    if(typeof renderKiloStrip === 'function') renderKiloStrip();
   } catch(e){ console.warn('[DB] Productos no disponibles aún:', e.message); }
 }
 

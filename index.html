@@ -1145,6 +1145,22 @@
   </div>
 </div>
 
+<!-- MODAL PESO / KILO -->
+<div class="precio-modal-overlay" id="pesoModalOv" onclick="closePesoModal(event)">
+  <div class="precio-modal">
+    <div class="precio-modal-title" id="pesoModalNombre">Producto</div>
+    <div class="precio-modal-sub" id="pesoModalSub">&#8370; 0 / kg</div>
+    <div style="display:flex;gap:6px;margin-bottom:12px;">
+      <button id="pesoTabKg" type="button" onclick="setPesoModo('kg')" style="flex:1;background:var(--green);border:1.5px solid var(--green);border-radius:7px;color:#fff;font-family:Barlow,sans-serif;font-size:13px;font-weight:700;padding:8px;cursor:pointer">&#9878; KILOS</button>
+      <button id="pesoTabGs" type="button" onclick="setPesoModo('gs')" style="flex:1;background:var(--card2);border:1.5px solid var(--border);border-radius:7px;color:var(--text2);font-family:Barlow,sans-serif;font-size:13px;font-weight:700;padding:8px;cursor:pointer">&#8370; IMPORTE</button>
+    </div>
+    <div class="np-lbl" id="pesoModalLbl" style="margin-bottom:4px;">Kilos</div>
+    <div class="np-disp" id="pesoModalDisp">0 kg</div>
+    <div style="text-align:center;font-size:13px;color:var(--muted);margin-top:-6px;margin-bottom:8px;" id="pesoModalRes">= &#8370; 0</div>
+    <div class="np-grid" id="pesoNumpadGrid" style="margin-top:10px;"></div>
+  </div>
+</div>
+
 <!-- ══════════════════════════════════════════
      DRAWER MENÚ LATERAL
 ══════════════════════════════════════════ -->
@@ -1574,6 +1590,7 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
         </button>
       </div>
+<div id="kilo-strip" style="display:none;"></div>
 <div class="products-grid" id="pgrid"></div>
     </div>
 

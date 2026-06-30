@@ -945,6 +945,132 @@ function pmOK(){
   if(showTkt) renderTkt();
 }
 
+// ── VENTA POR KILO ───────────────────────────────────────────────────────────
+var _pesoModo    = 'kg'; // 'kg' o 'gs'
+var _pesoVal     = '';
+var _pesoProdId  = null;
+
+function addCartConPeso(id){
+  var p = PRODS.find(function(x){ return x.id === id; });
+  if(!p) return;
+  _pesoProdId = id;
+  _pesoModo   = 'kg';
+  _pesoVal    = '';
+  document.getElementById('pesoModalNombre').textContent = p.name;
+  document.getElementById('pesoModalSub').textContent    = gs(p.price) + ' / kg';
+  _renderPesoNumpad();
+  _updPesoDisp();
+  document.getElementById('pesoModalOv').classList.add('open');
+}
+
+function closePesoModal(e){
+  if(e.target === document.getElementById('pesoModalOv'))
+    document.getElementById('pesoModalOv').classList.remove('open');
+}
+
+function setPesoModo(modo){
+  _pesoModo = modo;
+  _pesoVal  = '';
+  var tabKg = document.getElementById('pesoTabKg');
+  var tabGs = document.getElementById('pesoTabGs');
+  if(tabKg){
+    tabKg.style.background   = modo==='kg' ? 'var(--green)' : 'var(--card2)';
+    tabKg.style.borderColor  = modo==='kg' ? 'var(--green)' : 'var(--border)';
+    tabKg.style.color        = modo==='kg' ? '#fff'         : 'var(--text2)';
+  }
+  if(tabGs){
+    tabGs.style.background   = modo==='gs' ? 'var(--green)' : 'var(--card2)';
+    tabGs.style.borderColor  = modo==='gs' ? 'var(--green)' : 'var(--border)';
+    tabGs.style.color        = modo==='gs' ? '#fff'         : 'var(--text2)';
+  }
+  _renderPesoNumpad();
+  _updPesoDisp();
+}
+
+function _renderPesoNumpad(){
+  var grid = document.getElementById('pesoNumpadGrid');
+  if(!grid) return;
+  var nb   = 'background:#2a2a2a;border:1px solid #3a3a3a;border-radius:8px;color:#fff;font-family:\'Barlow\',sans-serif;font-weight:600;font-size:20px;padding:15px 0;cursor:pointer;width:100%;';
+  var keys = _pesoModo === 'kg'
+    ? ['1','2','3','4','5','6','7','8','9','.','0','⌫']
+    : ['1','2','3','4','5','6','7','8','9','000','0','⌫'];
+  var html = '';
+  for(var ki = 0; ki < keys.length; ki++){
+    var d   = keys[ki];
+    var act = d==='⌫' ? 'pmKD()' : 'pmKP(\''+d+'\')';
+    var fsz = (d==='000') ? '16' : '20';
+    html += '<button onclick="'+act+'" style="'+nb+'font-size:'+fsz+'px;">'+d+'</button>';
+  }
+  html += '<button onclick="pmKiloOK()" style="'+nb+'grid-column:span 3;background:var(--green);font-size:16px;border:none;letter-spacing:.5px;">AGREGAR AL TICKET</button>';
+  grid.innerHTML = html;
+}
+
+function pmKP(d){
+  if(_pesoModo === 'kg'){
+    if(d==='.' && _pesoVal.indexOf('.') >= 0) return;
+    if(_pesoVal === '' && d==='.') _pesoVal = '0';
+    _pesoVal += d;
+    if(_pesoVal.length > 8) _pesoVal = _pesoVal.slice(0,-1);
+  } else {
+    if(_pesoVal === '0' && d !== '000') _pesoVal = d;
+    else _pesoVal += d;
+    if(_pesoVal.length > 10) _pesoVal = _pesoVal.slice(0,-1);
+  }
+  _updPesoDisp();
+}
+
+function pmKD(){
+  _pesoVal = _pesoVal.slice(0,-1);
+  _updPesoDisp();
+}
+
+function _updPesoDisp(){
+  var disp = document.getElementById('pesoModalDisp');
+  var res  = document.getElementById('pesoModalRes');
+  var lbl  = document.getElementById('pesoModalLbl');
+  var p    = _pesoProdId ? PRODS.find(function(x){ return x.id === _pesoProdId; }) : null;
+  if(!p) return;
+  if(_pesoModo === 'kg'){
+    var kg    = parseFloat(_pesoVal) || 0;
+    var total = Math.round(kg * p.price);
+    if(lbl)  lbl.textContent  = 'Kilos';
+    if(disp) disp.textContent = (_pesoVal||'0') + ' kg';
+    if(res)  res.textContent  = '= ' + gs(total) + ' Gs.';
+  } else {
+    var monto = parseInt(_pesoVal) || 0;
+    var kgs   = p.price > 0 ? monto / p.price : 0;
+    if(lbl)  lbl.textContent  = 'Importe (₲)';
+    if(disp) disp.textContent = gs(monto) + ' Gs.';
+    if(res)  res.textContent  = '= ' + (kgs > 0 ? kgs.toFixed(3) + ' kg' : '0.000 kg');
+  }
+}
+
+function pmKiloOK(){
+  var p = _pesoProdId ? PRODS.find(function(x){ return x.id === _pesoProdId; }) : null;
+  if(!p) return;
+  var kg = 0;
+  if(_pesoModo === 'kg'){
+    kg = parseFloat(_pesoVal) || 0;
+  } else {
+    var monto = parseInt(_pesoVal) || 0;
+    kg = p.price > 0 ? monto / p.price : 0;
+  }
+  if(kg <= 0){ toast('Ingresá un peso o importe'); return; }
+  var total  = Math.round(kg * p.price);
+  var lineId = Date.now()*1000 + Math.floor(Math.random()*1000);
+  var item   = {
+    lineId: lineId, id: p.id, name: p.name, price: p.price,
+    qty: kg, obs: '', enviado: false, iva: p.iva, color: p.color,
+    cat: p.cat, esKilo: true
+  };
+  cart.push(item);
+  document.getElementById('pesoModalOv').classList.remove('open');
+  updUI(); updBtnGuardar();
+  toast('+' + p.name.substring(0,16) + ' \xb7 ' + gs(total));
+  if(typeof sndTap === 'function') sndTap();
+  if(showTkt) renderTkt();
+}
+
 // ── CATEGORÍAS ───────────────────────────────────────────────────────────────
 let catEditIdx = -1;
 let catColorSel = '#e65100';

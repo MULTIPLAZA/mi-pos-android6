@@ -115,6 +115,7 @@ function addCart(id, tileEl){
     if(typeof toast === 'function') toast('No se puede vender un insumo');
     return;
   }
+  if(p.esKilo){ addCartConPeso(id); return; }
   if(p.precioVariable){ addCartConPrecioVariable(id); return; }
 
   // Detectar modificadores del producto
@@ -155,6 +156,13 @@ function chgQty(lineId,d){
   const idx=cart.findIndex(l=>l.lineId===lineId);
   if(idx<0)return;
   if(cart[idx].esDelivery) return;
+  if(cart[idx].esKilo){
+    if(d > 0){ addCartConPeso(cart[idx].id); return; }
+    cart.splice(idx, 1);
+    updUI(); updBtnGuardar();
+    if(showTkt) renderTkt();
+    return;
+  }
   cart[idx].qty+=d;
   if(cart[idx].qty<=0) cart.splice(idx,1);
   updUI(); updBtnGuardar(); renderTkt();

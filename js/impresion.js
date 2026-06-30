@@ -347,13 +347,22 @@ function generarHTMLTicket(data, size){
 
   // Items — nombre en línea 1, cant × pu = sub en línea 2
   data.items.forEach(item => {
-    const subtot = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : item.price*item.qty;
+    const subtot = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : Math.round(item.price*item.qty);
     lineas += '<p class="it-nom">'+item.name+'</p>';
-    lineas += '<p class="it-det">'
-      +'<span class="qty">'+item.qty+' × '+gn(item.price)+'</span>'
-      +'<span class="pu"></span>'
-      +'<span class="sub">'+gn(subtot)+'</span>'
-      +'</p>';
+    if(item.esKilo){
+      const kg = parseFloat(item.qty)||0;
+      lineas += '<p class="it-det">'
+        +'<span class="qty">'+kg.toFixed(3)+' kg \xd7 '+gn(item.price)+'/kg</span>'
+        +'<span class="pu"></span>'
+        +'<span class="sub">'+gn(subtot)+'</span>'
+        +'</p>';
+    } else {
+      lineas += '<p class="it-det">'
+        +'<span class="qty">'+item.qty+' \xd7 '+gn(item.price)+'</span>'
+        +'<span class="pu"></span>'
+        +'<span class="sub">'+gn(subtot)+'</span>'
+        +'</p>';
+    }
     if(item.desc>0) lineas += '<p class="obs">  Desc: '+item.desc+'%</p>';
     if(item.obs)    lineas += '<p class="obs">  '+item.obs+'</p>';
   });
@@ -3027,9 +3036,17 @@ var BTPrinter = {
         return;
       }
       txt += item.name + n;
-      var detalle  = '  ' + item.qty + ' x ' + gs(item.price);
-      var subtotal = gs(item.price * item.qty * (1 - (item.desc||0)/100));
-      txt += pad(detalle, subtotal) + n;
+      if(item.esKilo){
+        var kg     = parseFloat(item.qty) || 0;
+        var kgStr  = kg.toFixed(3).replace('.', ',');
+        var detKg  = '  ' + kgStr + ' kg x ' + gs(item.price);
+        var subKg  = gs(Math.round(kg * item.price));
+        txt += pad(detKg, subKg) + n;
+      } else {
+        var detalle  = '  ' + item.qty + ' x ' + gs(item.price);
+        var subtotal = gs(item.price * item.qty * (1 - (item.desc||0)/100));
+        txt += pad(detalle, subtotal) + n;
+      }
       if (item.obs) txt += '  (' + item.obs + ')' + n;
     });
 
