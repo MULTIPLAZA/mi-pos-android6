@@ -267,7 +267,7 @@ function _imprimirConCSSMedia(html, mmW){
 }
 
 // Formatear número guaraní sin símbolo (para ticket)
-function gn(n){ return Math.round(n||0).toLocaleString('es-PY'); }
+function gn(n){ var s=String(Math.round(n||0)); return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
 
 // Padding derecho para columnas
 function padL(s,n){ s=String(s); return s.length>=n?s.substring(0,n):s+' '.repeat(n-s.length); }
@@ -2954,7 +2954,7 @@ var BTPrinter = {
       var sp = Math.max(0, Math.floor((cols - t.length) / 2));
       return ' '.repeat(sp) + t;
     }
-    function gs(v) { return Math.round(v||0).toLocaleString('es-PY'); }
+    function gs(v) { var s=String(Math.round(v||0)); return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
     // Partir texto largo en múltiples líneas
     function wrap(label, value, indent) {
       if (!value) return '';
@@ -2977,10 +2977,18 @@ var BTPrinter = {
     var txt = '';
 
     // ── ENCABEZADO ──────────────────────────────────────
-    if (cfg.negocio) txt += '[CENTER][BOLD]' + cfg.negocio.toUpperCase() + '[/BOLD][/CENTER]' + n;
-    if (cfg.ruc)     txt += '[CENTER]RUC ' + cfg.ruc + '[/CENTER]' + n;
-    if (cfg.direccion) txt += '[CENTER]' + cfg.direccion + '[/CENTER]' + n;
-    if (cfg.telefono)  txt += '[CENTER]Tel: ' + cfg.telefono + '[/CENTER]' + n;
+    if (cfg.negocio) {
+      cfg.negocio.toUpperCase().split(/\r?\n/).forEach(function(line){
+        if(line.trim()) txt += '[BOLD]' + ctr(line.trim()) + '[/BOLD]' + n;
+      });
+    }
+    if (cfg.ruc)       txt += ctr('RUC ' + cfg.ruc) + n;
+    if (cfg.direccion) {
+      cfg.direccion.split(/\r?\n/).forEach(function(line){
+        if(line.trim()) txt += ctr(line.trim()) + n;
+      });
+    }
+    if (cfg.telefono)  txt += ctr('Tel: ' + cfg.telefono) + n;
     txt += sep + n;
 
     // ── DATOS DEL TICKET ─────────────────────────────────
@@ -3095,7 +3103,8 @@ var BTPrinter = {
       txt += 'DUPLICADO: ARCHIVO TRIBUTARIO' + n;
     } else {
       txt += sep2 + n;
-      txt += ctr('Comprobante no valido para el IVA') + n;
+      txt += ctr('Comprobante no valido') + n;
+      txt += ctr('para el IVA') + n;
     }
 
     // ── PIE ───────────────────────────────────────────────
