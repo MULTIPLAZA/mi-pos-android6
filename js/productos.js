@@ -1990,6 +1990,8 @@ async function supaLoadProductos(){
         inventario:     p.inventario || false,
         esInsumo:       p.es_insumo === true,
         comanda:        p.comanda || false,
+        esKilo:         p.es_kilo || false,
+        esFavorito:     p.es_favorito || false,
         itemLibre:      false,
         activo:         p.activo !== false && p.activo !== 0,
         imagen:         p.imagen || null,
