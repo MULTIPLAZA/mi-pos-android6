@@ -821,12 +821,12 @@ function _filterPInternal(){
            .filter(p=>!p.itemLibre && !p.esInsumo && p.activo!==false && p.activo!==0);
   if(q) l = l.filter(p=>p.name.toLowerCase().includes(q) || (p.codigo && p.codigo.toLowerCase().includes(q)));
 
-  // Kilo al tope, ítem libre siempre al final
+  // Favoritos al tope, ítem libre siempre al final
   if(!q){
-    const kilos  = l.filter(p=> p.esKilo && !p.itemLibre);
-    const resto  = l.filter(p=>!p.esKilo && !p.itemLibre);
-    const libre  = PRODS.find(p=>p.itemLibre);
-    l = libre ? [...kilos, ...resto, libre] : [...kilos, ...resto];
+    const favs  = l.filter(p=> p.esFavorito && !p.itemLibre);
+    const resto = l.filter(p=>!p.esFavorito && !p.itemLibre);
+    const libre = PRODS.find(p=>p.itemLibre);
+    l = libre ? [...favs, ...resto, libre] : [...favs, ...resto];
   }
   renderP(l);
 }

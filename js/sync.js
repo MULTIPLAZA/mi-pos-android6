@@ -115,6 +115,7 @@ async function dbSaveProducto(prod){
     activo:         prod.activo !== false,
     imagen:         prod.imagen || null,
     es_kilo:        prod.esKilo || false,
+    es_favorito:    prod.esFavorito || false,
     updatedAt:      new Date().toISOString(),
   };
   await db.productos.put(data);
@@ -156,6 +157,7 @@ async function dbLoadProductos(){
         descTipo:       p.desc_tipo || null,
         descValor:      p.desc_valor != null ? p.desc_valor : null,
         esKilo:         p.es_kilo || false,
+        esFavorito:     p.es_favorito || false,
       });
     });
     _log('[DB] Productos cargados:', PRODS.length);
