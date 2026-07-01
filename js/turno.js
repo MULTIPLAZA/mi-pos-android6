@@ -430,7 +430,12 @@ async function renderTurno(){
   const totalVentas = turnoData.ventas.reduce((s,v)=>s+v.total, 0);
   const totalEgresos = turnoData.egresos.filter(e=>!e.anulada).reduce((s,e)=>s+e.monto, 0);
   const totalIngresos = turnoData.ingresos.reduce((s,i)=>s+i.monto, 0);
-  const saldoEsperado = turnoData.efectivoInicial + totalVentas + totalIngresos - totalEgresos;
+  // Las ventas fiado no representan plata que entró — se excluyen del saldo de caja.
+  // Los cobros de fiado (turnoData.ingresos) sí representan plata recibida.
+  const totalVentasEfectivas = turnoData.ventas
+    .filter(v => (v.metodo||'').toUpperCase().trim() !== 'CRÉDITO')
+    .reduce((s,v) => s+v.total, 0);
+  const saldoEsperado = turnoData.efectivoInicial + totalVentasEfectivas + totalIngresos - totalEgresos;
 
   // Por método de pago — desglosa divPagos si existe, o el string compuesto
   const metodos = {};
@@ -1083,6 +1088,12 @@ function cerrarTurno(){
   if(!metodos['EFECTIVO'])metodos['EFECTIVO']={esperado:0,contado:0};
   metodos['EFECTIVO'].esperado += turnoData.efectivoInicial;
   metodos['EFECTIVO'].esperado -= turnoData.egresos.filter(e=>!e.anulada).reduce((s,e)=>s+e.monto,0);
+  // Cobros de fiado: el efectivo/transferencia cobrado sí entra a caja
+  (turnoData.ingresos||[]).forEach(function(ing){
+    var m = (ing.metodo||'efectivo').toUpperCase().trim();
+    if(!metodos[m]) metodos[m]={esperado:0,contado:0};
+    metodos[m].esperado += ing.monto;
+  });
   cierreTotal = 0; desgloseVisible = false;
   cierreArqueoGS = 0; cierreArqueoBRL = 0; cierreArqueoARS = 0;
   const _td = document.getElementById('cierreVal_TOTAL'); if(_td) _td.textContent='₲0';
@@ -1146,10 +1157,12 @@ function toggleDesglose(){
 }
 
 function calcSaldoEsperado(){
-  const totalVentas = turnoData.ventas.reduce((s,v)=>s+v.total,0);
-  const totalEgresos = turnoData.egresos.filter(e=>!e.anulada).reduce((s,e)=>s+e.monto,0);
+  const totalVentasEfectivas = turnoData.ventas
+    .filter(v=>(v.metodo||'').toUpperCase().trim()!=='CRÉDITO')
+    .reduce((s,v)=>s+v.total,0);
+  const totalEgresos  = turnoData.egresos.filter(e=>!e.anulada).reduce((s,e)=>s+e.monto,0);
   const totalIngresos = turnoData.ingresos.reduce((s,i)=>s+i.monto,0);
-  return turnoData.efectivoInicial + totalVentas + totalIngresos - totalEgresos;
+  return turnoData.efectivoInicial + totalVentasEfectivas + totalIngresos - totalEgresos;
 }
 
 const METODO_ICONS = {
