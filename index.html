@@ -543,7 +543,17 @@
           <span class="general-field-label">Cotizacion ARS — Gs por 1 Peso Arg</span>
           <input class="general-field-input" id="cfgCotARS" type="number" min="0" step="0.01" placeholder="Ej: 0.80" oninput="saveGeneralConfig()">
         </div>
-        <div id="cfgMMUltAct" style="font-size:11px;color:var(--muted);padding:8px 14px 12px;"></div>
+        <div style="padding:0 14px 12px;">
+          <button type="button" onclick="consultarTipoBCP()" id="btnBCP" style="width:100%;background:var(--b2);border:1.5px solid var(--blue);border-radius:7px;color:var(--blue);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            Consultar tipo de cambio (referencia BCP)
+          </button>
+          <div id="bcpResult" style="display:none;margin-top:10px;background:var(--bg-dark);border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:6px;" id="bcpFecha"></div>
+            <div style="display:flex;flex-direction:column;gap:6px;" id="bcpRates"></div>
+          </div>
+        </div>
+        <div id="cfgMMUltAct" style="font-size:11px;color:var(--muted);padding:4px 14px 12px;"></div>
       </div>
     </div>
 

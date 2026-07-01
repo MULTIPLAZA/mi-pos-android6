@@ -2402,3 +2402,51 @@ function _crearYVenderExterno(fila, codigo){
   _crearProductoNuevo(codigo, nombre, precio);
 }
 
+
+// ── CONSULTA TIPO DE CAMBIO (referencia BCP/ExchangeRate-API) ─────────────────
+async function consultarTipoBCP(){
+  var btn = document.getElementById('btnBCP');
+  var res = document.getElementById('bcpResult');
+  if(btn) btn.textContent = 'Consultando...';
+  try {
+    var r = await fetch('/api/cotizacion');
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    var data = await r.json();
+    if(!data.ok) throw new Error(data.error || 'Sin datos');
+
+    var cotBRL = data.cotBRL;
+    var cotARS = data.cotARS;
+    var fecha  = data.fecha || '';
+
+    document.getElementById('bcpFecha').textContent = 'Fuente: ' + data.fuente + (fecha ? ' — ' + fecha : '');
+    document.getElementById('bcpRates').innerHTML =
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
+        +'<span style="font-size:13px;font-weight:600;">🇧🇷 1 Real (BRL)</span>'
+        +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+gn(cotBRL)+'</span>'
+        +'<button onclick="usarTipoBCP(\'brl\','+cotBRL+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">'
+        +'<span style="font-size:13px;font-weight:600;">🇦🇷 1 Peso (ARS)</span>'
+        +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+cotARS+'</span>'
+        +'<button onclick="usarTipoBCP(\'ars\','+cotARS+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
+      +'</div>';
+
+    if(res) res.style.display = 'block';
+  } catch(e){
+    toast('Error al consultar: ' + e.message);
+  }
+  if(btn){
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> Consultar tipo de cambio (referencia BCP)';
+  }
+}
+
+function usarTipoBCP(moneda, valor){
+  if(moneda === 'brl'){
+    var el = document.getElementById('cfgCotBRL');
+    if(el){ el.value = valor; saveGeneralConfig(); }
+  } else {
+    var el2 = document.getElementById('cfgCotARS');
+    if(el2){ el2.value = valor; saveGeneralConfig(); }
+  }
+  toast('Cotización actualizada');
+}
