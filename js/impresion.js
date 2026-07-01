@@ -3111,6 +3111,18 @@ var BTPrinter = {
     if (_efecNum > 0) {
       txt += pad('Entregado', gs(_efecNum) + ' Gs.') + n;
     }
+    // Multi-moneda
+    if(data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0)){
+      var _mm = data.mmPagos;
+      txt += sep2 + n;
+      txt += ctr('DETALLE DE PAGO') + n;
+      if(_mm.pagoGS  > 0) txt += pad('  Guaranies', gs(_mm.pagoGS) + ' Gs.') + n;
+      if(_mm.pagoBRL > 0) txt += pad('  Reales', _mm.pagoBRL + ' R$ x ' + _mm.cotBRL) + n;
+      if(_mm.pagoBRL > 0) txt += pad('    = Gs.', gs(_mm.pagoBRLGs)) + n;
+      if(_mm.pagoARS > 0) txt += pad('  Pesos Arg.', _mm.pagoARS + ' $ x ' + _mm.cotARS) + n;
+      if(_mm.pagoARS > 0) txt += pad('    = Gs.', gs(_mm.pagoARSGs)) + n;
+      txt += pad('Total recibido', gs(_mm.totalGs) + ' Gs.') + n;
+    }
     if (_vueltoNum > 0) {
       txt += '[BOLD]' + pad('VUELTO', gs(_vueltoNum) + ' Gs.') + '[/BOLD]' + n;
     }
