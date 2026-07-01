@@ -3102,6 +3102,10 @@ var BTPrinter = {
         });
       } else {
         txt += pad(metodo, gs(data.total) + ' Gs.') + n;
+        // Crédito/Fiado: mostrar nombre del cliente
+        if (metodo === 'CRÉDITO' && data.clienteNombre) {
+          txt += '  A CUENTA: ' + data.clienteNombre + n;
+        }
         // Pix / Mercado Pago: mostrar equivalente en moneda extranjera
         if (data.pixMpPagos) {
           var _pm = data.pixMpPagos;
@@ -3347,6 +3351,16 @@ var BTPrinter = {
     }
 
     // Pagos digitales Pix / Mercado Pago
+    // Ventas a crédito del turno
+    if (data.creditoShiftTotal > 0) {
+      txt += '[BOLD]VENTAS A CRÉDITO[/BOLD]' + n;
+      txt += sep2 + n;
+      txt += pad('Total fiado:', gs2(data.creditoShiftTotal) + ' Gs.') + n;
+      txt += pad('Operaciones:', String(data.creditoShiftOps || 0)) + n;
+      if (data.ingresosFiadoTotal > 0) txt += pad('Cobros fiado:', gs2(data.ingresosFiadoTotal) + ' Gs.') + n;
+      txt += sep2 + n;
+    }
+
     if ((data.pixShiftBRL > 0) || (data.mpShiftARS > 0)) {
       txt += '[BOLD]PAGOS DIGITALES[/BOLD]' + n;
       txt += sep2 + n;

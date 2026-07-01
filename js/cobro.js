@@ -93,6 +93,13 @@ function _goCobrarSetup() {
   document.getElementById('compSec').classList.remove('open');
   document.getElementById('npLbl').textContent = 'Efectivo recibido';
 
+  // Reset estado crédito
+  if (typeof creditoClienteSel !== 'undefined') creditoClienteSel = null;
+  var _crSecEl = document.getElementById('creditoSec');
+  if (_crSecEl) _crSecEl.style.display = 'none';
+  var _piInfoEl = document.getElementById('pixMpInfo');
+  if (_piInfoEl) _piInfoEl.style.display = 'none';
+
   // goTo('scCobrar') lo hace goCobrar() en index.html — no duplicar navegación
   // Mostrar/ocultar botón comanda según config
   if(typeof updBtnComandaCobro === 'function') updBtnComandaCobro();
@@ -131,6 +138,18 @@ function selPay(btn, m) {
   if (m !== 'efectivo') {
     var efv = document.getElementById('efecVal'); if (efv) efv.textContent = '₲0';
     document.getElementById('vueltoRow').classList.remove('show');
+  }
+
+  // Panel crédito: visible solo cuando se selecciona 'credito'
+  var _crSec = document.getElementById('creditoSec');
+  if (_crSec) {
+    _crSec.style.display = (m === 'credito') ? 'block' : 'none';
+    if (m === 'credito') {
+      if (typeof updCreditoSecUI === 'function') updCreditoSecUI();
+      if (typeof creditoClienteSel === 'undefined' || !creditoClienteSel) {
+        setTimeout(function(){ if (typeof abrirClientePicker === 'function') abrirClientePicker(); }, 100);
+      }
+    }
   }
 
   // Panel de equivalente en moneda extranjera para Pix/MP
@@ -1102,6 +1121,17 @@ async function confirmarPago() {
     ? divPagosCopia.map(p => p.metodo).join(' + ')
     : document.querySelector('.pay-btn.sel')?.textContent?.trim() || 'Efectivo';
 
+  // Crédito/Fiado: validar que hay cliente seleccionado
+  var _isCredito = !esDividido && metodoPago.toLowerCase() === 'crédito';
+  if (_isCredito) {
+    if (typeof creditoClienteSel === 'undefined' || !creditoClienteSel) {
+      toast('Seleccioná un cliente para el crédito');
+      confirmarPago._running = false;
+      if (_btnConfirmar) _btnConfirmar.disabled = false;
+      return;
+    }
+  }
+
   // Pix / Mercado Pago: calcular equivalente en moneda extranjera
   var _pixMpPagosConf = null;
   if (!esDividido) {
@@ -1201,6 +1231,14 @@ async function confirmarPago() {
     pixMpPagos:     _pixMpPagosConf,
     _supabasePedidoId, // UUID del pedido satelite (null si fue venta directa)
   });
+
+  // Crédito/Fiado: registrar en el módulo de crédito
+  if (_isCredito && typeof fiadoRegistrar === 'function' && typeof creditoClienteSel !== 'undefined' && creditoClienteSel) {
+    fiadoRegistrar(creditoClienteSel.id, creditoClienteSel.nombre, nroTicket, totalVenta, _fechaVenta);
+    creditoClienteSel = null;
+    var _crResetEl = document.getElementById('creditoSec');
+    if (_crResetEl) _crResetEl.style.display = 'none';
+  }
 
   // Sonido de cobro exitoso — la voz del total ya se dijo al entrar a scCobrar,
   // y la voz del vuelto (si hay) también se dijo al calcularlo

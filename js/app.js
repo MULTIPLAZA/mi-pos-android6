@@ -1757,10 +1757,13 @@ async function confirmarCierre(){
     mmShiftBRLGs:  _mmShiftBRLGs,
     mmShiftARS:    _mmShiftARS,
     mmShiftARSGs:  _mmShiftARSGs,
-    pixShiftBRL:   _pixShiftBRL,
-    pixShiftBRLGs: _pixShiftBRLGs,
-    mpShiftARS:    _mpShiftARS,
-    mpShiftARSGs:  _mpShiftARSGs,
+    pixShiftBRL:        _pixShiftBRL,
+    pixShiftBRLGs:      _pixShiftBRLGs,
+    mpShiftARS:         _mpShiftARS,
+    mpShiftARSGs:       _mpShiftARSGs,
+    creditoShiftTotal:  (function(){ var s=0; turnoData.ventas.forEach(function(v){ if((v.metodo||'').toUpperCase()==='CRÉDITO') s+=v.total; }); return s; })(),
+    creditoShiftOps:    turnoData.ventas.filter(function(v){ return (v.metodo||'').toUpperCase()==='CRÉDITO'; }).length,
+    ingresosFiadoTotal: (turnoData.ingresos||[]).reduce(function(s,i){return s+i.monto;},0),
   };
   turnoBorrar();
   turnoData = { fechaApertura: null, efectivoInicial: 0, ventas: [], egresos: [], ingresos: [] };

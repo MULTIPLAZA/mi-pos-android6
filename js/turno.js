@@ -480,9 +480,20 @@ async function renderTurno(){
   if(totalEgresos > 0)
     html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gs(totalEgresos) + '</span></div>';
   if(totalIngresos > 0)
-    html += '<div class="turno-row"><span class="turno-row-label">Ingresos de caja</span><span class="turno-row-val green">+' + gs(totalIngresos) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gs(totalIngresos) + '</span></div>';
   html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gs(saldoEsperado) + '</span></div>';
   html += '</div>';
+
+  // ── Ventas a crédito del turno ──
+  const ventasCredito = turnoData.ventas.filter(v => (v.metodo||'').toUpperCase() === 'CRÉDITO');
+  if (ventasCredito.length > 0) {
+    const totalCredito = ventasCredito.reduce((s,v) => s+v.total, 0);
+    html += '<div class="turno-section" style="border-left:3px solid #ff9800;">';
+    html += '<div class="turno-section-title" style="color:#ff9800;">Ventas a crédito (fiado)</div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">₲' + gs(totalCredito) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label sub">' + ventasCredito.length + ' venta' + (ventasCredito.length!==1?'s':'') + '</span><button onclick="abrirCredito()" style="background:transparent;border:1px solid #ff9800;border-radius:4px;color:#ff9800;font-family:\'Barlow\',sans-serif;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Ver fiado</button></div>';
+    html += '</div>';
+  }
 
   // ── Formas de pago ──
   html += '<div class="turno-section">';
@@ -603,6 +614,13 @@ function guardarEgreso(){
   document.getElementById('egresoModal').classList.remove('open');
   renderTurno();
   toast('Egreso registrado');
+}
+
+function registrarIngreso(desc, monto, metodo) {
+  if (!monto || monto <= 0) return;
+  var ingreso = { desc: desc, monto: monto, metodo: metodo || '', fecha: new Date() };
+  turnoData.ingresos.push(ingreso);
+  turnoGuardar();
 }
 
 async function emitirFacturaPostCobro(ventaId){

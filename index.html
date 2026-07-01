@@ -591,7 +591,8 @@
   <header class="header">
     <button class="hbtn" onclick="openDrawer()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
     <div class="htitle"><span class="htitle-text">Turno</span></div>
-    <div class="hright">
+    <div class="hright" style="display:flex;align-items:center;gap:4px;">
+      <button class="hbtn" onclick="abrirCredito()" style="color:#ff9800;font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;letter-spacing:.5px;padding:8px 10px;">FIADO</button>
       <button class="hbtn" onclick="goTo('scSale')" style="color:var(--green);font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;letter-spacing:.5px;padding:8px 10px;">VENTAS</button>
     </div>
   </header>
@@ -613,6 +614,94 @@
         <button onclick="closeEgresoModal(null)" style="flex:1;background:#333;border:none;border-radius:6px;color:#aaa;font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;">CANCELAR</button>
         <button onclick="guardarEgreso()" style="flex:2;background:var(--green);border:none;border-radius:6px;color:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;padding:14px;cursor:pointer;letter-spacing:.5px;">REGISTRAR</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======== SCREEN: FIADO / CRÉDITO ======== -->
+<div id="scCredito" class="screen">
+  <header class="header">
+    <button class="hbtn" onclick="goTo('scTurno')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="htitle"><span class="htitle-text">Fiado / Crédito</span></div>
+    <div class="hright">
+      <button class="hbtn" onclick="abrirNuevoCliente()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      </button>
+    </div>
+  </header>
+  <!-- Lista de clientes -->
+  <div id="creditoList" style="flex:1;overflow-y:auto;padding:12px;">
+    <div id="creditoContent"></div>
+  </div>
+  <!-- Detalle de cliente -->
+  <div id="creditoDetalle" style="display:none;flex:1;overflow-y:auto;flex-direction:column;">
+    <button onclick="volverListaCredito()" style="margin:12px;padding:10px 14px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left;">← Volver</button>
+    <div id="creditoDetalleContent" style="padding:0 12px 24px;"></div>
+  </div>
+</div>
+
+<!-- ======== MODAL: COBRAR FIADO ======== -->
+<div id="cobrarFiadoModal" class="egreso-modal" style="display:none;" onclick="if(event.target===this)cerrarCobrarFiado()">
+  <div class="egreso-sheet">
+    <div class="egreso-title" style="color:#4caf50;">💰 Cobrar fiado</div>
+    <div style="margin-bottom:14px;padding:10px 12px;background:rgba(76,175,80,.1);border:1px solid rgba(76,175,80,.3);border-radius:8px;">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Cliente</div>
+      <div id="cobrarFiadoNombre" style="font-size:16px;font-weight:800;color:var(--text);"></div>
+      <div id="cobrarFiadoSaldo" style="font-size:14px;font-weight:700;color:#e53935;margin-top:2px;"></div>
+    </div>
+    <div class="art-form-field">
+      <span class="art-form-label">Monto cobrado (₲) *</span>
+      <input class="art-form-input" id="cobrarFiadoMonto" type="number" placeholder="0" min="0">
+    </div>
+    <div class="art-form-field" style="margin-top:14px;">
+      <span class="art-form-label">Método de cobro</span>
+      <select class="art-form-input" id="cobrarFiadoMetodo" style="cursor:pointer;">
+        <option value="efectivo">Efectivo</option>
+        <option value="transferencia">Transferencia</option>
+        <option value="pos">POS</option>
+        <option value="pix">Pix</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="cerrarCobrarFiado()" style="flex:1;background:#333;border:none;border-radius:6px;color:#aaa;font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;">CANCELAR</button>
+      <button onclick="confirmarCobrarFiado()" style="flex:2;background:#4caf50;border:none;border-radius:6px;color:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;padding:14px;cursor:pointer;letter-spacing:.5px;">CONFIRMAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== MODAL: NUEVO / EDITAR CLIENTE ======== -->
+<div id="editCliModal" class="egreso-modal" style="display:none;" onclick="if(event.target===this)cerrarEditCli()">
+  <div class="egreso-sheet">
+    <div id="editCliTitle" class="egreso-title">Nuevo cliente</div>
+    <div class="art-form-field">
+      <span class="art-form-label">Nombre *</span>
+      <input class="art-form-input" id="editCliNombre" type="text" placeholder="Nombre del cliente..." autocomplete="off" style="text-transform:uppercase;">
+    </div>
+    <div class="art-form-field" style="margin-top:14px;">
+      <span class="art-form-label">Límite de crédito en ₲ — 0 = sin límite</span>
+      <input class="art-form-input" id="editCliLimite" type="number" placeholder="0" min="0">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button onclick="cerrarEditCli()" style="flex:1;background:#333;border:none;border-radius:6px;color:#aaa;font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;">CANCELAR</button>
+      <button onclick="guardarEditCli()" style="flex:2;background:var(--green);border:none;border-radius:6px;color:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;padding:14px;cursor:pointer;letter-spacing:.5px;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======== MODAL: SELECTOR DE CLIENTE (cobro) ======== -->
+<div id="clientePickerModal" class="egreso-modal" style="display:none;" onclick="if(event.target===this)cerrarClientePicker()">
+  <div class="egreso-sheet" style="max-height:82vh;display:flex;flex-direction:column;padding:0;overflow:hidden;">
+    <div style="padding:16px 16px 10px;border-bottom:1px solid var(--border);">
+      <div class="egreso-title" style="margin:0 0 10px;">Seleccionar cliente</div>
+      <input id="clientePickerSearch" type="text" placeholder="Buscar cliente..." oninput="renderClientePickerList()"
+        style="width:100%;padding:10px 12px;background:var(--bg-dark);border:1.5px solid var(--border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;box-sizing:border-box;outline:none;">
+    </div>
+    <div id="clientePickerList" style="flex:1;overflow-y:auto;min-height:80px;"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:10px;">
+      <button onclick="nuevoClienteRapido()" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;padding:12px;cursor:pointer;">+ Nuevo</button>
+      <button onclick="cerrarClientePicker()" style="flex:1;background:#333;border:none;border-radius:6px;color:#aaa;font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:12px;cursor:pointer;">Cancelar</button>
     </div>
   </div>
 </div>
@@ -1881,6 +1970,13 @@
         </svg>
         MERCADO PAGO
       </button>
+      <button class="pay-btn" onclick="selPay(this,'credito')">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+          <line x1="1" y1="10" x2="23" y2="10"/>
+        </svg>
+        CRÉDITO
+      </button>
     </div>
 
     <!-- INFO PIX / MP: equivalente en moneda extranjera -->
@@ -1888,6 +1984,13 @@
       <p style="margin:0 0 2px;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600;">El cliente debe transferir</p>
       <p id="pixMpAmount" style="margin:0;font-size:32px;font-weight:900;color:var(--text);letter-spacing:-1px;">R$ 0</p>
       <p id="pixMpRate" style="margin:4px 0 0;font-size:11px;color:var(--muted);">Tipo de cambio: —</p>
+    </div>
+
+    <!-- CRÉDITO: selector de cliente -->
+    <div id="creditoSec" style="display:none;background:rgba(76,175,80,.08);border:1px solid rgba(76,175,80,.35);border-radius:8px;padding:12px 16px;margin:0 0 8px;">
+      <p style="margin:0 0 8px;font-size:11px;color:#4caf50;text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Venta a crédito — Cliente</p>
+      <button id="creditoClienteBtn" onclick="abrirClientePicker()" style="width:100%;padding:12px;background:var(--bg-dark);border:1.5px dashed rgba(76,175,80,.5);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:left;">Seleccionar cliente…</button>
+      <div id="creditoClienteSaldo" style="font-size:11px;margin-top:6px;"></div>
     </div>
 
     <!-- COMPROBANTE (visible solo en POS / Transferencia / Pix / MP) -->
@@ -2108,6 +2211,7 @@
 <script src="js/mesas.js?v=20260412103"></script>
 <script src="js/rubro.js?v=20260604002"></script>
 
+<script src="js/credito.js?v=20260701001"></script>
 <script src="js/app.js?v=20260413108"></script>
 <script src="js/init.js?v=20260413105"></script>
 
