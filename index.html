@@ -685,19 +685,40 @@
 
 <!-- ======== MODAL: NUEVO / EDITAR CLIENTE ======== -->
 <div id="editCliModal" class="egreso-modal" style="display:none;" onclick="if(event.target===this)cerrarEditCli()">
-  <div class="egreso-sheet">
-    <div id="editCliTitle" class="egreso-title">Nuevo cliente</div>
-    <div class="art-form-field">
-      <span class="art-form-label">Nombre *</span>
-      <input class="art-form-input" id="editCliNombre" type="text" placeholder="Nombre del cliente..." autocomplete="off" style="text-transform:uppercase;">
+  <div class="egreso-sheet" style="padding:0;overflow:hidden;border-radius:20px 20px 0 0;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,rgba(46,160,84,.22) 0%,rgba(46,160,84,.06) 100%);padding:18px 18px 16px;border-bottom:1px solid rgba(46,160,84,.18);display:flex;align-items:center;gap:14px;">
+      <div style="width:46px;height:46px;border-radius:50%;background:rgba(46,160,84,.18);border:2px solid rgba(46,160,84,.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2ea054" stroke-width="2.2">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div id="editCliTitle" style="font-size:15px;font-weight:900;color:var(--text);letter-spacing:.4px;text-transform:uppercase;">NUEVO CLIENTE</div>
+        <div style="font-size:11px;color:#2ea054;margin-top:2px;font-weight:600;">Credito / Fiado</div>
+      </div>
+      <button onclick="cerrarEditCli()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;flex-shrink:0;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
-    <div class="art-form-field" style="margin-top:14px;">
-      <span class="art-form-label">Límite de crédito en ₲ — 0 = sin límite</span>
-      <input class="art-form-input" id="editCliLimite" type="number" placeholder="0" min="0">
-    </div>
-    <div style="display:flex;gap:10px;margin-top:20px;">
-      <button onclick="cerrarEditCli()" style="flex:1;background:#333;border:none;border-radius:6px;color:#aaa;font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;">CANCELAR</button>
-      <button onclick="guardarEditCli()" style="flex:2;background:var(--green);border:none;border-radius:6px;color:#fff;font-family:'Barlow',sans-serif;font-size:13px;font-weight:800;padding:14px;cursor:pointer;letter-spacing:.5px;">GUARDAR</button>
+    <!-- Campos -->
+    <div style="padding:22px 20px 20px;">
+      <div class="art-form-field">
+        <span class="art-form-label" style="font-size:11px;letter-spacing:.6px;text-transform:uppercase;font-weight:700;">Nombre del cliente *</span>
+        <input class="art-form-input" id="editCliNombre" type="text" placeholder="Ej: MARIA GARCIA" autocomplete="off" style="text-transform:uppercase;font-size:18px;font-weight:700;padding:8px 0 10px;">
+      </div>
+      <div class="art-form-field" style="margin-top:22px;">
+        <span class="art-form-label" style="font-size:11px;letter-spacing:.6px;text-transform:uppercase;font-weight:700;">Límite de crédito (₲)</span>
+        <input class="art-form-input" id="editCliLimite" type="number" placeholder="Sin límite" min="0" style="font-size:18px;font-weight:700;padding:8px 0 10px;">
+      </div>
+      <div style="margin-top:12px;padding:10px 14px;background:rgba(46,160,84,.07);border-left:3px solid rgba(46,160,84,.4);border-radius:0 8px 8px 0;font-size:11px;color:var(--muted);line-height:1.5;">
+        Dejá vacío para sin límite. El cliente puede comprar fiado hasta ese monto.
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;">
+        <button onclick="cerrarEditCli()" style="flex:1;background:transparent;border:1.5px solid var(--border2);border-radius:10px;color:var(--muted);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;letter-spacing:.3px;">CANCELAR</button>
+        <button onclick="guardarEditCli()" style="flex:2;background:var(--green);border:none;border-radius:10px;color:#fff;font-family:'Barlow',sans-serif;font-size:14px;font-weight:900;padding:14px;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 16px rgba(46,160,84,.35);">GUARDAR</button>
+      </div>
     </div>
   </div>
 </div>

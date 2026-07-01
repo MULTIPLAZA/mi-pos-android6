@@ -272,7 +272,7 @@ var _editCliId = null;
 
 function abrirNuevoCliente() {
   _editCliId = null;
-  document.getElementById('editCliTitle').textContent  = 'Nuevo cliente';
+  document.getElementById('editCliTitle').textContent  = 'NUEVO CLIENTE';
   document.getElementById('editCliNombre').value       = '';
   document.getElementById('editCliLimite').value       = '';
   document.getElementById('editCliModal').style.display = 'flex';
@@ -285,7 +285,7 @@ function abrirEditarCliente(clienteId) {
   for (var i = 0; i < clientes.length; i++) { if (clientes[i].id === clienteId) { c = clientes[i]; break; } }
   if (!c) return;
   _editCliId = clienteId;
-  document.getElementById('editCliTitle').textContent  = 'Editar cliente';
+  document.getElementById('editCliTitle').textContent  = 'EDITAR CLIENTE';
   document.getElementById('editCliNombre').value       = c.nombre;
   document.getElementById('editCliLimite').value       = c.limiteGs > 0 ? c.limiteGs : '';
   document.getElementById('editCliModal').style.display = 'flex';
