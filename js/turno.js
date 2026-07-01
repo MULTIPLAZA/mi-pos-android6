@@ -1023,6 +1023,7 @@ function cerrarTurno(){
   metodos['EFECTIVO'].esperado += turnoData.efectivoInicial;
   metodos['EFECTIVO'].esperado -= turnoData.egresos.filter(e=>!e.anulada).reduce((s,e)=>s+e.monto,0);
   cierreTotal = 0; desgloseVisible = false;
+  cierreArqueoGS = 0; cierreArqueoBRL = 0; cierreArqueoARS = 0;
   const _td = document.getElementById('cierreVal_TOTAL'); if(_td) _td.textContent='₲0';
   const _db = document.getElementById('cierreDiffBox'); if(_db) _db.style.display='none';
   const _mr = document.getElementById('cierreMetodosRows'); if(_mr) _mr.style.display='none';
@@ -1031,6 +1032,18 @@ function cerrarTurno(){
   cierreNpMetodo = null;
   cierreTotal = 0;
   desgloseVisible = false;
+
+  // Multi-moneda: actualizar label del campo GS y mostrar sección si está activo
+  var _mmActArqueo = localStorage.getItem('mm_activo') === '1';
+  var _lblArqueo = document.getElementById('cierreLabelTotal');
+  if(_lblArqueo) _lblArqueo.innerHTML = _mmActArqueo
+    ? 'Guaraníes contados <span style="color:#555;font-size:11px;">(0 si no hay)</span>'
+    : 'Total contado <span style="color:#555;font-size:11px;">(opcional — dejá en 0 para omitir)</span>';
+  var _mmSecEl = document.getElementById('cierreMMSection');
+  if(_mmSecEl){
+    _mmSecEl.style.display = _mmActArqueo ? 'block' : 'none';
+    if(_mmActArqueo) renderCierreMMArqueo();
+  }
 
   // Mostrar saldo esperado de referencia
   const saldo = calcSaldoEsperado();
@@ -1060,6 +1073,9 @@ function escucharValoresEsperados(){
 let cierreMetodos = {};
 let cierreNpMetodo = null;
 let cierreTotal = 0;
+let cierreArqueoGS = 0;
+let cierreArqueoBRL = 0;
+let cierreArqueoARS = 0;
 let desgloseVisible = false;
 
 function toggleDesglose(){
@@ -1177,4 +1193,55 @@ function updCierreDiff(){
     lbl.textContent = 'FALTANTE';
     val.textContent = '−'+gs(Math.abs(diff));
   }
+}
+
+function renderCierreMMArqueo(){
+  var cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  var cotARS = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+  var rows = document.getElementById('cierreMMRows');
+  if(!rows) return;
+  var brlGs = Math.round(cierreArqueoBRL * cotBRL);
+  var arsGs = Math.round(cierreArqueoARS * cotARS);
+  var html = '';
+  // Fila Reales
+  html += '<div onclick="openNP(\'cierre_arq_BRL\')" style="display:flex;align-items:center;border-bottom:1.5px solid #555;padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
+  html += '<div style="flex:1;">';
+  html += '<div style="font-size:11px;color:#888;margin-bottom:3px;">&#127463;&#127479; Reales (R$)</div>';
+  html += '<span id="cierreVal_BRL" style="font-size:22px;font-weight:700;color:#fff;">R$ '+cierreArqueoBRL+'</span>';
+  if(cotBRL > 0 && cierreArqueoBRL > 0) html += '<span style="color:#666;font-size:11px;margin-left:8px;">&times; '+gs(cotBRL)+' = '+gs(brlGs)+'</span>';
+  html += '</div>';
+  html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+  html += '</div>';
+  // Fila Pesos Arg.
+  html += '<div onclick="openNP(\'cierre_arq_ARS\')" style="display:flex;align-items:center;border-bottom:1.5px solid #555;padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
+  html += '<div style="flex:1;">';
+  html += '<div style="font-size:11px;color:#888;margin-bottom:3px;">&#127462;&#127479; Pesos Arg. ($)</div>';
+  html += '<span id="cierreVal_ARS" style="font-size:22px;font-weight:700;color:#fff;">$ '+cierreArqueoARS+'</span>';
+  if(cotARS > 0 && cierreArqueoARS > 0) html += '<span style="color:#666;font-size:11px;margin-left:8px;">&times; '+cotARS+' = '+gs(arsGs)+'</span>';
+  html += '</div>';
+  html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+  html += '</div>';
+  rows.innerHTML = html;
+  // Total moneda extranjera
+  var totalMM = document.getElementById('cierreMMTotal');
+  if(totalMM){
+    if(cierreArqueoBRL > 0 || cierreArqueoARS > 0){
+      totalMM.innerHTML = '<div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid #333;"><span style="color:#aaa;font-size:12px;font-weight:600;">Total moneda extranjera equiv.</span><span style="color:var(--green);font-weight:700;">'+gs(brlGs+arsGs)+'</span></div>';
+    } else {
+      totalMM.innerHTML = '';
+    }
+  }
+}
+
+function updCierreMMTotal(){
+  var cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  var cotARS = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+  var brlGs = Math.round(cierreArqueoBRL * cotBRL);
+  var arsGs = Math.round(cierreArqueoARS * cotARS);
+  cierreTotal = cierreArqueoGS + brlGs + arsGs;
+  // Actualizar display del campo GS (muestra el GS contado, no el total)
+  var dispGS = document.getElementById('cierreVal_TOTAL');
+  if(dispGS) dispGS.textContent = gs(cierreArqueoGS);
+  renderCierreMMArqueo();
+  updCierreDiff();
 }

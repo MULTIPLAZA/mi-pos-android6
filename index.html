@@ -638,9 +638,9 @@
       Escuchar valores esperados
     </button>
 
-    <!-- Total contado único -->
+    <!-- Arqueo de caja -->
     <div class="cierre-section">
-      <span class="cierre-label">Total contado <span style="color:#555;font-size:11px;">(opcional — dejá en 0 para omitir)</span></span>
+      <span class="cierre-label" id="cierreLabelTotal">Total contado <span style="color:#555;font-size:11px;">(opcional — dejá en 0 para omitir)</span></span>
       <div onclick="openNP('cierre_TOTAL')" style="display:flex;align-items:center;border-bottom:1.5px solid #555;padding-bottom:8px;cursor:pointer;margin-bottom:14px;">
         <span id="cierreVal_TOTAL" style="font-size:24px;font-weight:700;color:#fff;flex:1;">₲0</span>
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -648,6 +648,12 @@
       <!-- Desglose por método (opcional) -->
       <button id="desgloseBtn" onclick="toggleDesglose()" style="background:none;border:none;color:var(--green);font-family:'Barlow',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;padding:0;margin-bottom:10px;">▸ DESGLOSAR POR MÉTODO (opcional)</button>
       <div id="cierreMetodosRows" style="display:none;"></div>
+    </div>
+    <!-- Arqueo multi-moneda (visible solo cuando mm_activo=1) -->
+    <div id="cierreMMSection" class="cierre-section" style="display:none;">
+      <span class="cierre-label">Moneda extranjera contada</span>
+      <div id="cierreMMRows"></div>
+      <div id="cierreMMTotal"></div>
     </div>
 
     <!-- Diferencia -->

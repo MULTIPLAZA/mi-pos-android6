@@ -184,12 +184,14 @@ function openNP(ctx) {
   setNpVal('');
 
   const labels = {
-    shift:       'Efectivo inicial',
-    cobrar:      'Efectivo recibido',
-    comprobante: 'Nro. de Comprobante',
-    mm_gs:       'Guaranies recibidos',
-    mm_brl:      'Reales (R$)',
-    mm_ars:      'Pesos Arg. ($)',
+    shift:          'Efectivo inicial',
+    cobrar:         'Efectivo recibido',
+    comprobante:    'Nro. de Comprobante',
+    mm_gs:          'Guaranies recibidos',
+    mm_brl:         'Reales (R$)',
+    mm_ars:         'Pesos Arg. ($)',
+    cierre_arq_BRL: 'Reales (R$) en caja',
+    cierre_arq_ARS: 'Pesos Arg. ($) en caja',
   };
 
   if (!ctx.startsWith('cierre_')) {
@@ -205,6 +207,8 @@ function openNP(ctx) {
   if (ctx === 'mm_gs'  && _mmVals.gs  > 0) setNpVal(String(_mmVals.gs));
   if (ctx === 'mm_brl' && _mmVals.brl > 0) setNpVal(String(_mmVals.brl));
   if (ctx === 'mm_ars' && _mmVals.ars > 0) setNpVal(String(_mmVals.ars));
+  if (ctx === 'cierre_arq_BRL' && cierreArqueoBRL > 0) setNpVal(String(cierreArqueoBRL));
+  if (ctx === 'cierre_arq_ARS' && cierreArqueoARS > 0) setNpVal(String(cierreArqueoARS));
 
   if (ctx === 'cierreTotal') {
     setNpVal(cierreTotal > 0 ? String(cierreTotal) : '');
@@ -223,9 +227,9 @@ function openNP(ctx) {
 
   // Display inicial del numpad segun contexto
   var _npInitV = parseInt(npVal) || 0;
-  if (ctx === 'mm_brl') {
+  if (ctx === 'mm_brl' || ctx === 'cierre_arq_BRL') {
     document.getElementById('npDisp').textContent = npVal ? 'R$ ' + _npInitV : 'R$ 0';
-  } else if (ctx === 'mm_ars') {
+  } else if (ctx === 'mm_ars' || ctx === 'cierre_arq_ARS') {
     document.getElementById('npDisp').textContent = npVal ? '$ ' + _npInitV : '$ 0';
   } else if (ctx === 'comprobante') {
     document.getElementById('npDisp').textContent = npVal || '—';
@@ -258,9 +262,9 @@ function npP(d) {
     if (npVal === '0' && d !== '000') setNpVal(d); else setNpVal(npVal + d);
     if (npVal.length > 10) setNpVal(npVal.slice(0, 10));
     var _pV = parseInt(npVal) || 0;
-    if (npCtx === 'mm_brl') {
+    if (npCtx === 'mm_brl' || npCtx === 'cierre_arq_BRL') {
       document.getElementById('npDisp').textContent = 'R$ ' + _pV;
-    } else if (npCtx === 'mm_ars') {
+    } else if (npCtx === 'mm_ars' || npCtx === 'cierre_arq_ARS') {
       document.getElementById('npDisp').textContent = '$ ' + _pV;
     } else {
       document.getElementById('npDisp').textContent = gs(_pV);
@@ -276,9 +280,9 @@ function npD() {
     document.getElementById('npDisp').textContent = npVal || '—';
   } else {
     var _dV = parseInt(npVal) || 0;
-    if (npCtx === 'mm_brl') {
+    if (npCtx === 'mm_brl' || npCtx === 'cierre_arq_BRL') {
       document.getElementById('npDisp').textContent = 'R$ ' + _dV;
-    } else if (npCtx === 'mm_ars') {
+    } else if (npCtx === 'mm_ars' || npCtx === 'cierre_arq_ARS') {
       document.getElementById('npDisp').textContent = '$ ' + _dV;
     } else {
       document.getElementById('npDisp').textContent = gs(_dV);
@@ -310,12 +314,30 @@ function npOK() {
     document.getElementById('npOverlay').classList.remove('open');
     return;
 
+  } else if (npCtx === 'cierre_arq_BRL') {
+    cierreArqueoBRL = v;
+    if(typeof updCierreMMTotal === 'function') updCierreMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
+  } else if (npCtx === 'cierre_arq_ARS') {
+    cierreArqueoARS = v;
+    if(typeof updCierreMMTotal === 'function') updCierreMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
   } else if (npCtx.startsWith('cierre_')) {
     const m = cierreNpMetodo || npCtx.replace('cierre_', '');
     if (m === 'TOTAL') {
-      cierreTotal = v;
-      const disp = document.getElementById('cierreVal_TOTAL');
-      if (disp) disp.textContent = gs(v);
+      var _cMM = localStorage.getItem('mm_activo') === '1';
+      if(_cMM){
+        cierreArqueoGS = v;
+        if(typeof updCierreMMTotal === 'function') updCierreMMTotal();
+      } else {
+        cierreTotal = v;
+        const disp = document.getElementById('cierreVal_TOTAL');
+        if (disp) disp.textContent = gs(v);
+      }
     } else {
       if (cierreMetodos[m]) cierreMetodos[m].contado = v;
       const disp = document.getElementById('cierreVal_' + m);
