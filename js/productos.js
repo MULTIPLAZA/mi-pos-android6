@@ -1061,7 +1061,7 @@ function pmKiloOK(){
     kg = parseFloat(_pesoVal) || 0;
   } else {
     var monto = parseInt(_pesoVal) || 0;
-    kg = p.price > 0 ? monto / p.price : 0;
+    kg = p.price > 0 ? Math.round((monto / p.price) * 1000) / 1000 : 0;
   }
   if(kg <= 0){ toast('Ingresá un peso o importe'); return; }
   var total  = Math.round(kg * p.price);

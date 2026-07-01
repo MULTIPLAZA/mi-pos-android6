@@ -3104,28 +3104,26 @@ var BTPrinter = {
         txt += pad(metodo, gs(data.total) + ' Gs.') + n;
       }
     }
-    // Efectivo entregado y vuelto (vuelto puede venir como string "₲5.000")
+    // Efectivo entregado y vuelto
     var _parseMonto = function(v){ return parseInt(String(v||'').replace(/[^0-9]/g,'')) || 0; };
-    var _efecNum  = _parseMonto(data.efectivo);
+    var _efecNum   = _parseMonto(data.efectivo);
     var _vueltoNum = _parseMonto(data.vuelto);
-    if (_efecNum > 0) {
+    var _hasMM = data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0);
+    if (_efecNum > 0 && !_hasMM) {
       txt += pad('Entregado', gs(_efecNum) + ' Gs.') + n;
     }
-    // Multi-moneda
-    if(data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0)){
+    // Multi-moneda — cada moneda en su línea, tipo de cambio entre paréntesis
+    if(_hasMM){
       var _mm = data.mmPagos;
-      txt += sep2 + n;
-      txt += ctr('DETALLE DE PAGO') + n;
-      if(_mm.pagoGS > 0)  txt += pad('Guaranies:', gs(_mm.pagoGS)) + n;
+      if(_mm.pagoGS > 0)  txt += pad('Guaranies:', gs(_mm.pagoGS) + ' Gs.') + n;
       if(_mm.pagoBRL > 0){
-        txt += 'Reales: ' + _mm.pagoBRL + ' R$ x ' + gs(_mm.cotBRL) + n;
-        txt += pad('  Equiv. Gs:', gs(_mm.pagoBRLGs)) + n;
+        txt += pad('Reales:', gs(_mm.pagoBRLGs) + ' Gs.') + n;
+        txt += '  (' + _mm.pagoBRL + ' R$ x Gs. ' + gs(_mm.cotBRL) + ')' + n;
       }
       if(_mm.pagoARS > 0){
-        txt += 'Pesos: ' + _mm.pagoARS + ' $ x ' + _mm.cotARS + n;
-        txt += pad('  Equiv. Gs:', gs(_mm.pagoARSGs)) + n;
+        txt += pad('Pesos Arg.:', gs(_mm.pagoARSGs) + ' Gs.') + n;
+        txt += '  (' + _mm.pagoARS + ' $ x Gs. ' + _mm.cotARS + ')' + n;
       }
-      txt += '[BOLD]' + pad('Total recibido:', gs(_mm.totalGs)) + '[/BOLD]' + n;
     }
     if (_vueltoNum > 0) {
       txt += '[BOLD]' + pad('VUELTO', gs(_vueltoNum) + ' Gs.') + '[/BOLD]' + n;
@@ -3272,11 +3270,19 @@ var BTPrinter = {
     var txt = '';
 
     // Cabecera
-    if (cfg.negocio) txt += '[CENTER][BOLD]' + cfg.negocio.toUpperCase() + '[/BOLD][/CENTER]' + n;
-    if (cfg.ruc)     txt += '[CENTER]RUC: ' + cfg.ruc + '[/CENTER]' + n;
-    if (cfg.direccion) txt += '[CENTER]' + cfg.direccion + '[/CENTER]' + n;
+    if (cfg.negocio) {
+      cfg.negocio.toUpperCase().split(/\r?\n/).forEach(function(line){
+        if(line.trim()) txt += '[BOLD]' + ctr(line.trim()) + '[/BOLD]' + n;
+      });
+    }
+    if (cfg.ruc) txt += ctr('RUC: ' + cfg.ruc) + n;
+    if (cfg.direccion) {
+      cfg.direccion.split(/\r?\n/).forEach(function(line){
+        if(line.trim()) txt += ctr(line.trim()) + n;
+      });
+    }
     txt += sep + n;
-    txt += '[CENTER][BOLD]CIERRE DE CAJA[/BOLD][/CENTER]' + n;
+    txt += ctr('CIERRE DE CAJA') + n;
     txt += sep + n;
 
     // Datos turno
@@ -3321,12 +3327,12 @@ var BTPrinter = {
       txt += '[BOLD]MONEDA EXTRANJERA (TURNO)[/BOLD]' + n;
       txt += sep2 + n;
       if (data.mmShiftBRL > 0) {
-        txt += pad('Reales recibidos:', data.mmShiftBRL + ' R$') + n;
-        txt += pad('  Equiv. Gs:', gs2(data.mmShiftBRLGs)) + n;
+        txt += pad('Reales recibidos:', gs2(data.mmShiftBRLGs) + ' Gs.') + n;
+        txt += '  (' + data.mmShiftBRL + ' R$ x Gs. ' + gs2(data.cotBRL||0) + ')' + n;
       }
       if (data.mmShiftARS > 0) {
-        txt += pad('Pesos Arg. recib.:', data.mmShiftARS + ' $') + n;
-        txt += pad('  Equiv. Gs:', gs2(data.mmShiftARSGs)) + n;
+        txt += pad('Pesos Arg. recib.:', gs2(data.mmShiftARSGs) + ' Gs.') + n;
+        txt += '  (' + data.mmShiftARS + ' $ x Gs. ' + (data.cotARS||0) + ')' + n;
       }
       txt += sep2 + n;
     }
@@ -3337,16 +3343,18 @@ var BTPrinter = {
       txt += sep2 + n;
       // Arqueo multi-moneda
       if (data.arqueoGS > 0 || data.arqueoBRL > 0 || data.arqueoARS > 0) {
-        if (data.arqueoGS  > 0) txt += pad('Guaranies:', gs2(data.arqueoGS)) + n;
+        if (data.arqueoGS  > 0) txt += pad('Guaranies:', gs2(data.arqueoGS) + ' Gs.') + n;
         if (data.arqueoBRL > 0) {
-          txt += pad('Reales:', data.arqueoBRL + ' R$') + n;
-          if (data.cotBRL > 0) txt += pad('  Equiv. Gs:', gs2(Math.round(data.arqueoBRL * data.cotBRL))) + n;
+          var _brlGsCierre = Math.round(data.arqueoBRL * (data.cotBRL||0));
+          txt += pad('Reales:', gs2(_brlGsCierre) + ' Gs.') + n;
+          txt += '  (' + data.arqueoBRL + ' R$ x Gs. ' + gs2(data.cotBRL||0) + ')' + n;
         }
         if (data.arqueoARS > 0) {
-          txt += pad('Pesos Arg.:', data.arqueoARS + ' $') + n;
-          if (data.cotARS > 0) txt += pad('  Equiv. Gs:', gs2(Math.round(data.arqueoARS * data.cotARS))) + n;
+          var _arsGsCierre = Math.round(data.arqueoARS * (data.cotARS||0));
+          txt += pad('Pesos Arg.:', gs2(_arsGsCierre) + ' Gs.') + n;
+          txt += '  (' + data.arqueoARS + ' $ x Gs. ' + (data.cotARS||0) + ')' + n;
         }
-        txt += '[BOLD]' + pad('Total equiv. Gs:', gs2(data.totalContado)) + '[/BOLD]' + n;
+        txt += '[BOLD]' + pad('Total contado:', gs2(data.totalContado) + ' Gs.') + '[/BOLD]' + n;
       } else if (data.cierreMetodos) {
         Object.entries(data.cierreMetodos).forEach(function(e){
           var m = e[0], d = e[1];
