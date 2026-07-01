@@ -3118,11 +3118,11 @@ var BTPrinter = {
       if(_mm.pagoGS > 0)  txt += pad('Guaranies:', gs(_mm.pagoGS) + ' Gs.') + n;
       if(_mm.pagoBRL > 0){
         txt += pad('Reales:', gs(_mm.pagoBRLGs) + ' Gs.') + n;
-        txt += '  (' + _mm.pagoBRL + ' R$ x Gs. ' + gs(_mm.cotBRL) + ')' + n;
+        txt += '  (' + gs(_mm.pagoBRL) + ' R$ x Gs. ' + gs(_mm.cotBRL) + ')' + n;
       }
       if(_mm.pagoARS > 0){
         txt += pad('Pesos Arg.:', gs(_mm.pagoARSGs) + ' Gs.') + n;
-        txt += '  (' + _mm.pagoARS + ' $ x Gs. ' + _mm.cotARS + ')' + n;
+        txt += '  (' + gs(_mm.pagoARS) + ' $ x Gs. ' + _mm.cotARS + ')' + n;
       }
     }
     if (_vueltoNum > 0) {

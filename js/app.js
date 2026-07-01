@@ -1045,7 +1045,7 @@ function goDetalle(){
 function renderDetalle(){
   const items = cart;
   const total = calcTotal();
-  const count = items.reduce((s,i)=>s+i.qty,0);
+  const count = items.length;
   document.getElementById('detTitle').textContent = currentTicketNro !== null ? 'Ticket #' + String(currentTicketNro).padStart(4,'0') : 'Ticket actual';
   document.getElementById('detSubtitle').textContent = count + ' artículo' + (count!==1?'s':'') + ' · ' + gs(total);
   document.getElementById('detItems').textContent = count + ' artículo' + (count!==1?'s':'');
