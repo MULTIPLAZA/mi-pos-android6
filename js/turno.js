@@ -458,6 +458,15 @@ async function renderTurno(){
     }
   });
 
+  // Cobros de fiado — acumular al método correspondiente
+  var _cobFiadoPorMetodo = {};
+  (turnoData.ingresos || []).forEach(function(ing) {
+    var m = (ing.metodo || 'efectivo').toUpperCase().trim();
+    if (!_cobFiadoPorMetodo[m]) _cobFiadoPorMetodo[m] = 0;
+    _cobFiadoPorMetodo[m] += ing.monto;
+    acumMetodo(m, ing.monto);
+  });
+
   // Otros datos
   const cantVentas = turnoData.ventas.length;
   const ticketProm = cantVentas > 0 ? Math.round(totalVentas / cantVentas) : 0;
@@ -517,9 +526,12 @@ async function renderTurno(){
     html += '<div class="turno-row"><span class="turno-row-label muted" style="color:#555;">Sin ventas registradas</span></div>';
   } else {
     Object.entries(metodos).forEach(([m, d]) => {
+      var _fiadoEnMetodo = _cobFiadoPorMetodo[m] || 0;
+      var _subOps = d.ops + ' operación' + (d.ops!==1?'es':'');
+      if (_fiadoEnMetodo > 0) _subOps += ' · incl. +' + gs(_fiadoEnMetodo) + ' cobro fiado';
       html += '<div class="turno-metodo-row">';
       html += '<div class="turno-metodo-icon">' + (metodoIcons[m]||metodoIcons['EFECTIVO']) + '</div>';
-      html += '<div class="turno-metodo-info"><div class="turno-metodo-name">' + m + '</div><div class="turno-metodo-ops">' + d.ops + ' operación' + (d.ops!==1?'es':'') + '</div></div>';
+      html += '<div class="turno-metodo-info"><div class="turno-metodo-name">' + m + '</div><div class="turno-metodo-ops">' + _subOps + '</div></div>';
       html += '<div class="turno-metodo-total">' + gs(d.total) + '</div>';
       html += '</div>';
     });
