@@ -178,7 +178,10 @@ function abrirDetalleCliente(clienteId) {
   }
   html += '</div>';
   if (saldo > 0) html += '<button onclick="abrirCobrarFiado('+clienteId+')" style="width:100%;padding:13px;background:#4caf50;color:white;border:none;border-radius:8px;font-family:\'Barlow\',sans-serif;font-size:14px;font-weight:800;letter-spacing:.5px;cursor:pointer;margin-bottom:8px;">💰 COBRAR FIADO</button>';
-  html += '<button onclick="abrirEditarCliente('+clienteId+')" style="width:100%;padding:10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:\'Barlow\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✏️ Editar cliente</button>';
+  html += '<div style="display:flex;gap:8px;">';
+  html += '<button onclick="abrirEditarCliente('+clienteId+')" style="flex:1;padding:10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:\'Barlow\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">✏️ Editar</button>';
+  html += '<button onclick="cliImprimirCuenta('+clienteId+')" style="flex:1;padding:10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:8px;font-family:\'Barlow\',sans-serif;font-size:12px;font-weight:700;cursor:pointer;">🖨️ Imprimir cuenta</button>';
+  html += '</div>';
   html += '</div>';
 
   if (pendientes.length > 0) {
@@ -483,4 +486,84 @@ async function _credSupaSincronizar() {
       }
     }
   } catch(e) {}
+}
+
+// ── IMPRIMIR RESUMEN DE CUENTA ────────────────────────────────
+function cliImprimirCuenta(clienteId) {
+  var clientes = cliCargar();
+  var c = null;
+  for (var i = 0; i < clientes.length; i++) { if (clientes[i].id === clienteId) { c = clientes[i]; break; } }
+  if (!c) return;
+
+  var fiados = fiadoCargar();
+  var pendientes = [];
+  for (var j = 0; j < fiados.length; j++) {
+    if (fiados[j].clienteId === clienteId && !fiados[j].pagado) pendientes.push(fiados[j]);
+  }
+  pendientes.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
+  var saldo = 0;
+  for (var x = 0; x < pendientes.length; x++) saldo += pendientes[x].total;
+
+  var cfg = (typeof configData !== 'undefined') ? configData : {};
+  var cols = parseInt(localStorage.getItem('printerSize_ticket') || '58') === 80 ? 42 : 32;
+  var sep  = '='.repeat(cols);
+  var sep2 = '-'.repeat(cols);
+  var n    = '\n';
+
+  function _pad(l, r) {
+    var sp = Math.max(1, cols - String(l).length - String(r).length);
+    return String(l) + ' '.repeat(sp) + String(r);
+  }
+  function _ctr(t) {
+    t = String(t); var sp = Math.max(0, Math.floor((cols - t.length) / 2));
+    return ' '.repeat(sp) + t;
+  }
+  function _gs(v) { var s = String(Math.round(v || 0)); return s.replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+  function _fmt(iso) {
+    var d = new Date(iso);
+    return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2);
+  }
+
+  var txt = '';
+  if (cfg.negocio) txt += '[BOLD]' + _ctr(cfg.negocio.toUpperCase().replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/Ñ/g,'N')) + '[/BOLD]' + n;
+  txt += sep2 + n;
+  txt += '[BOLD]' + _ctr('RESUMEN DE CUENTA') + '[/BOLD]' + n;
+  txt += sep2 + n;
+  txt += _ctr(c.nombre) + n;
+
+  var now = new Date();
+  var ds = ('0'+now.getDate()).slice(-2)+'/'+('0'+(now.getMonth()+1)).slice(-2)+'/'+now.getFullYear();
+  var ts = ('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+  txt += _ctr(ds + ' ' + ts) + n;
+  txt += sep + n;
+
+  if (pendientes.length === 0) {
+    txt += _ctr('Sin deudas pendientes') + n;
+  } else {
+    for (var pi = 0; pi < pendientes.length; pi++) {
+      var f = pendientes[pi];
+      txt += _pad('Tkt #'+String(f.nroTicket||'?').padStart(4,'0')+' '+_fmt(f.fecha), 'Gs.'+_gs(f.total)) + n;
+    }
+    txt += sep2 + n;
+    txt += '[BOLD]' + _pad('TOTAL PENDIENTE', 'Gs.' + _gs(saldo)) + '[/BOLD]' + n;
+  }
+
+  if (c.limiteGs > 0) {
+    txt += sep2 + n;
+    txt += _pad('Limite credito', 'Gs.' + _gs(c.limiteGs)) + n;
+    txt += _pad('Disponible', 'Gs.' + _gs(Math.max(0, c.limiteGs - saldo))) + n;
+  }
+
+  txt += sep + n;
+  txt += _ctr('Gracias!') + n;
+  txt += '[CUT]';
+
+  if (typeof BTPrinter !== 'undefined' && typeof BTPrinter.print === 'function') {
+    BTPrinter.print(txt).then(function(r) {
+      if (r && r.status === 'ok') toast('Impreso correctamente');
+      else toast('Error al imprimir');
+    });
+  } else {
+    toast('Impresora no disponible');
+  }
 }

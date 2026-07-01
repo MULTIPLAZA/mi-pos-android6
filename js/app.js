@@ -161,6 +161,13 @@ function loadGeneralConfigInputs(){
     chkCom.checked = !!hab;
     configData.comandasHabilitadas = !!hab;
   }
+  // Checkbox credito/fiado
+  const chkCred = document.getElementById('cfgCredito');
+  if(chkCred){
+    var _credHab = localStorage.getItem('pos_credito') === '1';
+    chkCred.checked = _credHab;
+    updDrawerFiado(_credHab);
+  }
   // Checkbox de sonidos — activo por defecto (mute === '0' o null)
   const chkSnd = document.getElementById('cfgSonidos');
   if(chkSnd){
@@ -1378,6 +1385,11 @@ function htmlToPreview(html, size){
 // -- Turno: ver js/turno.js --
 
 
+function updDrawerFiado(hab){
+  var el = document.getElementById('drawerItemFiado');
+  if(el) el.style.display = hab ? 'flex' : 'none';
+}
+
 // ── DRAWER ───────────────────────────────────────────────────────────────────
 function openDrawer(){
   document.getElementById('drawer').classList.add('open');
@@ -1404,6 +1416,8 @@ function drawerGo(section){
     renderTurno();
   } else if(section === 'mesas'){
     abrirPantallaMesas();
+  } else if(section === 'fiado'){
+    if(typeof abrirCredito === 'function') abrirCredito();
   } else {
     if(section === 'configuracion'){
       goToConfig();
@@ -1989,6 +2003,12 @@ function saveGeneralConfig(){
   }
   // Mostrar u ocultar botón comanda en cobro
   updBtnComandaCobro();
+  // Credito/Fiado
+  var _cfgCred = document.getElementById('cfgCredito');
+  if(_cfgCred){
+    localStorage.setItem('pos_credito', _cfgCred.checked ? '1' : '0');
+    updDrawerFiado(_cfgCred.checked);
+  }
 
   // Multi-moneda: guardar toggle + cotizaciones en localStorage
   var _cfgMM = document.getElementById('cfgMultiMoneda');

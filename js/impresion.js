@@ -2976,6 +2976,7 @@ var BTPrinter = {
     var n    = '\n';
     var cfg  = (typeof configData !== 'undefined') ? configData : {};
 
+    function normP(s){ return String(s||'').replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o').replace(/[úùüû]/g,'u').replace(/Ñ/g,'N').replace(/ñ/g,'n'); }
     function pad(l, r) {
       var sp = Math.max(1, cols - String(l).length - String(r).length);
       return String(l) + ' '.repeat(sp) + String(r);
@@ -3086,10 +3087,10 @@ var BTPrinter = {
     if (data.divPagos && data.divPagos.length >= 2) {
       // Pago dividido — desglosar cada método
       data.divPagos.forEach(function(p) {
-        txt += pad(p.metodo.toUpperCase(), gs(p.monto) + ' Gs.') + n;
+        txt += pad(normP(p.metodo.toUpperCase()), gs(p.monto) + ' Gs.') + n;
       });
     } else {
-      var metodo = (data.metodo || 'EFECTIVO').toUpperCase();
+      var metodo = normP((data.metodo || 'EFECTIVO').toUpperCase());
       if (metodo.includes(' + ')) {
         // String compuesto viejo — dividir en partes iguales
         var partes = metodo.split(' + ');
@@ -3103,7 +3104,7 @@ var BTPrinter = {
       } else {
         txt += pad(metodo, gs(data.total) + ' Gs.') + n;
         // Crédito/Fiado: mostrar nombre del cliente
-        if (metodo === 'CRÉDITO' && data.clienteNombre) {
+        if (metodo === 'CREDITO' && data.clienteNombre) {
           txt += '  A CUENTA: ' + data.clienteNombre + n;
         }
         // Pix / Mercado Pago: mostrar equivalente en moneda extranjera

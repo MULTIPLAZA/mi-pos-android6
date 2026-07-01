@@ -143,6 +143,8 @@ async function iniciarApp(){
       if(mac) BTPrinter.iniciar();
     }
   });
+  // Inicializar visibilidad de ítems del drawer según config guardada
+  if(typeof updDrawerFiado === 'function') updDrawerFiado(localStorage.getItem('pos_credito') === '1');
   // Mostrar versión en drawer, configuración y pantalla de activación
   const _vEl = document.getElementById('drawerVersion');
   if(_vEl) _vEl.textContent = APP_VERSION + ' · by Nodo Informática';
