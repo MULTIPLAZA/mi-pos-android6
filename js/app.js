@@ -446,7 +446,7 @@ function cargarConfigLocal(){
 
 // ── CARRITO ──────────────────────────────────────────────────
 function updUI(){
-  const t=calcTotal(), c=cart.reduce((s,i)=>s+i.qty,0);
+  const t=calcTotal(), c=cart.length;
   document.getElementById('sAmt').textContent=gs(t);
   document.getElementById('sBadge').textContent=c;
   document.getElementById('ttotal').textContent=gs(t);
