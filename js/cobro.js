@@ -132,6 +132,35 @@ function selPay(btn, m) {
     var efv = document.getElementById('efecVal'); if (efv) efv.textContent = '₲0';
     document.getElementById('vueltoRow').classList.remove('show');
   }
+
+  // Panel de equivalente en moneda extranjera para Pix/MP
+  var infoDiv  = document.getElementById('pixMpInfo');
+  var amtEl    = document.getElementById('pixMpAmount');
+  var rateEl   = document.getElementById('pixMpRate');
+  if (infoDiv) {
+    if ((m === 'pix' || m === 'mp') && infoDiv) {
+      var _total  = (typeof calcTotal === 'function') ? calcTotal() : 0;
+      var _cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+      var _cotARS = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+      if (m === 'pix' && _cotBRL > 0) {
+        var _brlAmt = Math.ceil((_total / _cotBRL) * 100) / 100;
+        amtEl.textContent  = 'R$ ' + _brlAmt.toFixed(2).replace('.', ',');
+        rateEl.textContent = 'Tipo de cambio: Gs. ' + gs(_cotBRL) + ' por R$';
+        infoDiv.style.display = 'block';
+      } else if (m === 'mp' && _cotARS > 0) {
+        var _arsAmt = Math.ceil(_total / _cotARS);
+        amtEl.textContent  = '$ ' + Number(_arsAmt).toLocaleString('es-PY');
+        rateEl.textContent = 'Tipo de cambio: Gs. ' + _cotARS + ' por $';
+        infoDiv.style.display = 'block';
+      } else {
+        amtEl.textContent  = '—';
+        rateEl.textContent = 'Configurá el tipo de cambio en Ajustes';
+        infoDiv.style.display = 'block';
+      }
+    } else {
+      infoDiv.style.display = 'none';
+    }
+  }
 }
 
 // ── DESCUENTO EN TICKET ──────────────────────────────────────
