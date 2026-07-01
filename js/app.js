@@ -1736,25 +1736,6 @@ async function confirmarCierre(){
     } catch(e){ console.warn('[Cierre] Error cancelando pedidos satelite:', e.message); }
   }
 
-  // Preview en iframe para fidelidad
-  var papel = document.getElementById('previewPapel');
-  var pxW = size==='80' ? 320 : 220;
-  papel.style.width = pxW+'px';
-  papel.style.padding = '0';
-  papel.style.background = 'transparent';
-  papel.style.boxShadow = 'none';
-  var iframeCierre = document.getElementById('cierreIframe');
-  if(iframeCierre) iframeCierre.remove();
-  iframeCierre = document.createElement('iframe');
-  iframeCierre.id = 'cierreIframe';
-  iframeCierre.style.cssText = 'width:'+pxW+'px;border:none;background:#fff;display:block;';
-  papel.innerHTML = '';
-  papel.appendChild(iframeCierre);
-  var doc = iframeCierre.contentWindow.document;
-  doc.open(); doc.write(cierreTicketHTML); doc.close();
-  setTimeout(function(){
-    try{ iframeCierre.style.height = (iframeCierre.contentWindow.document.body.scrollHeight+20)+'px'; }catch(e){ /* safe to ignore: optional iframe auto-height */ }
-  }, 200);
   // Guardar datos para buildCierreBTPS ANTES de limpiar turnoData
   cierreData = {
     fechaApertura: turnoData.fechaApertura,
@@ -1798,7 +1779,10 @@ async function confirmarCierre(){
   turnoBorrar();
   turnoData = { fechaApertura: null, efectivoInicial: 0, ventas: [], egresos: [], ingresos: [] };
   cierreMetodos = {};
-  goTo('scPreviewCierre');
+  // Imprimir directo, sin preview
+  imprimirCierre();
+  toast('Cierre realizado');
+  goTo('scClosed');
 }
 
 function buildCierreBTPS(){
