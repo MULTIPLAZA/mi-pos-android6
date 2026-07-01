@@ -1109,8 +1109,8 @@ function cerrarTurno(){
   var _mmActArqueo = localStorage.getItem('mm_activo') === '1';
   var _lblArqueo = document.getElementById('cierreLabelTotal');
   if(_lblArqueo) _lblArqueo.innerHTML = _mmActArqueo
-    ? '<span style="color:#4fc3f7;font-weight:700;">SOLO billetes ₲ Guaraníes</span> <span style="color:#f44336;font-size:11px;font-weight:600;">(NO incluir moneda extranjera acá)</span>'
-    : 'Total contado <span style="color:#555;font-size:11px;">(opcional — dejá en 0 para omitir)</span>';
+    ? '<span style="color:var(--green);font-weight:700;">SOLO billetes Gs Guaraníes</span> <span style="color:#f44336;font-size:11px;font-weight:600;">(NO incluir moneda extranjera acá)</span>'
+    : 'Total contado <span style="color:var(--muted);font-size:11px;">(opcional — dejá en 0 para omitir)</span>';
   var _mmSecEl = document.getElementById('cierreMMSection');
   if(_mmSecEl){
     _mmSecEl.style.display = _mmActArqueo ? 'block' : 'none';
@@ -1235,7 +1235,7 @@ function renderCierreResumen(){
   html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Efectivo inicial</span><span class="cierre-resumen-val">'+gs(turnoData.efectivoInicial)+'</span></div>';
   html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Total ventas ('+cantVentas+')</span><span class="cierre-resumen-val" style="color:var(--green)">'+gs(totalVentas)+'</span></div>';
   Object.entries(metodos).forEach(([m,d])=>{
-    html += '<div class="cierre-resumen-row" style="padding:6px 14px 6px 24px;"><span class="cierre-resumen-lbl" style="color:#666;">'+m+' ('+d.ops+')</span><span class="cierre-resumen-val" style="color:#888;">'+gs(d.total)+'</span></div>';
+    html += '<div class="cierre-resumen-row" style="padding:6px 14px 6px 24px;"><span class="cierre-resumen-lbl" style="color:var(--muted);">'+m+' ('+d.ops+')</span><span class="cierre-resumen-val" style="color:var(--label);">'+gs(d.total)+'</span></div>';
   });
   if(totalEgresos>0)
     html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Total egresos</span><span class="cierre-resumen-val" style="color:#ef5350;">−'+gs(totalEgresos)+'</span></div>';
@@ -1278,22 +1278,22 @@ function renderCierreMMArqueo(){
   var arsGs = Math.round(cierreArqueoARS * cotARS);
   var html = '';
   // Fila Reales
-  html += '<div onclick="openNP(\'cierre_arq_BRL\')" style="display:flex;align-items:center;border-bottom:1.5px solid #555;padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
+  html += '<div onclick="openNP(\'cierre_arq_BRL\')" style="display:flex;align-items:center;border-bottom:1.5px solid var(--border2);padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
   html += '<div style="flex:1;">';
-  html += '<div style="font-size:11px;color:#888;margin-bottom:3px;">&#127463;&#127479; Reales (R$)</div>';
-  html += '<span id="cierreVal_BRL" style="font-size:22px;font-weight:700;color:#fff;">R$ '+cierreArqueoBRL+'</span>';
-  if(cotBRL > 0 && cierreArqueoBRL > 0) html += '<span style="color:#666;font-size:11px;margin-left:8px;">&times; '+gs(cotBRL)+' = '+gs(brlGs)+'</span>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">&#127463;&#127479; Reales (R$)</div>';
+  html += '<span id="cierreVal_BRL" style="font-size:22px;font-weight:700;color:var(--text);">R$ '+cierreArqueoBRL+'</span>';
+  if(cotBRL > 0 && cierreArqueoBRL > 0) html += '<span style="color:var(--muted);font-size:11px;margin-left:8px;">&times; '+gs(cotBRL)+' = '+gs(brlGs)+'</span>';
   html += '</div>';
-  html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+  html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted);opacity:.6"><polyline points="6 9 12 15 18 9"/></svg>';
   html += '</div>';
   // Fila Pesos Arg.
-  html += '<div onclick="openNP(\'cierre_arq_ARS\')" style="display:flex;align-items:center;border-bottom:1.5px solid #555;padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
+  html += '<div onclick="openNP(\'cierre_arq_ARS\')" style="display:flex;align-items:center;border-bottom:1.5px solid var(--border2);padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
   html += '<div style="flex:1;">';
-  html += '<div style="font-size:11px;color:#888;margin-bottom:3px;">&#127462;&#127479; Pesos Arg. ($)</div>';
-  html += '<span id="cierreVal_ARS" style="font-size:22px;font-weight:700;color:#fff;">$ '+cierreArqueoARS+'</span>';
-  if(cotARS > 0 && cierreArqueoARS > 0) html += '<span style="color:#666;font-size:11px;margin-left:8px;">&times; '+cotARS+' = '+gs(arsGs)+'</span>';
+  html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">&#127462;&#127479; Pesos Arg. ($)</div>';
+  html += '<span id="cierreVal_ARS" style="font-size:22px;font-weight:700;color:var(--text);">$ '+cierreArqueoARS+'</span>';
+  if(cotARS > 0 && cierreArqueoARS > 0) html += '<span style="color:var(--muted);font-size:11px;margin-left:8px;">&times; '+cotARS+' = '+gs(arsGs)+'</span>';
   html += '</div>';
-  html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+  html += '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--muted);opacity:.6"><polyline points="6 9 12 15 18 9"/></svg>';
   html += '</div>';
   rows.innerHTML = html;
   // Total moneda extranjera
