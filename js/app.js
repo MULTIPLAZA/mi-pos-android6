@@ -1637,8 +1637,13 @@ async function confirmarCierre(){
   var diferencia = totalContado > 0 ? totalContado - saldoEsperado : 0;
   // Acumular moneda extranjera del turno para pasar al cierre impreso
   var _mmShiftBRL = 0, _mmShiftBRLGs = 0, _mmShiftARS = 0, _mmShiftARSGs = 0;
+  var _pixShiftBRL = 0, _pixShiftBRLGs = 0, _mpShiftARS = 0, _mpShiftARSGs = 0;
   turnoData.ventas.forEach(function(v){
     if(v.mmPagos){ _mmShiftBRL+=v.mmPagos.pagoBRL||0; _mmShiftBRLGs+=v.mmPagos.pagoBRLGs||0; _mmShiftARS+=v.mmPagos.pagoARS||0; _mmShiftARSGs+=v.mmPagos.pagoARSGs||0; }
+    if(v.pixMpPagos){
+      if(v.pixMpPagos.tipo==='pix'){ _pixShiftBRL+=v.pixMpPagos.monedaAmt||0; _pixShiftBRLGs+=v.pixMpPagos.monedaGs||0; }
+      if(v.pixMpPagos.tipo==='mp') { _mpShiftARS +=v.pixMpPagos.monedaAmt||0; _mpShiftARSGs+=v.pixMpPagos.monedaGs||0; }
+    }
   });
   var _totalVentas   = turnoData.ventas.reduce(function(s,v){return s+v.total;},0);
   var _totalEgresos  = turnoData.egresos.filter(function(e){return !e.anulada;}).reduce(function(s,e){return s+e.monto;},0);
@@ -1752,6 +1757,10 @@ async function confirmarCierre(){
     mmShiftBRLGs:  _mmShiftBRLGs,
     mmShiftARS:    _mmShiftARS,
     mmShiftARSGs:  _mmShiftARSGs,
+    pixShiftBRL:   _pixShiftBRL,
+    pixShiftBRLGs: _pixShiftBRLGs,
+    mpShiftARS:    _mpShiftARS,
+    mpShiftARSGs:  _mpShiftARSGs,
   };
   turnoBorrar();
   turnoData = { fechaApertura: null, efectivoInicial: 0, ventas: [], egresos: [], ingresos: [] };

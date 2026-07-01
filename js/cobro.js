@@ -1102,6 +1102,19 @@ async function confirmarPago() {
     ? divPagosCopia.map(p => p.metodo).join(' + ')
     : document.querySelector('.pay-btn.sel')?.textContent?.trim() || 'Efectivo';
 
+  // Pix / Mercado Pago: calcular equivalente en moneda extranjera
+  var _pixMpPagosConf = null;
+  if (!esDividido) {
+    var _metLower = metodoPago.toLowerCase();
+    if (_metLower === 'pix' && _mmCotBRL > 0) {
+      var _bAmt = Math.ceil((totalVenta / _mmCotBRL) * 100) / 100;
+      _pixMpPagosConf = { tipo: 'pix', simbolo: 'R$', monedaAmt: _bAmt, monedaGs: totalVenta, cotizacion: _mmCotBRL };
+    } else if (_metLower === 'mercado pago' && _mmCotARS > 0) {
+      var _aAmt = Math.ceil(totalVenta / _mmCotARS);
+      _pixMpPagosConf = { tipo: 'mp', simbolo: '$', monedaAmt: _aAmt, monedaGs: totalVenta, cotizacion: _mmCotARS };
+    }
+  }
+
   // Número de ticket — avanzar contador si es nuevo
   const nroTicket = currentTicketNro !== null ? currentTicketNro : ticketCounter;
   if (currentTicketNro === null) incrementTicketCounter();
@@ -1185,6 +1198,7 @@ async function confirmarPago() {
     efectivo:       efectivoEntregado,
     vuelto:         vuelto,
     mmPagos:        _mmPagosConf,
+    pixMpPagos:     _pixMpPagosConf,
     _supabasePedidoId, // UUID del pedido satelite (null si fue venta directa)
   });
 
@@ -1222,6 +1236,7 @@ async function confirmarPago() {
     clienteNombre: clienteNombreCopy,
     obs:         _obsGeneral,
     mmPagos:     _mmPagosConf,
+    pixMpPagos:  _pixMpPagosConf,
   });
   } finally {
     confirmarPago._running = false;

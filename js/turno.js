@@ -119,6 +119,7 @@ function registrarVentaEnTurno(data){
     efectivo:       data.efectivo || '',
     vuelto:         data.vuelto  || '',
     mmPagos:        data.mmPagos || null,
+    pixMpPagos:     data.pixMpPagos || null,
   });
   // Persistir en localStorage (sobrevive al cerrar la app)
   turnoGuardar();
@@ -499,8 +500,10 @@ async function renderTurno(){
   }
   html += '</div>';
 
-  // ── Moneda extranjera recibida (solo si hubo ventas MM) ──
+  // ── Moneda extranjera recibida en efectivo (ventas MM) ──
   var _totalBRL = 0, _totalBRLGs = 0, _totalARS = 0, _totalARSGs = 0;
+  // ── Pagos digitales Pix / Mercado Pago ──
+  var _pixBRL = 0, _pixBRLGs = 0, _mpARS = 0, _mpARSGs = 0;
   turnoData.ventas.forEach(function(v){
     if(v.mmPagos){
       _totalBRL   += v.mmPagos.pagoBRL   || 0;
@@ -508,14 +511,27 @@ async function renderTurno(){
       _totalARS   += v.mmPagos.pagoARS   || 0;
       _totalARSGs += v.mmPagos.pagoARSGs || 0;
     }
+    if(v.pixMpPagos){
+      if(v.pixMpPagos.tipo === 'pix'){ _pixBRL += v.pixMpPagos.monedaAmt || 0; _pixBRLGs += v.pixMpPagos.monedaGs || 0; }
+      if(v.pixMpPagos.tipo === 'mp') { _mpARS  += v.pixMpPagos.monedaAmt || 0; _mpARSGs  += v.pixMpPagos.monedaGs || 0; }
+    }
   });
   if(_totalBRL > 0 || _totalARS > 0){
     html += '<div class="turno-section">';
-    html += '<div class="turno-section-title">Moneda extranjera recibida</div>';
+    html += '<div class="turno-section-title">Moneda extranjera efectivo</div>';
     if(_totalBRL > 0)
       html += '<div class="turno-row"><span class="turno-row-label">&#127463;&#127479; Reales</span><span class="turno-row-val">R$ '+_totalBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalBRLGs)+' Gs)</span></span></div>';
     if(_totalARS > 0)
       html += '<div class="turno-row"><span class="turno-row-label">&#127462;&#127479; Pesos Arg.</span><span class="turno-row-val">$ '+_totalARS.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalARSGs)+' Gs)</span></span></div>';
+    html += '</div>';
+  }
+  if(_pixBRL > 0 || _mpARS > 0){
+    html += '<div class="turno-section">';
+    html += '<div class="turno-section-title">Pagos digitales</div>';
+    if(_pixBRL > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">Pix &#127463;&#127479;</span><span class="turno-row-val">R$ '+_pixBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_pixBRLGs)+' Gs)</span></span></div>';
+    if(_mpARS > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">Mercado Pago &#127462;&#127479;</span><span class="turno-row-val">$ '+Number(_mpARS).toLocaleString('es-PY')+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_mpARSGs)+' Gs)</span></span></div>';
     html += '</div>';
   }
 

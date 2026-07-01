@@ -3102,6 +3102,15 @@ var BTPrinter = {
         });
       } else {
         txt += pad(metodo, gs(data.total) + ' Gs.') + n;
+        // Pix / Mercado Pago: mostrar equivalente en moneda extranjera
+        if (data.pixMpPagos) {
+          var _pm = data.pixMpPagos;
+          var _pmAmtStr = _pm.tipo === 'pix'
+            ? _pm.monedaAmt.toFixed(2).replace('.', ',')
+            : Number(_pm.monedaAmt).toLocaleString('es-PY');
+          var _pmCotStr = _pm.tipo === 'pix' ? gs(_pm.cotizacion) : String(_pm.cotizacion);
+          txt += '  (' + _pm.simbolo + ' ' + _pmAmtStr + ' x Gs. ' + _pmCotStr + ')' + n;
+        }
       }
     }
     // Efectivo entregado y vuelto
@@ -3333,6 +3342,23 @@ var BTPrinter = {
       if (data.mmShiftARS > 0) {
         txt += pad('Pesos Arg. recib.:', gs2(data.mmShiftARSGs) + ' Gs.') + n;
         txt += '  (' + data.mmShiftARS + ' $ x Gs. ' + (data.cotARS||0) + ')' + n;
+      }
+      txt += sep2 + n;
+    }
+
+    // Pagos digitales Pix / Mercado Pago
+    if ((data.pixShiftBRL > 0) || (data.mpShiftARS > 0)) {
+      txt += '[BOLD]PAGOS DIGITALES[/BOLD]' + n;
+      txt += sep2 + n;
+      if (data.pixShiftBRL > 0) {
+        var _pxAmt = data.pixShiftBRL.toFixed(2).replace('.', ',');
+        txt += pad('Pix R$:', _pxAmt + ' R$') + n;
+        txt += pad('  Equiv. Gs:', gs2(data.pixShiftBRLGs) + ' Gs.') + n;
+      }
+      if (data.mpShiftARS > 0) {
+        var _mpAmt = Number(Math.round(data.mpShiftARS)).toLocaleString('es-PY');
+        txt += pad('Mercado Pago $:', _mpAmt + ' $') + n;
+        txt += pad('  Equiv. Gs:', gs2(data.mpShiftARSGs) + ' Gs.') + n;
       }
       txt += sep2 + n;
     }
