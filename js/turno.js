@@ -481,16 +481,31 @@ async function renderTurno(){
     html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gs(totalEgresos) + '</span></div>';
   if(totalIngresos > 0)
     html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gs(totalIngresos) + '</span></div>';
+
   html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gs(saldoEsperado) + '</span></div>';
   html += '</div>';
+
+  // ── Cobros de fiado del turno (detalle por cliente) ──
+  if (turnoData.ingresos && turnoData.ingresos.length > 0) {
+    html += '<div class="turno-section" style="border-left:3px solid #4caf50;">';
+    html += '<div class="turno-section-title" style="color:#4caf50;">Cobros de fiado</div>';
+    for (var _ci = 0; _ci < turnoData.ingresos.length; _ci++) {
+      var _ing = turnoData.ingresos[_ci];
+      var _ingNom = (_ing.desc||'').replace('Cobro fiado — ','') || 'Cliente';
+      var _ingMet = _ing.metodo ? (' · ' + _ing.metodo.charAt(0).toUpperCase() + _ing.metodo.slice(1)) : '';
+      html += '<div class="turno-row"><span class="turno-row-label">' + _ingNom + '<span style="font-weight:400;color:#555;font-size:10px;">' + _ingMet + '</span></span><span class="turno-row-val green">+' + gs(_ing.monto) + '</span></div>';
+    }
+    html += '<div class="turno-row" style="border-top:1px solid var(--border2);margin-top:2px;"><span class="turno-row-label" style="font-weight:700;">Total cobrado</span><span class="turno-row-val green" style="font-weight:900;">+' + gs(totalIngresos) + '</span></div>';
+    html += '</div>';
+  }
 
   // ── Ventas a crédito del turno ──
   var _ventasCred = turnoData.ventas.filter(function(v){ return (v.metodo||'').toUpperCase() === 'CRÉDITO'; });
   if (_ventasCred.length > 0) {
     var _totalCred = _ventasCred.reduce(function(s,v){ return s+v.total; }, 0);
     html += '<div class="turno-section" style="border-left:3px solid #ff9800;">';
-    html += '<div class="turno-section-title" style="color:#ff9800;">Ventas a crédito (fiado)</div>';
-    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">₲' + gs(_totalCred) + '</span></div>';
+    html += '<div class="turno-section-title" style="color:#ff9800;">Ventas a credito (fiado)</div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">Gs.' + gs(_totalCred) + '</span></div>';
     html += '<div class="turno-row"><span class="turno-row-label sub">' + _ventasCred.length + ' venta' + (_ventasCred.length!==1?'s':'') + '</span><button onclick="abrirCredito()" style="background:transparent;border:1px solid #ff9800;border-radius:4px;color:#ff9800;font-family:\'Barlow\',sans-serif;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Ver fiado</button></div>';
     html += '</div>';
   }

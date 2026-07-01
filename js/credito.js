@@ -262,19 +262,25 @@ function volverListaCredito() {
 }
 
 // ── COBRAR FIADO ─────────────────────────────────────────────
-var _cobFiadoCId = null;
+var _cobFiadoCId   = null;
+var _cobFiadoSaldo = 0;
 
 function abrirCobrarFiado(clienteId) {
   var clientes = cliCargar();
   var c = null;
   for (var i = 0; i < clientes.length; i++) { if (clientes[i].id === clienteId) { c = clientes[i]; break; } }
   if (!c) return;
-  _cobFiadoCId = clienteId;
-  var saldo = cliSaldo(clienteId);
+  _cobFiadoCId   = clienteId;
+  _cobFiadoSaldo = cliSaldo(clienteId);
   document.getElementById('cobrarFiadoNombre').textContent = c.nombre;
-  document.getElementById('cobrarFiadoSaldo').textContent  = 'Gs.'+gs(saldo);
+  document.getElementById('cobrarFiadoSaldo').textContent  = 'Gs.'+gs(_cobFiadoSaldo);
   document.getElementById('cobrarFiadoMonto').value        = '';
+  document.getElementById('cobrarFiadoBtnTodo').textContent = 'PAGAR TODO — Gs.'+gs(_cobFiadoSaldo);
   document.getElementById('cobrarFiadoModal').style.display = 'flex';
+}
+
+function pagarTodoCobro() {
+  document.getElementById('cobrarFiadoMonto').value = _cobFiadoSaldo;
 }
 
 function cerrarCobrarFiado() {
