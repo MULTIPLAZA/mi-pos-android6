@@ -1138,6 +1138,12 @@ function hideSplash(){
 (async function(){
   applyTheme();
 
+  // Safety net: si algo se cuelga, forzar cierre del splash después de 15s
+  var _splashKillTimer = setTimeout(function(){
+    console.warn('[init] Safety timeout — forzando hideSplash()');
+    hideSplash();
+  }, 15000);
+
   splashStatus('Cargando configuración...');
   // Iniciar DB y verificar licencia EN PARALELO — no tienen dependencia
   // La DB carga productos desde IndexedDB para que aparezcan de inmediato
@@ -1163,9 +1169,15 @@ function hideSplash(){
   splashStatus('Listo ');
 
   if(ok) {
-    await iniciarApp();
+    try {
+      await iniciarApp();
+    } catch(e) {
+      console.error('[iniciarApp] Error:', e);
+      splashStatus('Error: ' + (e && e.message ? e.message : String(e)));
+    }
   }
 
-  // Ocultar splash después de un breve momento para que la animación sea fluida
+  // Ocultar splash siempre — nunca quedar colgados en pantalla verde
+  clearTimeout(_splashKillTimer);
   setTimeout(hideSplash, 300);
 })();
