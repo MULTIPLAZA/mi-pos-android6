@@ -2,8 +2,20 @@
 // credito.js — Sistema de fiado / crédito para Ampersand POS
 // ============================================================
 
-var _CRED_CLI_KEY   = 'pos_cred_clientes';
-var _CRED_FIADO_KEY = 'pos_cred_fiado';
+var _CRED_CLI_KEY    = 'pos_cred_clientes';
+var _CRED_FIADO_KEY  = 'pos_cred_fiado';
+var _CRED_COBROS_KEY = 'pos_cred_cobros';
+
+// ── COBROS LOG ────────────────────────────────────────────────
+function cobrosCargar()     { try { return JSON.parse(localStorage.getItem(_CRED_COBROS_KEY)||'[]'); } catch(e) { return []; } }
+function cobrosGuardar(arr) { try { localStorage.setItem(_CRED_COBROS_KEY, JSON.stringify(arr)); } catch(e) {} }
+function cobroRegistrar(clienteId, clienteNombre, monto, metodo) {
+  var arr = cobrosCargar();
+  var cobro = { id: 'c'+Date.now(), clienteId: clienteId, clienteNombre: clienteNombre, monto: monto, metodo: metodo || 'efectivo', fecha: new Date().toISOString() };
+  arr.push(cobro);
+  cobrosGuardar(arr);
+  return cobro;
+}
 
 // ── CLIENTES ─────────────────────────────────────────────────
 function cliCargar()     { try { return JSON.parse(localStorage.getItem(_CRED_CLI_KEY)||'[]'); } catch(e) { return []; } }
@@ -184,34 +196,56 @@ function abrirDetalleCliente(clienteId) {
   html += '</div>';
   html += '</div>';
 
-  if (pendientes.length > 0) {
-    html += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;padding:4px 0 8px;">Ventas pendientes</div>';
-    for (var pi = 0; pi < pendientes.length; pi++) {
-      var f  = pendientes[pi];
-      var d  = new Date(f.fecha);
-      var ds = ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear();
-      var ts = ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border);">';
-      html += '<div><div style="font-size:13px;font-weight:700;color:var(--text);">Ticket #'+String(f.nroTicket||'?').padStart(4,'0')+'</div><div style="font-size:11px;color:var(--muted);">'+ds+' '+ts+'</div></div>';
-      html += '<div style="font-size:15px;font-weight:800;color:var(--text);">₲'+gs(f.total)+'</div></div>';
-    }
-  } else {
-    html += '<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;">Sin ventas pendientes</div>';
+  // ── Estado de cuenta: mezcla fiados + cobros ordenados por fecha ──
+  var todosLosFiados = [];
+  for (var fi2 = 0; fi2 < fiados.length; fi2++) {
+    if (fiados[fi2].clienteId === clienteId) todosLosFiados.push(fiados[fi2]);
+  }
+  var cobros = cobrosCargar();
+  var cobrosCliente = [];
+  for (var ci2 = 0; ci2 < cobros.length; ci2++) {
+    if (cobros[ci2].clienteId === clienteId) cobrosCliente.push(cobros[ci2]);
   }
 
-  var pagadas = [];
-  for (var qi = 0; qi < fiados.length; qi++) { if (fiados[qi].clienteId === clienteId && fiados[qi].pagado) pagadas.push(fiados[qi]); }
-  pagadas.sort(function(a,b){ return new Date(b.fechaPago)-new Date(a.fechaPago); });
-  pagadas = pagadas.slice(0, 5);
-  if (pagadas.length > 0) {
-    html += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;padding:12px 0 8px;">Pagadas (recientes)</div>';
-    for (var gi = 0; gi < pagadas.length; gi++) {
-      var fp = pagadas[gi];
-      var dp = new Date(fp.fechaPago);
-      var dps = ('0'+dp.getDate()).slice(-2)+'/'+('0'+(dp.getMonth()+1)).slice(-2)+'/'+dp.getFullYear();
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);opacity:.6;">';
-      html += '<div><div style="font-size:12px;color:var(--text);">Ticket #'+String(fp.nroTicket||'?').padStart(4,'0')+'</div><div style="font-size:10px;color:var(--muted);">Pagado: '+dps+'</div></div>';
-      html += '<div style="font-size:13px;font-weight:700;color:#4caf50;">✓ ₲'+gs(fp.total)+'</div></div>';
+  // Armar líneas de movimiento: tipo 'fiado' o 'cobro'
+  var movs = [];
+  for (var mi = 0; mi < todosLosFiados.length; mi++) {
+    var ff = todosLosFiados[mi];
+    movs.push({ tipo: 'fiado', fecha: ff.fecha, nroTicket: ff.nroTicket, monto: ff.total, pagado: ff.pagado });
+  }
+  for (var ci3 = 0; ci3 < cobrosCliente.length; ci3++) {
+    var co = cobrosCliente[ci3];
+    movs.push({ tipo: 'cobro', fecha: co.fecha, monto: co.monto, metodo: co.metodo });
+  }
+  movs.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
+
+  if (movs.length === 0) {
+    html += '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Sin movimientos</div>';
+  } else {
+    html += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;padding:4px 0 10px;">Estado de cuenta</div>';
+    for (var mvi = 0; mvi < movs.length; mvi++) {
+      var mv = movs[mvi];
+      var mvd = new Date(mv.fecha);
+      var mvds = ('0'+mvd.getDate()).slice(-2)+'/'+('0'+(mvd.getMonth()+1)).slice(-2)+'/'+mvd.getFullYear();
+      var mvts = ('0'+mvd.getHours()).slice(-2)+':'+('0'+mvd.getMinutes()).slice(-2);
+      if (mv.tipo === 'fiado') {
+        var fColor = mv.pagado ? 'var(--muted)' : 'var(--text)';
+        var fOp    = mv.pagado ? 'opacity:.55;' : '';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);'+fOp+'">';
+        html += '<div style="width:32px;height:32px;border-radius:50%;background:rgba(229,57,53,.12);border:1.5px solid rgba(229,57,53,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+        html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
+        html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:'+fColor+';">Ticket #'+String(mv.nroTicket||'?').padStart(4,'0')+(mv.pagado?' <span style="color:#4caf50;font-size:11px;">✓ pagado</span>':'')+'</div>';
+        html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+'</div></div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#e53935;">+₲'+gs(mv.monto)+'</div></div>';
+      } else {
+        var metLabel = (mv.metodo||'efectivo').charAt(0).toUpperCase()+(mv.metodo||'efectivo').slice(1);
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);">';
+        html += '<div style="width:32px;height:32px;border-radius:50%;background:rgba(76,175,80,.12);border:1.5px solid rgba(76,175,80,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+        html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>';
+        html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">Cobro recibido</div>';
+        html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+' · '+metLabel+'</div></div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#4caf50;">-₲'+gs(mv.monto)+'</div></div>';
+      }
     }
   }
 
@@ -260,6 +294,7 @@ function confirmarCobrarFiado() {
   var metodo  = document.getElementById('cobrarFiadoMetodo').value || 'efectivo';
   var cobrado = fiadoCobrar(_cobFiadoCId, monto, metodo);
   var nomStr  = document.getElementById('cobrarFiadoNombre').textContent;
+  cobroRegistrar(_cobFiadoCId, nomStr, cobrado, metodo);
   if (typeof registrarIngreso === 'function') registrarIngreso('Cobro fiado — '+nomStr, cobrado, metodo);
   cerrarCobrarFiado();
   if(typeof toast==='function') toast('Cobrado: ₲'+gs(cobrado));
