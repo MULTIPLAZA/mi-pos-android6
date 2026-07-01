@@ -109,31 +109,85 @@ function selPay(btn, m) {
   document.querySelectorAll('.pay-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
 
-  // Multi-moneda: cuando esta activo, EFECTIVO muestra el panel MM en vez del normal
   var _mmAct = localStorage.getItem('mm_activo') === '1';
-  var _mmS = document.getElementById('mmSec');
-  var _esElectronico = m === 'pos' || m === 'transferencia' || m === 'pix' || m === 'mp';
-  if (_mmAct && m === 'efectivo') {
-    document.getElementById('efecSec').style.display = 'none';
+  var _mmS   = document.getElementById('mmSec');
+
+  // ── Resetear estado pix/mp previo ────────────────────────────
+  if (_pixMpMode) {
+    var _lbl = document.getElementById('mmSecLabel');
+    if (_lbl) _lbl.innerHTML = 'Pago multi-moneda <span style="color:var(--muted);font-size:11px;font-weight:500;">(vuelto siempre en Gs)</span>';
+    var _rGs  = document.getElementById('mmRowGs');
+    var _rBrl = document.getElementById('mmRowBrl');
+    var _rArs = document.getElementById('mmRowArs');
+    var _rBil = document.getElementById('mmBilletesRow');
+    if (_rGs)  _rGs.style.display  = 'block';
+    if (_rBrl) _rBrl.style.display = 'block';
+    if (_rArs) _rArs.style.display = 'block';
+    if (_rBil) _rBil.style.display = 'flex';
+    _pixMpMode = null;
+    _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0;
+  }
+
+  if (m === 'pix' || m === 'mp') {
+    // ── Modo Pix (BRL) o Mercado Pago (ARS) ──────────────────
+    _pixMpMode = m;
+    _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0;
+
+    // Label dinámico
+    var lbl = document.getElementById('mmSecLabel');
+    if (lbl) lbl.innerHTML = (m === 'pix'
+      ? 'Pix <span style="font-size:14px;">🇧🇷</span> — ingresá R$ recibidos'
+      : 'Mercado Pago <span style="font-size:14px;">🇦🇷</span> — ingresá $ recibidos')
+      + '<span style="color:var(--muted);font-size:11px;font-weight:500;"> (vuelto en Gs)</span>';
+
+    // Mostrar solo la fila relevante
+    var rGs  = document.getElementById('mmRowGs');
+    var rBrl = document.getElementById('mmRowBrl');
+    var rArs = document.getElementById('mmRowArs');
+    var rBil = document.getElementById('mmBilletesRow');
+    if (rGs)  rGs.style.display  = 'none';
+    if (rBrl) rBrl.style.display = (m === 'pix') ? 'block' : 'none';
+    if (rArs) rArs.style.display = (m === 'mp')  ? 'block' : 'none';
+    if (rBil) rBil.style.display = 'none'; // sin billetes GS para pagos digitales
+
+    // Resetear displays
+    var brlEl = document.getElementById('mmBrlVal'); if (brlEl) brlEl.textContent = '0';
+    var arsEl = document.getElementById('mmArsVal'); if (arsEl) arsEl.textContent = '0';
+    var brlEq = document.getElementById('mmBrlEq');  if (brlEq) brlEq.textContent = '= ₲0';
+    var arsEq = document.getElementById('mmArsEq');  if (arsEq) arsEq.textContent = '= ₲0';
+    var totRec = document.getElementById('mmTotalRec'); if (totRec) totRec.textContent = '₲0';
+
+    // Mostrar mmSec, ocultar efectivo normal
     if (_mmS) _mmS.style.display = 'block';
-  } else {
-    document.getElementById('efecSec').style.display = (!_esElectronico && m === 'efectivo') ? 'block' : 'none';
-    if (_mmS) _mmS.style.display = 'none';
-  }
-
-  const comp      = document.getElementById('compSec');
-  const needsComp = m === 'pos' || m === 'transferencia' || m === 'pix' || m === 'mp';
-  comp.classList.toggle('open', needsComp);
-
-  if (!needsComp) {
-    const d = document.getElementById('compDisplay');
-    if (d) { d.textContent = '—'; d.style.color = '#ccc'; }
-  }
-  // Pago electrónico: limpiar display de efectivo para que no aparezca en el ticket
-  if (_esElectronico) {
-    var efv = document.getElementById('efecVal');
-    if (efv) { efv.textContent = '₲0'; }
+    document.getElementById('efecSec').style.display = 'none';
     document.getElementById('vueltoRow').classList.remove('show');
+    var efv = document.getElementById('efecVal'); if (efv) efv.textContent = '₲0';
+
+    // Referencia (opcional) — mostrar campo comprobante
+    var comp = document.getElementById('compSec');
+    if (comp) comp.classList.add('open');
+
+  } else {
+    // ── Métodos normales ──────────────────────────────────────
+    if (_mmAct && m === 'efectivo') {
+      document.getElementById('efecSec').style.display = 'none';
+      if (_mmS) _mmS.style.display = 'block';
+    } else {
+      document.getElementById('efecSec').style.display = m === 'efectivo' ? 'block' : 'none';
+      if (_mmS) _mmS.style.display = 'none';
+    }
+
+    var comp2     = document.getElementById('compSec');
+    var needsComp = m === 'pos' || m === 'transferencia';
+    if (comp2) comp2.classList.toggle('open', needsComp);
+    if (!needsComp) {
+      var cd = document.getElementById('compDisplay');
+      if (cd) { cd.textContent = '—'; cd.style.color = '#ccc'; }
+    }
+    if (m !== 'efectivo') {
+      var efv2 = document.getElementById('efecVal'); if (efv2) efv2.textContent = '₲0';
+      document.getElementById('vueltoRow').classList.remove('show');
+    }
   }
 }
 
@@ -526,6 +580,7 @@ var _vueltoUltimo = 0;
 
 // Estado de valores multi-moneda ingresados en el panel MM
 var _mmVals = { gs: 0, brl: 0, ars: 0 };
+var _pixMpMode = null; // 'pix' | 'mp' | null
 function updVuelto(entregado) {
   const total  = calcTotal();
   const vuelto = entregado - total;
@@ -1028,7 +1083,7 @@ async function confirmarPago() {
   const comprobante = document.getElementById('compDisplay') ? document.getElementById('compDisplay').textContent : '';
 
   // Multi-moneda: capturar datos del pago antes de limpiar
-  var _mmActivoPago = localStorage.getItem('mm_activo') === '1';
+  var _mmActivoPago = localStorage.getItem('mm_activo') === '1' || _pixMpMode !== null;
   var _mmCotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
   var _mmCotARS = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
   var _mmPagosConf = null;
@@ -1111,8 +1166,22 @@ async function confirmarPago() {
   // Limpiar divPagos para que no contamine la próxima venta normal
   clearDivPagos();
 
-  // Limpiar valores multi-moneda
+  // Limpiar valores multi-moneda y modo pix/mp
   _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0;
+  if (_pixMpMode) {
+    // Restaurar filas completas del mmSec para la próxima vez
+    var _prGs  = document.getElementById('mmRowGs');
+    var _prBrl = document.getElementById('mmRowBrl');
+    var _prArs = document.getElementById('mmRowArs');
+    var _prBil = document.getElementById('mmBilletesRow');
+    var _prLbl = document.getElementById('mmSecLabel');
+    if (_prGs)  _prGs.style.display  = 'block';
+    if (_prBrl) _prBrl.style.display = 'block';
+    if (_prArs) _prArs.style.display = 'block';
+    if (_prBil) _prBil.style.display = 'flex';
+    if (_prLbl) _prLbl.innerHTML = 'Pago multi-moneda <span style="color:var(--muted);font-size:11px;font-weight:500;">(vuelto siempre en Gs)</span>';
+    _pixMpMode = null;
+  }
   var _mmSecLimpiar = document.getElementById('mmSec');
   if (_mmSecLimpiar) _mmSecLimpiar.style.display = 'none';
 

@@ -1798,9 +1798,9 @@
 
     <!-- PANEL MULTI-MONEDA — visible solo cuando mm_activo='1' -->
     <div class="efec-sec" id="mmSec" style="display:none;">
-      <p class="efec-lbl">Pago multi-moneda <span style="color:var(--muted);font-size:11px;font-weight:500;">(vuelto siempre en Gs)</span></p>
+      <p class="efec-lbl" id="mmSecLabel">Pago multi-moneda <span style="color:var(--muted);font-size:11px;font-weight:500;">(vuelto siempre en Gs)</span></p>
       <!-- Fila Guaranies -->
-      <div style="margin-bottom:6px;">
+      <div id="mmRowGs" style="margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇵🇾</span>
           <div class="efec-row" onclick="openNP('mm_gs')" style="flex:1;margin:0;">
@@ -1810,7 +1810,7 @@
         </div>
       </div>
       <!-- Fila Reales -->
-      <div style="margin-bottom:6px;">
+      <div id="mmRowBrl" style="margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇧🇷</span>
           <div class="efec-row" onclick="openNP('mm_brl')" style="flex:1;margin:0;">
@@ -1821,7 +1821,7 @@
         </div>
       </div>
       <!-- Fila Pesos Arg -->
-      <div style="margin-bottom:8px;">
+      <div id="mmRowArs" style="margin-bottom:8px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇦🇷</span>
           <div class="efec-row" onclick="openNP('mm_ars')" style="flex:1;margin:0;">
@@ -1832,7 +1832,7 @@
         </div>
       </div>
       <!-- Billetes rapidos GS -->
-      <div class="billetes-quick">
+      <div id="mmBilletesRow" class="billetes-quick">
         <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(5000)">5k</button>
         <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(10000)">10k</button>
         <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(20000)">20k</button>
