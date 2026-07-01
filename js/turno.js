@@ -1037,7 +1037,7 @@ function cerrarTurno(){
   var _mmActArqueo = localStorage.getItem('mm_activo') === '1';
   var _lblArqueo = document.getElementById('cierreLabelTotal');
   if(_lblArqueo) _lblArqueo.innerHTML = _mmActArqueo
-    ? 'Guaraníes contados <span style="color:#555;font-size:11px;">(0 si no hay)</span>'
+    ? '<span style="color:#4fc3f7;font-weight:700;">SOLO billetes ₲ Guaraníes</span> <span style="color:#f44336;font-size:11px;font-weight:600;">(NO incluir moneda extranjera acá)</span>'
     : 'Total contado <span style="color:#555;font-size:11px;">(opcional — dejá en 0 para omitir)</span>';
   var _mmSecEl = document.getElementById('cierreMMSection');
   if(_mmSecEl){
