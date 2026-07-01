@@ -14,6 +14,7 @@ function cliNuevo(nombre, limiteGs) {
   var cli = { id: Date.now(), nombre: nombre.toUpperCase().trim(), limiteGs: parseInt(limiteGs)||0 };
   arr.push(cli);
   cliGuardar(arr);
+  _credSupaUpsertCli(cli);
   return cli;
 }
 
@@ -25,6 +26,7 @@ function cliEditar(id, nombre, limiteGs) {
     arr[idx].nombre   = nombre.toUpperCase().trim();
     arr[idx].limiteGs = parseInt(limiteGs) || 0;
     cliGuardar(arr);
+    _credSupaUpsertCli(arr[idx]);
   }
 }
 
@@ -47,8 +49,10 @@ function fiadoRegistrar(clienteId, clienteNombreStr, nroTicket, total, fecha) {
   if (fecha instanceof Date)     fechaStr = fecha.toISOString();
   else if (typeof fecha === 'string') fechaStr = fecha;
   else fechaStr = new Date().toISOString();
-  arr.push({ id: 'f'+Date.now(), clienteId: clienteId, clienteNombre: clienteNombreStr, nroTicket: nroTicket, total: total, fecha: fechaStr, pagado: false, fechaPago: null, metodoPago: '' });
+  var nuevo = { id: 'f'+Date.now(), clienteId: clienteId, clienteNombre: clienteNombreStr, nroTicket: nroTicket, total: total, fecha: fechaStr, pagado: false, fechaPago: null, metodoPago: '' };
+  arr.push(nuevo);
   fiadoGuardar(arr);
+  _credSupaUpsertFiado(nuevo);
 }
 
 function fiadoCobrar(clienteId, montoGs, metodoPago) {
@@ -59,6 +63,7 @@ function fiadoCobrar(clienteId, montoGs, metodoPago) {
   }
   pendientes.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
   var restante = montoGs;
+  var pagadas   = [];
   for (var j = 0; j < pendientes.length; j++) {
     if (restante <= 0) break;
     if (restante >= pendientes[j].total) {
@@ -67,6 +72,7 @@ function fiadoCobrar(clienteId, montoGs, metodoPago) {
           arr[k].pagado     = true;
           arr[k].fechaPago  = new Date().toISOString();
           arr[k].metodoPago = metodoPago;
+          pagadas.push(arr[k]);
           break;
         }
       }
@@ -74,6 +80,7 @@ function fiadoCobrar(clienteId, montoGs, metodoPago) {
     }
   }
   fiadoGuardar(arr);
+  for (var pi = 0; pi < pagadas.length; pi++) _credSupaUpsertFiado(pagadas[pi]);
   return montoGs - restante;
 }
 
@@ -82,8 +89,10 @@ var creditoClienteSel = null;
 
 // ── PANTALLA CRÉDITO ─────────────────────────────────────────
 function abrirCredito() {
-  renderCreditoScreen();
   goTo('scCredito');
+  renderCreditoScreen();
+  // Sincronizar desde Supabase en background
+  _credSupaSincronizar().then(function(){ renderCreditoScreen(); }).catch(function(){});
 }
 
 function renderCreditoScreen() {
@@ -381,4 +390,97 @@ function updCreditoSecUI() {
     if (btn)     btn.textContent = 'Seleccionar cliente…';
     if (saldoEl) { saldoEl.textContent = ''; }
   }
+}
+
+// ── SUPABASE SYNC ─────────────────────────────────────────────
+function _credSupaOk() {
+  return typeof SUPA_URL !== 'undefined' && !SUPA_URL.includes('XXXX') && typeof supaPost === 'function';
+}
+
+function _credSupaEmail() {
+  return (typeof SK !== 'undefined' && localStorage.getItem(SK.email)) || '';
+}
+
+function _credSupaUpsertCli(cli) {
+  if (!_credSupaOk()) return;
+  var email = _credSupaEmail();
+  if (!email) return;
+  supaPost('pos_cred_clientes',
+    { id: cli.id, email: email, nombre: cli.nombre, limite_gs: cli.limiteGs || 0 },
+    'id', true
+  ).catch(function(){});
+}
+
+function _credSupaUpsertFiado(f) {
+  if (!_credSupaOk()) return;
+  var email = _credSupaEmail();
+  if (!email) return;
+  supaPost('pos_cred_fiado', {
+    id:             f.id,
+    email:          email,
+    cliente_id:     f.clienteId,
+    cliente_nombre: f.clienteNombre,
+    nro_ticket:     f.nroTicket || null,
+    total:          f.total,
+    fecha:          f.fecha,
+    pagado:         f.pagado,
+    fecha_pago:     f.fechaPago || null,
+    metodo_pago:    f.metodoPago || ''
+  }, 'id', true).catch(function(){});
+}
+
+async function _credSupaSincronizar() {
+  if (!_credSupaOk()) return;
+  var email = _credSupaEmail();
+  if (!email) return;
+  try {
+    // Clientes
+    var rCli = await fetch(
+      SUPA_URL + '/rest/v1/pos_cred_clientes?email=eq.' + encodeURIComponent(email) + '&select=*',
+      { headers: supaHeaders({}) }
+    );
+    if (rCli.ok) {
+      var dbClis = await rCli.json();
+      if (Array.isArray(dbClis) && dbClis.length > 0) {
+        var cliMap = {};
+        cliCargar().forEach(function(c){ cliMap[c.id] = c; });
+        dbClis.forEach(function(c){
+          cliMap[c.id] = { id: c.id, nombre: c.nombre, limiteGs: c.limite_gs || 0 };
+        });
+        var vals = [];
+        var keys = Object.keys(cliMap);
+        for (var ki = 0; ki < keys.length; ki++) vals.push(cliMap[keys[ki]]);
+        cliGuardar(vals);
+      }
+    }
+    // Fiados
+    var rFiado = await fetch(
+      SUPA_URL + '/rest/v1/pos_cred_fiado?email=eq.' + encodeURIComponent(email) + '&select=*&order=fecha.asc',
+      { headers: supaHeaders({}) }
+    );
+    if (rFiado.ok) {
+      var dbFiados = await rFiado.json();
+      if (Array.isArray(dbFiados) && dbFiados.length > 0) {
+        var fMap = {};
+        fiadoCargar().forEach(function(f){ fMap[f.id] = f; });
+        dbFiados.forEach(function(f){
+          fMap[f.id] = {
+            id:            f.id,
+            clienteId:     f.cliente_id,
+            clienteNombre: f.cliente_nombre,
+            nroTicket:     f.nro_ticket,
+            total:         f.total,
+            fecha:         f.fecha,
+            pagado:        f.pagado,
+            fechaPago:     f.fecha_pago,
+            metodoPago:    f.metodo_pago || ''
+          };
+        });
+        var fVals = [];
+        var fKeys = Object.keys(fMap);
+        for (var fi = 0; fi < fKeys.length; fi++) fVals.push(fMap[fKeys[fi]]);
+        fiadoGuardar(fVals);
+      }
+    }
+  } catch(e) {}
 }

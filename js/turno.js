@@ -485,13 +485,13 @@ async function renderTurno(){
   html += '</div>';
 
   // ── Ventas a crédito del turno ──
-  const ventasCredito = turnoData.ventas.filter(v => (v.metodo||'').toUpperCase() === 'CRÉDITO');
-  if (ventasCredito.length > 0) {
-    const totalCredito = ventasCredito.reduce((s,v) => s+v.total, 0);
+  var _ventasCred = turnoData.ventas.filter(function(v){ return (v.metodo||'').toUpperCase() === 'CRÉDITO'; });
+  if (_ventasCred.length > 0) {
+    var _totalCred = _ventasCred.reduce(function(s,v){ return s+v.total; }, 0);
     html += '<div class="turno-section" style="border-left:3px solid #ff9800;">';
     html += '<div class="turno-section-title" style="color:#ff9800;">Ventas a crédito (fiado)</div>';
-    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">₲' + gs(totalCredito) + '</span></div>';
-    html += '<div class="turno-row"><span class="turno-row-label sub">' + ventasCredito.length + ' venta' + (ventasCredito.length!==1?'s':'') + '</span><button onclick="abrirCredito()" style="background:transparent;border:1px solid #ff9800;border-radius:4px;color:#ff9800;font-family:\'Barlow\',sans-serif;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Ver fiado</button></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">₲' + gs(_totalCred) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label sub">' + _ventasCred.length + ' venta' + (_ventasCred.length!==1?'s':'') + '</span><button onclick="abrirCredito()" style="background:transparent;border:1px solid #ff9800;border-radius:4px;color:#ff9800;font-family:\'Barlow\',sans-serif;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Ver fiado</button></div>';
     html += '</div>';
   }
 
