@@ -1424,7 +1424,14 @@ function buildCierreTicket(size){
   size = size || getPaperSize('ticket') || '58';
   var cols = size==='80' ? 48 : 32;
   var saldoEsperado = calcSaldoEsperado();
-  var totalContado = Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
+  // Si MM activo, usar cierreTotal (GS + BRL equiv + ARS equiv); si no, suma del desglose por método
+  var _mmActCierre = localStorage.getItem('mm_activo') === '1';
+  var totalContado = _mmActCierre ? cierreTotal : Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
+  // Acumular moneda extranjera del turno
+  var _shiftBRL = 0, _shiftBRLGs = 0, _shiftARS = 0, _shiftARSGs = 0;
+  turnoData.ventas.forEach(function(v){
+    if(v.mmPagos){ _shiftBRL += v.mmPagos.pagoBRL||0; _shiftBRLGs += v.mmPagos.pagoBRLGs||0; _shiftARS += v.mmPagos.pagoARS||0; _shiftARSGs += v.mmPagos.pagoARSGs||0; }
+  });
   var diff = totalContado > 0 ? totalContado - saldoEsperado : null;
   var ahora = new Date();
   var pad2 = function(n){ return String(n).padStart(2,'0'); };
@@ -1548,19 +1555,37 @@ function buildCierreTicket(size){
     });
   }
   lines += sep();
+  // Moneda extranjera del turno
+  if(_shiftBRL > 0 || _shiftARS > 0){
+    lines += rowLabel('MONEDA EXTRANJERA EN TURNO');
+    lines += sep();
+    if(_shiftBRL > 0){ lines += row('Reales recibidos:', gn2(_shiftBRL)+' R$'); lines += row('  Equiv. Gs:', gn2(_shiftBRLGs)); }
+    if(_shiftARS > 0){ lines += row('Pesos Arg. recibidos:', gn2(_shiftARS)+' $'); lines += row('  Equiv. Gs:', gn2(_shiftARSGs)); }
+    lines += sep();
+  }
   // Conteo si existe
   if(totalContado > 0){
-    lines += rowLabel('CONTEO DE VALORES');
+    lines += rowLabel('CONTEO DEL CAJERO');
     lines += sep();
-    Object.entries(cierreMetodos).forEach(function(e){
-      var m=e[0], d=e[1];
-      if(d.contado>0){
-        var dif=d.contado-d.esperado;
-        var difStr=dif===0?' OK':dif>0?' +'+gn2(dif):' -'+gn2(Math.abs(dif));
-        lines += row(m.substring(0,cols-gn2(d.contado).length-1), gn2(d.contado));
-        lines += '<p style="margin:0;padding-left:8px;font-size:9pt;">Esp: '+gn2(d.esperado)+'  '+difStr+'</p>';
-      }
-    });
+    // Arqueo multi-moneda
+    if(_mmActCierre && (cierreArqueoGS > 0 || cierreArqueoBRL > 0 || cierreArqueoARS > 0)){
+      var _cotBRLc = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+      var _cotARSc = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+      if(cierreArqueoGS  > 0) lines += row('Guaranies:', gn2(cierreArqueoGS));
+      if(cierreArqueoBRL > 0){ lines += row('Reales:', cierreArqueoBRL+' R$'); if(_cotBRLc>0) lines += row('  Equiv. Gs:', gn2(Math.round(cierreArqueoBRL*_cotBRLc))); }
+      if(cierreArqueoARS > 0){ lines += row('Pesos Arg.:', cierreArqueoARS+' $'); if(_cotARSc>0) lines += row('  Equiv. Gs:', gn2(Math.round(cierreArqueoARS*_cotARSc))); }
+      lines += row('Total equiv. Gs:', gn2(totalContado), true);
+    } else {
+      Object.entries(cierreMetodos).forEach(function(e){
+        var m=e[0], d=e[1];
+        if(d.contado>0){
+          var dif=d.contado-d.esperado;
+          var difStr=dif===0?' OK':dif>0?' +'+gn2(dif):' -'+gn2(Math.abs(dif));
+          lines += row(m.substring(0,cols-gn2(d.contado).length-1), gn2(d.contado));
+          lines += '<p style="margin:0;padding-left:8px;font-size:9pt;">Esp: '+gn2(d.esperado)+'  '+difStr+'</p>';
+        }
+      });
+    }
     if(diff!==null){
       var dLabel = diff===0 ? 'CUADRE EXACTO' : diff>0 ? 'SOBRANTE: +'+gn2(diff) : 'FALTANTE: -'+gn2(Math.abs(diff));
       lines += '<p style="margin:4px 0;font-weight:bold;text-align:center;">'+dLabel+'</p>';
@@ -1606,9 +1631,15 @@ async function confirmarCierre(){
   buildCierreTicket(size);
 
   // ── Calcular totales para persistir el cierre ────────────
-  var totalContado = Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
+  var _mmActConfirmar = localStorage.getItem('mm_activo') === '1';
+  var totalContado = _mmActConfirmar ? cierreTotal : Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
   var saldoEsperado = calcSaldoEsperado();
   var diferencia = totalContado > 0 ? totalContado - saldoEsperado : 0;
+  // Acumular moneda extranjera del turno para pasar al cierre impreso
+  var _mmShiftBRL = 0, _mmShiftBRLGs = 0, _mmShiftARS = 0, _mmShiftARSGs = 0;
+  turnoData.ventas.forEach(function(v){
+    if(v.mmPagos){ _mmShiftBRL+=v.mmPagos.pagoBRL||0; _mmShiftBRLGs+=v.mmPagos.pagoBRLGs||0; _mmShiftARS+=v.mmPagos.pagoARS||0; _mmShiftARSGs+=v.mmPagos.pagoARSGs||0; }
+  });
   var _totalVentas   = turnoData.ventas.reduce(function(s,v){return s+v.total;},0);
   var _totalEgresos  = turnoData.egresos.filter(function(e){return !e.anulada;}).reduce(function(s,e){return s+e.monto;},0);
   var _cantVentas    = turnoData.ventas.length;
@@ -1712,6 +1743,15 @@ async function confirmarCierre(){
     saldoEsperado: saldoEsperado,
     diff:          totalContado > 0 ? totalContado - saldoEsperado : null,
     cierreMetodos: JSON.parse(JSON.stringify(cierreMetodos)),
+    arqueoGS:      cierreArqueoGS,
+    arqueoBRL:     cierreArqueoBRL,
+    arqueoARS:     cierreArqueoARS,
+    cotBRL:        parseFloat(localStorage.getItem('mm_cotBRL')) || 0,
+    cotARS:        parseFloat(localStorage.getItem('mm_cotARS')) || 0,
+    mmShiftBRL:    _mmShiftBRL,
+    mmShiftBRLGs:  _mmShiftBRLGs,
+    mmShiftARS:    _mmShiftARS,
+    mmShiftARSGs:  _mmShiftARSGs,
   };
   turnoBorrar();
   turnoData = { fechaApertura: null, efectivoInicial: 0, ventas: [], egresos: [], ingresos: [] };

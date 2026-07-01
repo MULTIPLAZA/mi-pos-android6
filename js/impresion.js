@@ -3116,12 +3116,16 @@ var BTPrinter = {
       var _mm = data.mmPagos;
       txt += sep2 + n;
       txt += ctr('DETALLE DE PAGO') + n;
-      if(_mm.pagoGS  > 0) txt += pad('  Guaranies', gs(_mm.pagoGS) + ' Gs.') + n;
-      if(_mm.pagoBRL > 0) txt += pad('  Reales', _mm.pagoBRL + ' R$ x ' + _mm.cotBRL) + n;
-      if(_mm.pagoBRL > 0) txt += pad('    = Gs.', gs(_mm.pagoBRLGs)) + n;
-      if(_mm.pagoARS > 0) txt += pad('  Pesos Arg.', _mm.pagoARS + ' $ x ' + _mm.cotARS) + n;
-      if(_mm.pagoARS > 0) txt += pad('    = Gs.', gs(_mm.pagoARSGs)) + n;
-      txt += pad('Total recibido', gs(_mm.totalGs) + ' Gs.') + n;
+      if(_mm.pagoGS > 0)  txt += pad('Guaranies:', gs(_mm.pagoGS)) + n;
+      if(_mm.pagoBRL > 0){
+        txt += 'Reales: ' + _mm.pagoBRL + ' R$ x ' + gs(_mm.cotBRL) + n;
+        txt += pad('  Equiv. Gs:', gs(_mm.pagoBRLGs)) + n;
+      }
+      if(_mm.pagoARS > 0){
+        txt += 'Pesos: ' + _mm.pagoARS + ' $ x ' + _mm.cotARS + n;
+        txt += pad('  Equiv. Gs:', gs(_mm.pagoARSGs)) + n;
+      }
+      txt += '[BOLD]' + pad('Total recibido:', gs(_mm.totalGs)) + '[/BOLD]' + n;
     }
     if (_vueltoNum > 0) {
       txt += '[BOLD]' + pad('VUELTO', gs(_vueltoNum) + ' Gs.') + '[/BOLD]' + n;
@@ -3312,19 +3316,48 @@ var BTPrinter = {
       txt += sep2 + n;
     }
 
-    // Conteo
-    if (data.totalContado > 0 && data.cierreMetodos) {
-      txt += '[BOLD]CONTEO DE VALORES[/BOLD]' + n;
+    // Moneda extranjera del turno
+    if (data.mmShiftBRL > 0 || data.mmShiftARS > 0) {
+      txt += '[BOLD]MONEDA EXTRANJERA (TURNO)[/BOLD]' + n;
       txt += sep2 + n;
-      Object.entries(data.cierreMetodos).forEach(function(e){
-        var m = e[0], d = e[1];
-        if (d.contado > 0) {
-          var dif = d.contado - d.esperado;
-          var difStr = dif === 0 ? ' OK' : dif > 0 ? ' +' + gs2(dif) : ' -' + gs2(Math.abs(dif));
-          txt += pad(m + ':', gs2(d.contado)) + n;
-          txt += '  Esperado: ' + gs2(d.esperado) + '  ' + difStr + n;
+      if (data.mmShiftBRL > 0) {
+        txt += pad('Reales recibidos:', data.mmShiftBRL + ' R$') + n;
+        txt += pad('  Equiv. Gs:', gs2(data.mmShiftBRLGs)) + n;
+      }
+      if (data.mmShiftARS > 0) {
+        txt += pad('Pesos Arg. recib.:', data.mmShiftARS + ' $') + n;
+        txt += pad('  Equiv. Gs:', gs2(data.mmShiftARSGs)) + n;
+      }
+      txt += sep2 + n;
+    }
+
+    // Conteo
+    if (data.totalContado > 0) {
+      txt += '[BOLD]CONTEO DEL CAJERO[/BOLD]' + n;
+      txt += sep2 + n;
+      // Arqueo multi-moneda
+      if (data.arqueoGS > 0 || data.arqueoBRL > 0 || data.arqueoARS > 0) {
+        if (data.arqueoGS  > 0) txt += pad('Guaranies:', gs2(data.arqueoGS)) + n;
+        if (data.arqueoBRL > 0) {
+          txt += pad('Reales:', data.arqueoBRL + ' R$') + n;
+          if (data.cotBRL > 0) txt += pad('  Equiv. Gs:', gs2(Math.round(data.arqueoBRL * data.cotBRL))) + n;
         }
-      });
+        if (data.arqueoARS > 0) {
+          txt += pad('Pesos Arg.:', data.arqueoARS + ' $') + n;
+          if (data.cotARS > 0) txt += pad('  Equiv. Gs:', gs2(Math.round(data.arqueoARS * data.cotARS))) + n;
+        }
+        txt += '[BOLD]' + pad('Total equiv. Gs:', gs2(data.totalContado)) + '[/BOLD]' + n;
+      } else if (data.cierreMetodos) {
+        Object.entries(data.cierreMetodos).forEach(function(e){
+          var m = e[0], d = e[1];
+          if (d.contado > 0) {
+            var dif = d.contado - d.esperado;
+            var difStr = dif === 0 ? ' OK' : dif > 0 ? ' +' + gs2(dif) : ' -' + gs2(Math.abs(dif));
+            txt += pad(m + ':', gs2(d.contado)) + n;
+            txt += '  Esperado: ' + gs2(d.esperado) + '  ' + difStr + n;
+          }
+        });
+      }
       if (data.diff !== null && data.diff !== undefined) {
         var dLabel = data.diff === 0 ? 'CUADRE EXACTO' : data.diff > 0 ? 'SOBRANTE: +' + gs2(data.diff) : 'FALTANTE: -' + gs2(Math.abs(data.diff));
         txt += '[CENTER][BOLD]' + dLabel + '[/BOLD][/CENTER]' + n;
