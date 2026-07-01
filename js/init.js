@@ -285,6 +285,28 @@ async function iniciarApp(){
     }
   } catch(e){ console.warn('[App] Turno:', e.message); }
 
+  // ── Enviar cierre pendiente si quedó sin sincronizar (offline al cerrar) ──
+  if(navigator.onLine && !USAR_DEMO){
+    const _cpRaw = localStorage.getItem('pos_cierre_pendiente');
+    if(_cpRaw){
+      try {
+        const _cp = JSON.parse(_cpRaw);
+        await supaPatch('pos_turno', 'id=eq.'+_cp.id, {
+          estado:          'cerrado',
+          fecha_cierre:    _cp.fecha || new Date().toISOString(),
+          total_contado:   _cp.totalContado  || 0,
+          diferencia:      _cp.diferencia    || 0,
+          total_vendido:   _cp.totalVendido  || 0,
+          total_egresos:   _cp.totalEgresos  || 0,
+          cantidad_ventas: _cp.cantVentas    || 0,
+          resumen_pagos:   _cp.resumenPagos  || '{}',
+        }, true);
+        localStorage.removeItem('pos_cierre_pendiente');
+        _log('[Init] Cierre pendiente sincronizado con Supabase');
+      } catch(e){ console.warn('[Init] Error sincronizando cierre pendiente:', e.message); }
+    }
+  }
+
   // Si no hay turno en localStorage, buscar en Supabase (otra terminal abrió el turno)
   if(!turnoOk && navigator.onLine && !USAR_DEMO){
     try {

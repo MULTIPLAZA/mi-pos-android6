@@ -1687,6 +1687,21 @@ async function confirmarCierre(){
 
   // ── Persistir cierre en Supabase directo si hay internet ─
   const supaId = turnoSupaIdCierre || turnoDbIdCierre;
+  // Siempre guardar el cierre pendiente — init.js lo procesa al reiniciar si falló acá
+  if(supaId){
+    try {
+      localStorage.setItem('pos_cierre_pendiente', JSON.stringify({
+        id: supaId,
+        totalContado:  totalContado,
+        diferencia:    diferencia,
+        totalVendido:  _totalVentas,
+        totalEgresos:  _totalEgresos,
+        cantVentas:    _cantVentas,
+        resumenPagos:  JSON.stringify(_metodosTotales),
+        fecha:         new Date().toISOString(),
+      }));
+    } catch(e){}
+  }
   if(navigator.onLine && supaId){
     try {
       await supaPatch('pos_turno', 'id=eq.'+supaId, {
@@ -1699,6 +1714,7 @@ async function confirmarCierre(){
           cantidad_ventas: _cantVentas,
           resumen_pagos:   JSON.stringify(_metodosTotales),
         }, true);
+      localStorage.removeItem('pos_cierre_pendiente');
       _log('[Cierre] Turno cerrado en Supabase OK');
     } catch(e){ console.warn('[Cierre] Error Supabase:', e.message); }
 
