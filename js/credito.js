@@ -120,7 +120,7 @@ function renderCreditoScreen() {
 
   var html = '';
   html += '<div style="background:rgba(229,57,53,.08);border:1px solid rgba(229,57,53,.3);border-radius:10px;padding:14px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;">';
-  html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px;">Total pendiente</div><div style="font-size:26px;font-weight:900;color:#e53935;letter-spacing:-1px;">₲'+gs(totalPend)+'</div></div>';
+  html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px;">Total pendiente</div><div style="font-size:26px;font-weight:900;color:#e53935;letter-spacing:-1px;">Gs.'+gs(totalPend)+'</div></div>';
   html += '<div style="text-align:right;"><div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;margin-bottom:3px;">Clientes</div><div style="font-size:24px;font-weight:800;color:var(--text);">'+countPend+'</div></div>';
   html += '</div>';
 
@@ -145,10 +145,10 @@ function renderCreditoScreen() {
     html += '<div onclick="abrirDetalleCliente('+c.id+')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
     html += '<div><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:2px;">'+c.nombre+'</div>';
     html += '<div style="font-size:11px;color:var(--muted);">'+cnt+' venta'+(cnt!==1?'s':'')+'</div></div>';
-    html += '<div style="text-align:right;"><div style="font-size:17px;font-weight:900;color:#e53935;">₲'+gs(sal)+'</div>';
+    html += '<div style="text-align:right;"><div style="font-size:17px;font-weight:900;color:#e53935;">Gs.'+gs(sal)+'</div>';
     if (c.limiteGs > 0) {
       var pct = Math.min(100, Math.round(sal/c.limiteGs*100));
-      html += '<div style="font-size:10px;color:'+(pct>=90?'#e53935':pct>=70?'#ff9800':'var(--muted)')+';">Límite ₲'+gs(c.limiteGs)+'</div>';
+      html += '<div style="font-size:10px;color:'+(pct>=90?'#e53935':pct>=70?'#ff9800':'var(--muted)')+';">Límite Gs.'+gs(c.limiteGs)+'</div>';
     }
     html += '</div></div>';
   }
@@ -183,10 +183,10 @@ function abrirDetalleCliente(clienteId) {
   html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;">';
   html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">'+c.nombre+'</div>';
   html += '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;">';
-  html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;">Saldo</div><div style="font-size:28px;font-weight:900;color:#e53935;">₲'+gs(saldo)+'</div></div>';
+  html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;">Saldo</div><div style="font-size:28px;font-weight:900;color:#e53935;">Gs.'+gs(saldo)+'</div></div>';
   if (c.limiteGs > 0) {
     var pct = saldo > 0 ? Math.min(100,Math.round(saldo/c.limiteGs*100)) : 0;
-    html += '<div style="text-align:right;"><div style="font-size:10px;color:var(--muted);">Límite</div><div style="font-size:16px;font-weight:700;">₲'+gs(c.limiteGs)+'</div><div style="font-size:10px;color:'+(pct>=90?'#e53935':pct>=70?'#ff9800':'#4caf50')+';">'+pct+'% usado</div></div>';
+    html += '<div style="text-align:right;"><div style="font-size:10px;color:var(--muted);">Límite</div><div style="font-size:16px;font-weight:700;">Gs.'+gs(c.limiteGs)+'</div><div style="font-size:10px;color:'+(pct>=90?'#e53935':pct>=70?'#ff9800':'#4caf50')+';">'+pct+'% usado</div></div>';
   }
   html += '</div>';
   if (saldo > 0) html += '<button onclick="abrirCobrarFiado('+clienteId+')" style="width:100%;padding:13px;background:#4caf50;color:white;border:none;border-radius:8px;font-family:\'Barlow\',sans-serif;font-size:14px;font-weight:800;letter-spacing:.5px;cursor:pointer;margin-bottom:8px;">💰 COBRAR FIADO</button>';
@@ -236,7 +236,7 @@ function abrirDetalleCliente(clienteId) {
         html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
         html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:'+fColor+';">Ticket #'+String(mv.nroTicket||'?').padStart(4,'0')+(mv.pagado?' <span style="color:#4caf50;font-size:11px;">✓ pagado</span>':'')+'</div>';
         html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+'</div></div>';
-        html += '<div style="font-size:15px;font-weight:800;color:#e53935;">+₲'+gs(mv.monto)+'</div></div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#e53935;">+Gs.'+gs(mv.monto)+'</div></div>';
       } else {
         var metLabel = (mv.metodo||'efectivo').charAt(0).toUpperCase()+(mv.metodo||'efectivo').slice(1);
         html += '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);">';
@@ -244,7 +244,7 @@ function abrirDetalleCliente(clienteId) {
         html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>';
         html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">Cobro recibido</div>';
         html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+' · '+metLabel+'</div></div>';
-        html += '<div style="font-size:15px;font-weight:800;color:#4caf50;">-₲'+gs(mv.monto)+'</div></div>';
+        html += '<div style="font-size:15px;font-weight:800;color:#4caf50;">-Gs.'+gs(mv.monto)+'</div></div>';
       }
     }
   }
@@ -272,7 +272,7 @@ function abrirCobrarFiado(clienteId) {
   _cobFiadoCId = clienteId;
   var saldo = cliSaldo(clienteId);
   document.getElementById('cobrarFiadoNombre').textContent = c.nombre;
-  document.getElementById('cobrarFiadoSaldo').textContent  = '₲'+gs(saldo);
+  document.getElementById('cobrarFiadoSaldo').textContent  = 'Gs.'+gs(saldo);
   document.getElementById('cobrarFiadoMonto').value        = '';
   document.getElementById('cobrarFiadoModal').style.display = 'flex';
 }
@@ -288,7 +288,7 @@ function confirmarCobrarFiado() {
   if (monto <= 0) { if(typeof toast==='function') toast('Ingresá el monto'); return; }
   var saldo = cliSaldo(_cobFiadoCId);
   if (monto > saldo) {
-    if (!confirm('El monto ₲'+gs(monto)+' supera el saldo ₲'+gs(saldo)+'. Se registrará ₲'+gs(saldo)+'.')) return;
+    if (!confirm('El monto Gs.'+gs(monto)+' supera el saldo Gs.'+gs(saldo)+'. Se registrará Gs.'+gs(saldo)+'.')) return;
     monto = saldo;
   }
   var metodo  = document.getElementById('cobrarFiadoMetodo').value || 'efectivo';
@@ -297,7 +297,7 @@ function confirmarCobrarFiado() {
   cobroRegistrar(_cobFiadoCId, nomStr, cobrado, metodo);
   if (typeof registrarIngreso === 'function') registrarIngreso('Cobro fiado — '+nomStr, cobrado, metodo);
   cerrarCobrarFiado();
-  if(typeof toast==='function') toast('Cobrado: ₲'+gs(cobrado));
+  if(typeof toast==='function') toast('Cobrado: Gs.'+gs(cobrado));
   if (_detalleCliId) abrirDetalleCliente(_detalleCliId);
   else renderCreditoScreen();
 }
@@ -377,7 +377,7 @@ function renderClientePickerList() {
     var over      = c.limiteGs > 0 && afterSale > c.limiteGs;
     html += '<div onclick="seleccionarClienteCredito('+c.id+')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;'+(over?'opacity:.5;':'')+'">';
     html += '<div><div style="font-size:15px;font-weight:700;color:var(--text);">'+c.nombre+'</div>';
-    html += '<div style="font-size:11px;color:'+(saldo>0?'#e53935':'#4caf50')+';">'+(saldo>0?'Saldo: ₲'+gs(saldo):'Sin deuda')+'</div></div>';
+    html += '<div style="font-size:11px;color:'+(saldo>0?'#e53935':'#4caf50')+';">'+(saldo>0?'Saldo: Gs.'+gs(saldo):'Sin deuda')+'</div></div>';
     if (over) html += '<span style="font-size:10px;background:#e53935;color:#fff;padding:3px 7px;border-radius:10px;font-weight:700;">LÍMITE</span>';
     html += '</div>';
   }
@@ -394,7 +394,7 @@ function seleccionarClienteCredito(clienteId) {
   var saldo     = cliSaldo(clienteId);
   var afterSale = saldo + total;
   if (c.limiteGs > 0 && afterSale > c.limiteGs) {
-    if (!confirm(c.nombre+': el saldo llegaría a ₲'+gs(afterSale)+', superando el límite de ₲'+gs(c.limiteGs)+'.\n¿Continuar de todas formas?')) return;
+    if (!confirm(c.nombre+': el saldo llegaría a Gs.'+gs(afterSale)+', superando el límite de Gs.'+gs(c.limiteGs)+'.\n¿Continuar de todas formas?')) return;
   }
   creditoClienteSel = c;
   // También setear clienteNombre global para que aparezca en el ticket
@@ -406,7 +406,7 @@ function seleccionarClienteCredito(clienteId) {
 function nuevoClienteRapido() {
   var nombre = prompt('Nombre del cliente:');
   if (!nombre || !nombre.trim()) return;
-  var limStr = prompt('Límite de crédito en ₲ (0 = sin límite):', '0');
+  var limStr = prompt('Límite de crédito en Gs. (0 = sin límite):', '0');
   var lim    = parseInt(limStr) || 0;
   var c      = cliNuevo(nombre.trim(), lim);
   renderClientePickerList();
@@ -421,7 +421,7 @@ function updCreditoSecUI() {
     if (btn)     btn.textContent = creditoClienteSel.nombre;
     if (saldoEl) {
       var s = cliSaldo(creditoClienteSel.id);
-      saldoEl.textContent = s > 0 ? 'Saldo actual: ₲'+gs(s) : 'Sin deuda previa ✔';
+      saldoEl.textContent = s > 0 ? 'Saldo actual: Gs.'+gs(s) : 'Sin deuda previa ✔';
       saldoEl.style.color = s > 0 ? '#ff9800' : '#4caf50';
     }
   } else {
