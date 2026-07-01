@@ -112,21 +112,28 @@ function selPay(btn, m) {
   // Multi-moneda: cuando esta activo, EFECTIVO muestra el panel MM en vez del normal
   var _mmAct = localStorage.getItem('mm_activo') === '1';
   var _mmS = document.getElementById('mmSec');
+  var _esElectronico = m === 'pos' || m === 'transferencia' || m === 'pix' || m === 'mp';
   if (_mmAct && m === 'efectivo') {
     document.getElementById('efecSec').style.display = 'none';
     if (_mmS) _mmS.style.display = 'block';
   } else {
-    document.getElementById('efecSec').style.display = m === 'efectivo' ? 'block' : 'none';
+    document.getElementById('efecSec').style.display = (!_esElectronico && m === 'efectivo') ? 'block' : 'none';
     if (_mmS) _mmS.style.display = 'none';
   }
 
   const comp      = document.getElementById('compSec');
-  const needsComp = m === 'pos' || m === 'transferencia';
+  const needsComp = m === 'pos' || m === 'transferencia' || m === 'pix' || m === 'mp';
   comp.classList.toggle('open', needsComp);
 
   if (!needsComp) {
     const d = document.getElementById('compDisplay');
     if (d) { d.textContent = '—'; d.style.color = '#ccc'; }
+  }
+  // Pago electrónico: limpiar display de efectivo para que no aparezca en el ticket
+  if (_esElectronico) {
+    var efv = document.getElementById('efecVal');
+    if (efv) { efv.textContent = '₲0'; }
+    document.getElementById('vueltoRow').classList.remove('show');
   }
 }
 
