@@ -250,10 +250,10 @@
   }
   .sbar-ico {
     flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    width:34px; height:34px; background:none; border:none; cursor:pointer;
-    color:var(--muted); opacity:.55; transition:opacity .15s;
+    width:42px; height:42px; background:none; border:none; cursor:pointer;
+    color:var(--muted); opacity:.6; transition:opacity .15s;
   }
-  .sbar-ico--scan { color:#4caf50; opacity:.8; cursor:default; }
+  .sbar-ico--scan { color:#4caf50; opacity:.9; cursor:default; }
   .sbar-ico:not(.sbar-ico--scan):active { opacity:1; }
 
   /* ── PANEL SYNC ─────────────────────────────────────────── */
