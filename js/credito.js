@@ -186,27 +186,51 @@ function renderCreditoScreen() {
 var _detalleCliId = null;
 
 function abrirDetalleCliente(clienteId) {
-  var clientes   = cliCargar();
-  var c          = null;
+  var clientes = cliCargar();
+  var c = null;
   for (var i = 0; i < clientes.length; i++) { if (clientes[i].id === clienteId) { c = clientes[i]; break; } }
   if (!c) return;
-  _detalleCliId  = clienteId;
-  var fiados     = fiadoCargar();
-  var pendientes = [];
-  for (var j = 0; j < fiados.length; j++) { if (fiados[j].clienteId === clienteId && !fiados[j].pagado) pendientes.push(fiados[j]); }
-  pendientes.sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
-  var saldo = 0;
-  for (var x = 0; x < pendientes.length; x++) saldo += pendientes[x].total;
+  _detalleCliId = clienteId;
+
+  // Saldo real con ledger
+  var saldo = cliSaldo(clienteId);
+
+  // Totales para resumen
+  var fiados = fiadoCargar();
+  var cobros = cobrosCargar();
+  var totalFiado = 0, cntFiado = 0;
+  var movs = [];
+  for (var fi = 0; fi < fiados.length; fi++) {
+    if (fiados[fi].clienteId === clienteId) {
+      totalFiado += (fiados[fi].total||0); cntFiado++;
+      movs.push({ tipo:'fiado', fecha:fiados[fi].fecha, nroTicket:fiados[fi].nroTicket, monto:fiados[fi].total });
+    }
+  }
+  var totalCobrado = 0, cntCobro = 0;
+  for (var ci = 0; ci < cobros.length; ci++) {
+    if (cobros[ci].clienteId === clienteId) {
+      totalCobrado += (cobros[ci].monto||0); cntCobro++;
+      movs.push({ tipo:'cobro', fecha:cobros[ci].fecha, monto:cobros[ci].monto, metodo:cobros[ci].metodo });
+    }
+  }
+  movs.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); }); // más reciente primero
 
   var html = '';
+  // ── Cabecera ──
   html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;">';
   html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">'+c.nombre+'</div>';
   html += '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;">';
-  html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;">Saldo</div><div style="font-size:28px;font-weight:900;color:#e53935;">'+numGs(saldo)+'</div></div>';
+  html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;">Saldo</div>';
+  html += '<div style="font-size:28px;font-weight:900;color:'+(saldo>0?'#e53935':'#4caf50')+';">'+(saldo>0?numGs(saldo):'✓ Al día')+'</div></div>';
   if (c.limiteGs > 0) {
     var pct = saldo > 0 ? Math.min(100,Math.round(saldo/c.limiteGs*100)) : 0;
     html += '<div style="text-align:right;"><div style="font-size:10px;color:var(--muted);">Límite</div><div style="font-size:16px;font-weight:700;">'+numGs(c.limiteGs)+'</div><div style="font-size:10px;color:'+(pct>=90?'#e53935':pct>=70?'#ff9800':'#4caf50')+';">'+pct+'% usado</div></div>';
   }
+  html += '</div>';
+  // Resumen compacto
+  html += '<div style="display:flex;gap:8px;margin-bottom:12px;">';
+  html += '<div style="flex:1;background:rgba(229,57,53,.08);border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">FIADO</div><div style="font-size:14px;font-weight:800;color:#e53935;">'+numGs(totalFiado)+'</div><div style="font-size:10px;color:var(--muted);">'+cntFiado+' venta'+(cntFiado!==1?'s':'')+'</div></div>';
+  html += '<div style="flex:1;background:rgba(76,175,80,.08);border-radius:8px;padding:8px 10px;"><div style="font-size:10px;color:var(--muted);font-weight:700;">COBRADO</div><div style="font-size:14px;font-weight:800;color:#4caf50;">'+numGs(totalCobrado)+'</div><div style="font-size:10px;color:var(--muted);">'+cntCobro+' cobro'+(cntCobro!==1?'s':'')+'</div></div>';
   html += '</div>';
   if (saldo > 0) html += '<button onclick="abrirCobrarFiado('+clienteId+')" style="width:100%;padding:13px;background:#4caf50;color:white;border:none;border-radius:8px;font-family:\'Barlow\',sans-serif;font-size:14px;font-weight:800;letter-spacing:.5px;cursor:pointer;margin-bottom:8px;">💰 COBRAR FIADO</button>';
   html += '<div style="display:flex;gap:8px;">';
@@ -215,56 +239,34 @@ function abrirDetalleCliente(clienteId) {
   html += '</div>';
   html += '</div>';
 
-  // ── Estado de cuenta: mezcla fiados + cobros ordenados por fecha ──
-  var todosLosFiados = [];
-  for (var fi2 = 0; fi2 < fiados.length; fi2++) {
-    if (fiados[fi2].clienteId === clienteId) todosLosFiados.push(fiados[fi2]);
-  }
-  var cobros = cobrosCargar();
-  var cobrosCliente = [];
-  for (var ci2 = 0; ci2 < cobros.length; ci2++) {
-    if (cobros[ci2].clienteId === clienteId) cobrosCliente.push(cobros[ci2]);
-  }
-
-  // Armar líneas de movimiento: tipo 'fiado' o 'cobro'
-  var movs = [];
-  for (var mi = 0; mi < todosLosFiados.length; mi++) {
-    var ff = todosLosFiados[mi];
-    movs.push({ tipo: 'fiado', fecha: ff.fecha, nroTicket: ff.nroTicket, monto: ff.total, pagado: ff.pagado });
-  }
-  for (var ci3 = 0; ci3 < cobrosCliente.length; ci3++) {
-    var co = cobrosCliente[ci3];
-    movs.push({ tipo: 'cobro', fecha: co.fecha, monto: co.monto, metodo: co.metodo });
-  }
-  movs.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
-
-  if (movs.length === 0) {
-    html += '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Sin movimientos</div>';
-  } else {
-    html += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;padding:4px 0 10px;">Estado de cuenta</div>';
-    for (var mvi = 0; mvi < movs.length; mvi++) {
+  // ── Últimos 5 movimientos (más reciente primero) ──
+  if (movs.length > 0) {
+    html += '<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:700;padding:4px 0 8px;">Últimos movimientos</div>';
+    var limite = Math.min(5, movs.length);
+    for (var mvi = 0; mvi < limite; mvi++) {
       var mv = movs[mvi];
       var mvd = new Date(mv.fecha);
       var mvds = ('0'+mvd.getDate()).slice(-2)+'/'+('0'+(mvd.getMonth()+1)).slice(-2)+'/'+mvd.getFullYear();
       var mvts = ('0'+mvd.getHours()).slice(-2)+':'+('0'+mvd.getMinutes()).slice(-2);
       if (mv.tipo === 'fiado') {
-        var fColor = mv.pagado ? 'var(--muted)' : 'var(--text)';
-        var fOp    = mv.pagado ? 'opacity:.55;' : '';
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);'+fOp+'">';
-        html += '<div style="width:32px;height:32px;border-radius:50%;background:rgba(229,57,53,.12);border:1.5px solid rgba(229,57,53,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
-        html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
-        html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:'+fColor+';">Ticket #'+String(mv.nroTicket||'?').padStart(4,'0')+(mv.pagado?' <span style="color:#4caf50;font-size:11px;">✓ pagado</span>':'')+'</div>';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">';
+        html += '<div style="width:30px;height:30px;border-radius:50%;background:rgba(229,57,53,.12);border:1.5px solid rgba(229,57,53,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+        html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
+        html += '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text);">Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+'</div>';
         html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+'</div></div>';
         html += '<div style="font-size:15px;font-weight:800;color:#e53935;">+'+numGs(mv.monto)+'</div></div>';
       } else {
         var metLabel = (mv.metodo||'efectivo').charAt(0).toUpperCase()+(mv.metodo||'efectivo').slice(1);
-        html += '<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--border);">';
-        html += '<div style="width:32px;height:32px;border-radius:50%;background:rgba(76,175,80,.12);border:1.5px solid rgba(76,175,80,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
-        html += '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>';
-        html += '<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:700;color:var(--text);">Cobro recibido</div>';
-        html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+' · '+metLabel+'</div></div>';
+        html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">';
+        html += '<div style="width:30px;height:30px;border-radius:50%;background:rgba(76,175,80,.12);border:1.5px solid rgba(76,175,80,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
+        html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>';
+        html += '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text);">Cobro · '+metLabel+'</div>';
+        html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+'</div></div>';
         html += '<div style="font-size:15px;font-weight:800;color:#4caf50;">-'+numGs(mv.monto)+'</div></div>';
       }
+    }
+    if (movs.length > 5) {
+      html += '<div style="text-align:center;padding:8px;font-size:11px;color:var(--muted);">+ '+(movs.length-5)+' movimientos anteriores</div>';
     }
   }
 
@@ -312,10 +314,12 @@ function confirmarCobrarFiado() {
   var monto = parseInt((document.getElementById('cobrarFiadoMonto').value||'').replace(/[^0-9]/g,'')) || 0;
   if (monto <= 0) { if(typeof toast==='function') toast('Ingresá el monto'); return; }
   var saldo = cliSaldo(_cobFiadoCId);
+  if (saldo <= 0) { if(typeof toast==='function') toast('Cuenta ya está en cero'); cerrarCobrarFiado(); return; }
   if (monto > saldo) {
     if (!confirm('El monto '+numGs(monto)+' supera el saldo '+numGs(saldo)+'. Se registrará '+numGs(saldo)+'.')) return;
     monto = saldo;
   }
+  if (monto <= 0) { if(typeof toast==='function') toast('Ingresá un monto válido'); return; }
   var metodo  = document.getElementById('cobrarFiadoMetodo').value || 'efectivo';
   var cobrado = fiadoCobrar(_cobFiadoCId, monto, metodo);
   var nomStr  = document.getElementById('cobrarFiadoNombre').textContent;
