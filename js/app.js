@@ -140,6 +140,8 @@ function loadGeneralConfigInputs(){
   set('cfgDireccion', configData.direccion  || localStorage.getItem('ad') || '');
   set('cfgTelefono',  configData.telefono   || localStorage.getItem('at') || '');
   set('cfgRuc',       configData.ruc        || localStorage.getItem('ar') || '');
+  // Logo
+  if(typeof _updCfgLogoPreview === 'function') _updCfgLogoPreview(localStorage.getItem('pos_logo')||'');
   // Mostrar última sincronización con la nube
   if(typeof mostrarUltimaSincroNegocio === 'function') mostrarUltimaSincroNegocio();
   const chk = document.getElementById('cfgPresupuestos');
@@ -1390,8 +1392,63 @@ function updDrawerFiado(hab){
   if(el) el.style.display = hab ? 'flex' : 'none';
 }
 
+function updDrawerHeader(){
+  var nombre  = configData.negocio || localStorage.getItem('an') || 'MI NEGOCIO';
+  var ciudad  = configData.ciudad  || localStorage.getItem('ciudad') || 'Asunción, PY';
+  var logo    = localStorage.getItem('pos_logo') || '';
+  var initial = nombre.trim().charAt(0).toUpperCase() || 'M';
+
+  var elNombre  = document.getElementById('drawerNombreNegocio');
+  var elCiudad  = document.getElementById('drawerCiudadNegocio');
+  var elImg     = document.getElementById('drawerLogoImg');
+  var elIni     = document.getElementById('drawerLogoInitial');
+  if(elNombre) elNombre.textContent = nombre;
+  if(elCiudad) elCiudad.textContent = ciudad;
+  if(elImg && elIni){
+    if(logo){ elImg.src = logo; elImg.style.display='block'; elIni.style.display='none'; }
+    else     { elImg.style.display='none'; elIni.style.display=''; elIni.textContent=initial; }
+  }
+}
+
+function cargarLogoNegocio(input){
+  var file = input.files && input.files[0];
+  if(!file) return;
+  if(file.size > 500*1024){ if(typeof toast==='function') toast('Imagen muy grande (máx 500 KB)'); return; }
+  var reader = new FileReader();
+  reader.onload = function(e){
+    var b64 = e.target.result;
+    localStorage.setItem('pos_logo', b64);
+    _updCfgLogoPreview(b64);
+    updDrawerHeader();
+    if(typeof toast==='function') toast('Logo guardado');
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function eliminarLogo(){
+  localStorage.removeItem('pos_logo');
+  _updCfgLogoPreview('');
+  updDrawerHeader();
+  if(typeof toast==='function') toast('Logo eliminado');
+}
+
+function _updCfgLogoPreview(b64){
+  var elImg  = document.getElementById('cfgLogoImg');
+  var elIni  = document.getElementById('cfgLogoInitial');
+  var elElim = document.getElementById('cfgLogoBtnElim');
+  var nombre = (document.getElementById('cfgNegocio')||{}).value || configData.negocio || 'M';
+  var ini    = nombre.trim().charAt(0).toUpperCase() || 'M';
+  if(elImg && elIni){
+    if(b64){ elImg.src=b64; elImg.style.display='block'; elIni.style.display='none'; }
+    else    { elImg.style.display='none'; elIni.style.display=''; elIni.textContent=ini; }
+  }
+  if(elElim) elElim.style.display = b64 ? 'block' : 'none';
+}
+
 // ── DRAWER ───────────────────────────────────────────────────────────────────
 function openDrawer(){
+  updDrawerHeader();
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.add('open');
 }
@@ -1994,6 +2051,7 @@ function saveGeneralConfig(){
   localStorage.setItem('at', configData.telefono);
   localStorage.setItem('ar', configData.ruc);
   localStorage.setItem('pos_presupuestos', configData.presupuestosHabilitados ? '1' : '0');
+  if(typeof updDrawerHeader === 'function') updDrawerHeader();
   // Pasar por el sistema rubro para mantener pos_flag_cocina y legacy en sync
   if(typeof rubroSetFlag === 'function'){
     rubroSetFlag('cocina', nuevoValorCocina);
