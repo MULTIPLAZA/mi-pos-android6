@@ -1478,8 +1478,9 @@
       Cambiar licencia
     </div>
   </div>
-  <div class="drawer-footer">
+  <div class="drawer-footer" style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
     <span class="drawer-version" id="drawerVersion" style="font-size:11px;font-weight:700;color:var(--green);opacity:.9;">v1.2.0</span>
+    <button id="btnCheckUpdate" onclick="buscarActualizacion()" title="Buscar actualización" style="background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--muted);cursor:pointer;line-height:1;display:flex;align-items:center;gap:4px;">⟳ Actualizar</button>
   </div>
 </div>
 
@@ -2291,6 +2292,7 @@ if('serviceWorker' in navigator){
   // memoria). Si hay venta abierta, esperamos a que se cierre.
   var _swPending = false;   // hay versión nueva lista
   var _swReloaded = false;  // ya recargamos (anti-loop)
+  var _swReg = null;        // referencia al registration (para buscarActualizacion)
   // Si ya había un SW controlando al cargar, cualquier cambio de controller
   // futuro es un UPDATE. Si no había (primera instalación), el primer
   // controllerchange es solo la toma de control inicial → no recargar.
@@ -2321,6 +2323,7 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('/sw.js')
       .then(function(reg){
+        _swReg = reg;
         console.log('[SW] Registrado:', reg.scope);
 
         // Verificar update cada 5 min — clientes con app abierta horas
@@ -2358,6 +2361,48 @@ if('serviceWorker' in navigator){
         }
       }
     });
+  });
+}
+
+// ── BOTÓN MANUAL DE ACTUALIZACIÓN ───────────────────────
+function buscarActualizacion(){
+  var btn = document.getElementById('btnCheckUpdate');
+  if(btn){ btn.textContent = '⟳ Buscando...'; btn.disabled = true; }
+
+  // Si ya hay una actualización pendiente, aplicar de inmediato
+  if(_swPending){
+    if(typeof toast === 'function') toast('Aplicando actualización...');
+    setTimeout(function(){ location.reload(); }, 600);
+    return;
+  }
+
+  if(!_swReg){
+    if(typeof toast === 'function') toast('Servicio no disponible');
+    if(btn){ btn.textContent = '⟳ Actualizar'; btn.disabled = false; }
+    return;
+  }
+
+  // Forzar chequeo al servidor
+  _swReg.update().then(function(){
+    // Esperar hasta 6 s a que aparezca la nueva versión
+    var waited = 0;
+    var iv = setInterval(function(){
+      waited += 500;
+      if(_swPending){
+        clearInterval(iv);
+        if(typeof toast === 'function') toast('Actualización lista — recargando...');
+        setTimeout(function(){ location.reload(); }, 800);
+        return;
+      }
+      if(waited >= 6000){
+        clearInterval(iv);
+        if(typeof toast === 'function') toast('Ya tenés la versión más reciente');
+        if(btn){ btn.textContent = '⟳ Actualizar'; btn.disabled = false; }
+      }
+    }, 500);
+  }).catch(function(){
+    if(typeof toast === 'function') toast('Sin conexión — no se pudo verificar');
+    if(btn){ btn.textContent = '⟳ Actualizar'; btn.disabled = false; }
   });
 }
 
