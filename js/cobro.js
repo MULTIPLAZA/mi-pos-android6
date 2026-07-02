@@ -88,6 +88,7 @@ function _goCobrarSetup() {
     if (_stEl) _stEl.textContent = gs(0);
     if (_svEl) _svEl.textContent = gs(0);
     if (_svrEl) _svrEl.classList.remove('show');
+    updMMTotal(); // calcula sugeridos iniciales
   } else {
     document.getElementById('efecSec').style.display = 'block';
     if (_mmSecSetup) _mmSecSetup.style.display = 'none';
@@ -621,6 +622,22 @@ function updMMTotal() {
   if (elVue)   elVue.textContent   = gs(vuelto);
   if (elVRow)  elVRow.classList.toggle('show', vuelto > 0);
 
+  // Sugerido: cuánto en moneda extranjera cubre lo que falta pagar
+  var elBrlSug = document.getElementById('mmBrlSug');
+  var elArsSug = document.getElementById('mmArsSug');
+  if (elBrlSug) {
+    var remBrl = Math.max(0, total - _mmVals.gs - arsEnGs);
+    elBrlSug.textContent = (cotBRL > 0 && remBrl > 0)
+      ? 'sugerido para saldar: ' + Math.ceil(remBrl / cotBRL) + ' R$'
+      : '';
+  }
+  if (elArsSug) {
+    var remArs = Math.max(0, total - _mmVals.gs - brlEnGs);
+    elArsSug.textContent = (cotARS > 0 && remArs > 0)
+      ? 'sugerido para saldar: ' + Math.ceil(remArs / cotARS) + ' $AR'
+      : '';
+  }
+
   // Anunciar vuelto por voz con debounce (mismo patron que updVuelto)
   if (vuelto > 0 && typeof hablarVuelto === 'function' && vuelto !== _vueltoUltimo) {
     _vueltoUltimo = vuelto;
@@ -1121,6 +1138,18 @@ async function confirmarPago() {
   const divPagosCopia = esDividido
     ? JSON.parse(JSON.stringify(divArr.filter(p => p.monto > 0)))
     : null;
+
+  // Integridad de dinero: en pago dividido la suma de los métodos debe cubrir
+  // el total. Si suma de menos, la venta quedaría registrada como cobrada sin
+  // haber recibido el importe completo — se bloquea el cobro.
+  if (esDividido) {
+    const _sumaDiv = divPagosCopia.reduce((s, p) => s + (p.monto || 0), 0);
+    if (_sumaDiv < totalVenta) {
+      toast('Los pagos suman ' + gs(_sumaDiv) + ' y el total es ' + gs(totalVenta) + '. Faltan ' + gs(totalVenta - _sumaDiv) + '.');
+      return;
+    }
+  }
+
   const metodoPago = esDividido
     ? divPagosCopia.map(p => p.metodo).join(' + ')
     : document.querySelector('.pay-btn.sel')?.textContent?.trim() || 'Efectivo';
@@ -1149,11 +1178,10 @@ async function confirmarPago() {
     }
   }
 
-  // Número de ticket — avanzar contador si es nuevo
-  const nroTicket = currentTicketNro !== null ? currentTicketNro : ticketCounter;
-  if (currentTicketNro === null) incrementTicketCounter();
-
-  // ── Validaciones de factura ────────────────────────────────
+  // ── Validaciones de factura (ANTES de consumir el contador) ──
+  // Si falta timbrado abortamos acá, sin haber tocado el contador de tickets
+  // ni el correlativo — antes se incrementaba el contador y recién después se
+  // validaba, dejando huecos en la numeración al abortar.
   if (facturaActiva) {
     const elRuc    = document.getElementById('factRuc');
     const elNombre = document.getElementById('factNombre');
@@ -1167,6 +1195,10 @@ async function confirmarPago() {
     if (elRuc && !elRuc.value.trim())       elRuc.value    = 'X';
     if (elNombre && !elNombre.value.trim()) elNombre.value = 'SIN NOMBRE';
   }
+
+  // Número de ticket — avanzar contador si es nuevo (ya validado el timbrado)
+  const nroTicket = currentTicketNro !== null ? currentTicketNro : ticketCounter;
+  if (currentTicketNro === null) incrementTicketCounter();
 
   const facturaData = getFacturaData();
 

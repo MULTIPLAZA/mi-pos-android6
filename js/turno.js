@@ -47,8 +47,17 @@ function getNroFactura(timbrado){
 
 async function avanzarNroFactura(timbrado){
   if(!timbrado) return;
-  if(avanzarNroFactura._lock) return;
-  avanzarNroFactura._lock = true;
+  // SERIALIZAR, no descartar. Antes: si había una llamada en curso se hacía
+  // early-return y el incremento se PERDÍA → dos facturas con el mismo número
+  // (SIFEN rechaza correlativos repetidos). Ahora cada llamada se encadena
+  // detrás de la anterior, así ningún incremento se saltea.
+  avanzarNroFactura._chain = (avanzarNroFactura._chain || Promise.resolve())
+    .then(function(){ return _avanzarNroFacturaImpl(timbrado); })
+    .catch(function(e){ console.warn('[Correlativo] chain:', e.message); });
+  return avanzarNroFactura._chain;
+}
+
+async function _avanzarNroFacturaImpl(timbrado){
   const terminal = localStorage.getItem('pos_terminal')||'Terminal 1';
   const email    = localStorage.getItem('lic_email');
   // Optimistic local increment
@@ -67,7 +76,6 @@ async function avanzarNroFactura(timbrado){
       }
     } catch(e){ console.warn('[Correlativo]',e.message); }
   }
-  avanzarNroFactura._lock = false;
 }
 
 // ══════════════════════════════════════════════════════
@@ -223,7 +231,7 @@ function supaInsertVenta(data){
   if(USAR_DEMO || !navigator.onLine){
     // Sin conexión — encolar para sync posterior
     if(feDoc && !USAR_DEMO) feColaAgregar(feDoc);
-    if(db) dbQueueSync('ventas','insert', venta);
+    encolarVentaSync(venta);
     return;
   }
 
@@ -241,7 +249,7 @@ function supaInsertVenta(data){
     })
     .catch(e => {
       console.warn('[Venta] Error Supabase, encolando:', e.message);
-      if(db) dbQueueSync('ventas','insert', venta);
+      encolarVentaSync(venta);
     });
   };
 
@@ -439,10 +447,52 @@ async function stockRevertirVenta(items, comprobante){
 }
 
 // Sincronizar ventas pendientes de la cola
+// ── COLA DE RESPALDO EN localStorage ─────────────────────────────────────
+// Para cuando IndexedDB no abrió (db===null), frecuente en Android 6/Chrome
+// viejo. Sin esto la venta quedaba solo en turnoData y NUNCA llegaba a
+// Supabase → venta perdida al cerrar la app.
+var FALLBACK_KEY = 'pos_sync_fallback';
+
+function encolarVentaSync(venta){
+  if(db){ dbQueueSync('ventas','insert', venta); return; }
+  try {
+    var arr = JSON.parse(localStorage.getItem(FALLBACK_KEY) || '[]');
+    arr.push(venta);
+    if(arr.length > 500) arr = arr.slice(-500); // tope defensivo
+    localStorage.setItem(FALLBACK_KEY, JSON.stringify(arr));
+    _log('[Sync] Venta en cola localStorage (IndexedDB no disponible):', arr.length);
+  } catch(e){ console.warn('[Sync] Fallback localStorage lleno:', e.message); }
+}
+
+// Drena la cola de respaldo a Supabase. Idempotente por reintento: solo
+// remueve las que se postearon OK; las que fallan quedan para el próximo ciclo.
+async function drenarVentasFallback(){
+  if(!navigator.onLine || USAR_DEMO) return;
+  var arr;
+  try { arr = JSON.parse(localStorage.getItem(FALLBACK_KEY) || '[]'); } catch(e){ return; }
+  if(!arr.length) return;
+  var quedan = [];
+  for(var i=0;i<arr.length;i++){
+    try { await supaPost('pos_ventas', arr[i], null, true); }
+    catch(e){ quedan.push(arr[i]); }
+  }
+  try { localStorage.setItem(FALLBACK_KEY, JSON.stringify(quedan)); } catch(e){}
+  if(quedan.length < arr.length) _log('[Sync] Fallback drenado:', (arr.length - quedan.length), 'ventas');
+}
+
+var _syncVentasEnProceso = false;
+
 async function syncVentasPendientes(){
-  if(!db || !navigator.onLine || USAR_DEMO) return;
+  if(!navigator.onLine || USAR_DEMO) return;
+  // Primero drenar la cola de respaldo de localStorage (independiente de IndexedDB)
+  await drenarVentasFallback();
+  if(!db) return;
+  // No solapar con syncConSupabase (que también procesa filas 'ventas' del
+  // sync_queue) ni con otra corrida de esta misma función → evita doble POST.
+  if(syncEnProceso || _syncVentasEnProceso) return;
+  _syncVentasEnProceso = true;
   const email = localStorage.getItem(SK.email);
-  if(!email) return;
+  if(!email){ _syncVentasEnProceso = false; return; }
   try {
     const pending = await db.sync_queue
       .where('sincronizado').equals(0)
@@ -454,8 +504,15 @@ async function syncVentasPendientes(){
       try {
         const datos = JSON.parse(item.datos);
         datos.licencia_email = email;
-        await supaPost('pos_ventas', datos, null, true);
+        // Marcar ANTES del POST para cerrar la ventana de doble envío: si el
+        // POST falla, se revierte a 0 abajo para reintentar.
         await db.sync_queue.update(item.id, { sincronizado: 1 });
+        try {
+          await supaPost('pos_ventas', datos, null, true);
+        } catch(ePost){
+          await db.sync_queue.update(item.id, { sincronizado: 0 });
+          throw ePost;
+        }
         // Descontar stock de la venta que estaba en cola
         try {
           const itemsSync = typeof datos.items === 'string' ? JSON.parse(datos.items) : (datos.items||[]);
@@ -464,6 +521,7 @@ async function syncVentasPendientes(){
       } catch(e){ console.warn('[Sync ventas] Error sincronizando item:', e.message); continue; }
     }
   } catch(e){ console.warn('[Sync ventas]', e.message); }
+  _syncVentasEnProceso = false;
 }
 
 async function renderTurno(){

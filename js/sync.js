@@ -347,6 +347,9 @@ async function _conReintento(fn){
 async function syncConSupabase(){
   _syncCheckStuck();
   if(syncEnProceso || !navigator.onLine) return;
+  // No solapar con syncVentasPendientes: ambos procesan filas 'ventas' del
+  // sync_queue y sin esto se postea la misma venta dos veces (duplicado).
+  if(typeof _syncVentasEnProceso !== 'undefined' && _syncVentasEnProceso) return;
   if(typeof SUPA_URL === 'undefined' || SUPA_URL.includes('XXXX')) return;
   if(!db){ console.warn('[Sync] Sin BD local, omitiendo sync'); return; }
 
