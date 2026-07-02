@@ -551,14 +551,26 @@ function cliImprimirCuenta(clienteId) {
   for (var i = 0; i < clientes.length; i++) { if (clientes[i].id === clienteId) { c = clientes[i]; break; } }
   if (!c) return;
 
+  // Movimientos: fiados + cobros del cliente, orden cronológico
   var fiados = fiadoCargar();
-  var pendientes = [];
+  var movs = [];
+  var totalFiado = 0;
   for (var j = 0; j < fiados.length; j++) {
-    if (fiados[j].clienteId === clienteId && !fiados[j].pagado) pendientes.push(fiados[j]);
+    if (fiados[j].clienteId === clienteId) {
+      movs.push({ tipo: 'fiado', fecha: fiados[j].fecha, monto: fiados[j].total, nroTicket: fiados[j].nroTicket });
+      totalFiado += (fiados[j].total || 0);
+    }
   }
-  pendientes.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
-  var saldo = 0;
-  for (var x = 0; x < pendientes.length; x++) saldo += pendientes[x].total;
+  var cobros = cobrosCargar();
+  var totalCobrado = 0;
+  for (var k = 0; k < cobros.length; k++) {
+    if (cobros[k].clienteId === clienteId) {
+      movs.push({ tipo: 'cobro', fecha: cobros[k].fecha, monto: cobros[k].monto, metodo: cobros[k].metodo });
+      totalCobrado += (cobros[k].monto || 0);
+    }
+  }
+  movs.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
+  var saldo = Math.max(0, totalFiado - totalCobrado);
 
   var cfg = (typeof configData !== 'undefined') ? configData : {};
   var cols = parseInt(localStorage.getItem('printerSize_ticket') || '58') === 80 ? 42 : 32;
@@ -579,13 +591,14 @@ function cliImprimirCuenta(clienteId) {
     var d = new Date(iso);
     return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+String(d.getFullYear()).slice(-2);
   }
+  function _normP(s){ return String(s||'').replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o').replace(/[úùüû]/g,'u').replace(/Ñ/g,'N').replace(/ñ/g,'n'); }
 
   var txt = '';
-  if (cfg.negocio) txt += '[BOLD]' + _ctr(cfg.negocio.toUpperCase().replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/Ñ/g,'N')) + '[/BOLD]' + n;
+  if (cfg.negocio) txt += '[BOLD]' + _ctr(_normP(cfg.negocio).toUpperCase()) + '[/BOLD]' + n;
   txt += sep2 + n;
   txt += '[BOLD]' + _ctr('RESUMEN DE CUENTA') + '[/BOLD]' + n;
   txt += sep2 + n;
-  txt += _ctr(c.nombre) + n;
+  txt += _ctr(_normP(c.nombre)) + n;
 
   var now = new Date();
   var ds = ('0'+now.getDate()).slice(-2)+'/'+('0'+(now.getMonth()+1)).slice(-2)+'/'+now.getFullYear();
@@ -593,15 +606,20 @@ function cliImprimirCuenta(clienteId) {
   txt += _ctr(ds + ' ' + ts) + n;
   txt += sep + n;
 
-  if (pendientes.length === 0) {
-    txt += _ctr('Sin deudas pendientes') + n;
+  if (movs.length === 0) {
+    txt += _ctr('Sin movimientos') + n;
   } else {
-    for (var pi = 0; pi < pendientes.length; pi++) {
-      var f = pendientes[pi];
-      txt += _pad('Tkt #'+String(f.nroTicket||'?').padStart(4,'0')+' '+_fmt(f.fecha), 'Gs.'+_gs(f.total)) + n;
+    for (var mi = 0; mi < movs.length; mi++) {
+      var mv = movs[mi];
+      if (mv.tipo === 'fiado') {
+        txt += _pad('Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+' '+_fmt(mv.fecha), '+Gs.'+_gs(mv.monto)) + n;
+      } else {
+        var met = _normP(mv.metodo || 'efectivo');
+        txt += _pad('Cobro '+_fmt(mv.fecha)+' ('+met+')', '-Gs.'+_gs(mv.monto)) + n;
+      }
     }
     txt += sep2 + n;
-    txt += '[BOLD]' + _pad('TOTAL PENDIENTE', 'Gs.' + _gs(saldo)) + '[/BOLD]' + n;
+    txt += '[BOLD]' + _pad('SALDO PENDIENTE', 'Gs.' + _gs(saldo)) + '[/BOLD]' + n;
   }
 
   if (c.limiteGs > 0) {
