@@ -118,10 +118,21 @@ function abrirCredito() {
 function renderCreditoScreen() {
   var clientes = cliCargar();
   var fiados   = fiadoCargar();
-  var saldoMap = {};
+  var cobros   = cobrosCargar();
+
+  // Saldo real por cliente: ledger (total fiados - total cobros)
+  var fiadoMap = {}, cobrosMap = {};
   for (var i = 0; i < fiados.length; i++) {
-    if (!fiados[i].pagado) saldoMap[fiados[i].clienteId] = (saldoMap[fiados[i].clienteId]||0) + (fiados[i].total||0);
+    fiadoMap[fiados[i].clienteId] = (fiadoMap[fiados[i].clienteId]||0) + (fiados[i].total||0);
   }
+  for (var j = 0; j < cobros.length; j++) {
+    cobrosMap[cobros[j].clienteId] = (cobrosMap[cobros[j].clienteId]||0) + (cobros[j].monto||0);
+  }
+  var saldoMap = {};
+  for (var cid in fiadoMap) {
+    saldoMap[cid] = Math.max(0, (fiadoMap[cid]||0) - (cobrosMap[cid]||0));
+  }
+
   var totalPend = 0;
   var countPend = 0;
   for (var k in saldoMap) { if (saldoMap[k] > 0) { totalPend += saldoMap[k]; countPend++; } }
@@ -149,7 +160,7 @@ function renderCreditoScreen() {
     var c   = conSaldo[ii];
     var sal = saldoMap[c.id]||0;
     var cnt = 0;
-    for (var fi = 0; fi < fiados.length; fi++) { if (fiados[fi].clienteId === c.id && !fiados[fi].pagado) cnt++; }
+    for (var fi = 0; fi < fiados.length; fi++) { if (fiados[fi].clienteId === c.id) cnt++; }
     html += '<div onclick="abrirDetalleCliente('+c.id+')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
     html += '<div><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:2px;">'+c.nombre+'</div>';
     html += '<div style="font-size:11px;color:var(--muted);">'+cnt+' venta'+(cnt!==1?'s':'')+'</div></div>';
