@@ -712,19 +712,17 @@ function generarHTMLCierreTurno(data, size){
   lineas += '<p class="row s"><span class="l1">Cierre:</span><span class="l2">'+fmtDT(ahora)+'</span></p>';
   lineas += '<p class="hr"></p>';
 
-  // Resumen
-  lineas += '<p class="b">RESUMEN</p>';
-  lineas += '<p class="hr"></p>';
-  lineas += '<p class="row s"><span class="l1">Efectivo inicial</span><span class="l2">'+gn(data.efInicial)+'</span></p>';
-  lineas += '<p class="row s"><span class="l1">Total ventas ('+data.cantVentas+')</span><span class="l2">'+gn(data.totalVentas)+'</span></p>';
+  // Resumen (sin header de sección)
+  lineas += '<p class="row s"><span class="l1">Ef. inicial</span><span class="l2">'+gn(data.efInicial)+'</span></p>';
+  lineas += '<p class="row s"><span class="l1">Ventas ('+data.cantVentas+')</span><span class="l2">'+gn(data.totalVentas)+'</span></p>';
   if(data.totalEgresos > 0)
-    lineas += '<p class="row s"><span class="l1">Total egresos</span><span class="l2">-'+gn(data.totalEgresos)+'</span></p>';
+    lineas += '<p class="row s"><span class="l1">Egresos</span><span class="l2">-'+gn(data.totalEgresos)+'</span></p>';
   if(data.totalIngresos > 0)
-    lineas += '<p class="row s"><span class="l1">Total ingresos</span><span class="l2">+'+gn(data.totalIngresos)+'</span></p>';
+    lineas += '<p class="row s"><span class="l1">Ingresos</span><span class="l2">'+gn(data.totalIngresos)+'</span></p>';
   lineas += '<p class="row b"><span class="l1">SALDO EN CAJA</span><span class="l2">'+gn(saldoCaja)+'</span></p>';
   lineas += '<p class="hr"></p>';
 
-  // Formas de pago
+  // Formas de pago (sin TOTAL redundante)
   lineas += '<p class="b">FORMAS DE PAGO</p>';
   lineas += '<p class="hr"></p>';
   if(data.metodos){
@@ -732,7 +730,6 @@ function generarHTMLCierreTurno(data, size){
       lineas += '<p class="row s"><span class="l1">'+e[0]+' ('+e[1].ops+')</span><span class="l2">'+gn(e[1].total)+'</span></p>';
     });
   }
-  lineas += '<p class="row s b"><span class="l1">TOTAL</span><span class="l2">'+gn(data.totalVentas)+'</span></p>';
   lineas += '<p class="hr"></p>';
 
   // Egresos detalle
@@ -742,6 +739,13 @@ function generarHTMLCierreTurno(data, size){
     data.egresos.forEach(function(e){
       lineas += '<p class="row s"><span class="l1">'+e.desc+'</span><span class="l2">-'+gn(e.monto)+'</span></p>';
     });
+    lineas += '<p class="hr"></p>';
+  }
+
+  // Ventas a crédito (compacto)
+  if(data.creditoShiftTotal > 0){
+    lineas += '<p class="row s"><span class="l1">Fiado entregado</span><span class="l2">'+gn(data.creditoShiftTotal)+'</span></p>';
+    if(data.ingresosFiadoTotal > 0) lineas += '<p class="row s"><span class="l1">Fiado cobrado</span><span class="l2">'+gn(data.ingresosFiadoTotal)+'</span></p>';
     lineas += '<p class="hr"></p>';
   }
 
@@ -766,24 +770,21 @@ function generarHTMLCierreTurno(data, size){
     lineas += '<p class="hr"></p>';
   }
 
-  // Rendicion
-  lineas += '<p class="b">RENDICION DEL CAJERO</p>';
-  lineas += '<p class="hr"></p>';
-  lineas += '<p class="row s"><span class="l1">Saldo esperado:</span><span class="l2">'+gn(saldoCaja)+'</span></p>';
+  // Rendicion (sin header de sección)
+  lineas += '<p class="row s"><span class="l1">Esperado:</span><span class="l2">'+gn(saldoCaja)+'</span></p>';
   if(data.totalContado > 0){
-    lineas += '<p class="row s"><span class="l1">Total contado:</span><span class="l2">'+gn(data.totalContado)+'</span></p>';
+    lineas += '<p class="row s"><span class="l1">Contado:</span><span class="l2">'+gn(data.totalContado)+'</span></p>';
     var diferencia = data.totalContado - saldoCaja;
     if(diferencia === 0) lineas += '<p class="c b">*** CUADRE EXACTO ***</p>';
     else if(diferencia > 0) lineas += '<p class="row s b"><span class="l1">SOBRANTE:</span><span class="l2">+'+gn(diferencia)+'</span></p>';
     else lineas += '<p class="row s b"><span class="l1">FALTANTE:</span><span class="l2">-'+gn(Math.abs(diferencia))+'</span></p>';
   } else {
-    lineas += '<p class="row s"><span class="l1">Total contado:</span><span class="l2">(sin conteo)</span></p>';
+    lineas += '<p class="row s"><span class="l1">Contado:</span><span class="l2">(sin conteo)</span></p>';
   }
   lineas += '<p class="hr"></p>';
 
   // Firma
-  lineas += '<p class="s">OBS:</p>';
-  lineas += '<p class="hr"></p>';
+  lineas += '<p class="s">OBS: ______________________________</p>';
   lineas += '<p style="margin:20px 0 0;">&nbsp;</p>';
   lineas += '<p style="margin:0;border-top:1px solid #000;">&nbsp;</p>';
   lineas += '<p class="c s">Firma - Aclaracion - CI</p>';
@@ -3262,6 +3263,7 @@ var BTPrinter = {
     var n    = '\n';
     var cfg  = (typeof configData !== 'undefined') ? configData : {};
 
+    function normP(s){ return String(s||'').replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o').replace(/[úùüû]/g,'u').replace(/Ñ/g,'N').replace(/ñ/g,'n'); }
     function pad(l, r) {
       var sp = Math.max(1, cols - String(l).length - String(r).length);
       return String(l) + ' '.repeat(sp) + String(r);
@@ -3285,13 +3287,13 @@ var BTPrinter = {
 
     // Cabecera
     if (cfg.negocio) {
-      cfg.negocio.toUpperCase().split(/\r?\n/).forEach(function(line){
+      normP(cfg.negocio).toUpperCase().split(/\r?\n/).forEach(function(line){
         if(line.trim()) txt += '[BOLD]' + ctr(line.trim()) + '[/BOLD]' + n;
       });
     }
     if (cfg.ruc) txt += ctr('RUC: ' + cfg.ruc) + n;
     if (cfg.direccion) {
-      cfg.direccion.split(/\r?\n/).forEach(function(line){
+      normP(cfg.direccion).split(/\r?\n/).forEach(function(line){
         if(line.trim()) txt += ctr(line.trim()) + n;
       });
     }
@@ -3300,30 +3302,27 @@ var BTPrinter = {
     txt += sep + n;
 
     // Datos turno
-    txt += pad('Terminal:', cfg.terminal || 'CAJA1') + n;
+    txt += pad('Terminal:', normP(cfg.terminal || 'CAJA1')) + n;
     txt += pad('Apertura:', fmtDT(data.fechaApertura)) + n;
     txt += pad('Cierre:', fmtDT(ahora)) + n;
     txt += sep2 + n;
 
-    // Resumen
-    txt += '[BOLD]RESUMEN[/BOLD]' + n;
-    txt += sep2 + n;
+    // Resumen (sin header de sección)
     txt += pad('Ef. Inicial:', gs2(data.efInicial)) + n;
-    txt += pad('Total ventas (' + data.cantVentas + '):', gs2(data.totalVentas)) + n;
-    if (data.totalEgresos > 0) txt += pad('Total egresos:', gs2(data.totalEgresos)) + n;
-    if (data.totalIngresos > 0) txt += pad('Total ingresos:', gs2(data.totalIngresos)) + n;
+    txt += pad('Ventas (' + data.cantVentas + '):', gs2(data.totalVentas)) + n;
+    if (data.totalEgresos > 0) txt += pad('Egresos:', gs2(data.totalEgresos)) + n;
+    if (data.totalIngresos > 0) txt += pad('Ingresos:', gs2(data.totalIngresos)) + n;
     txt += '[BOLD]' + pad('SALDO EN CAJA:', gs2(saldoCaja)) + '[/BOLD]' + n;
     txt += sep2 + n;
 
-    // Formas de pago
+    // Formas de pago (sin TOTAL redundante)
     txt += '[BOLD]FORMAS DE PAGO[/BOLD]' + n;
     txt += sep2 + n;
     if (data.metodos) {
       Object.entries(data.metodos).sort(function(a,b){return b[1].total-a[1].total;}).forEach(function(e){
-        txt += pad(e[0] + ' (' + e[1].ops + 'op):', gs2(e[1].total)) + n;
+        txt += pad(normP(e[0]) + ' (' + e[1].ops + '):', gs2(e[1].total)) + n;
       });
     }
-    txt += '[BOLD]' + pad('TOTAL:', gs2(data.totalVentas)) + '[/BOLD]' + n;
     txt += sep2 + n;
 
     // Egresos
@@ -3354,11 +3353,8 @@ var BTPrinter = {
     // Pagos digitales Pix / Mercado Pago
     // Ventas a crédito del turno
     if (data.creditoShiftTotal > 0) {
-      txt += '[BOLD]VENTAS A CRÉDITO[/BOLD]' + n;
-      txt += sep2 + n;
-      txt += pad('Total fiado:', gs2(data.creditoShiftTotal) + ' Gs.') + n;
-      txt += pad('Operaciones:', String(data.creditoShiftOps || 0)) + n;
-      if (data.ingresosFiadoTotal > 0) txt += pad('Cobros fiado:', gs2(data.ingresosFiadoTotal) + ' Gs.') + n;
+      txt += pad('Fiado entregado:', gs2(data.creditoShiftTotal)) + n;
+      if (data.ingresosFiadoTotal > 0) txt += pad('Fiado cobrado:', gs2(data.ingresosFiadoTotal)) + n;
       txt += sep2 + n;
     }
 
@@ -3414,25 +3410,21 @@ var BTPrinter = {
       txt += sep2 + n;
     }
 
-    // Rendicion
-    txt += '[BOLD]RENDICION DEL CAJERO[/BOLD]' + n;
-    txt += sep2 + n;
-    txt += pad('Saldo esperado:', gs2(saldoCaja)) + n;
+    // Rendicion (sin header de sección)
+    txt += pad('Esperado:', gs2(saldoCaja)) + n;
     if (data.totalContado > 0) {
-      txt += pad('Total contado:', gs2(data.totalContado)) + n;
+      txt += pad('Contado:', gs2(data.totalContado)) + n;
       var diferencia = data.totalContado - saldoCaja;
       if (diferencia === 0) txt += '[CENTER][BOLD]*** CUADRE EXACTO ***[/BOLD][/CENTER]' + n;
       else if (diferencia > 0) txt += '[BOLD]' + pad('SOBRANTE:', '+' + gs2(diferencia)) + '[/BOLD]' + n;
       else txt += '[BOLD]' + pad('FALTANTE:', '-' + gs2(Math.abs(diferencia))) + '[/BOLD]' + n;
     } else {
-      txt += pad('Total contado:', '(sin conteo)') + n;
+      txt += pad('Contado:', '(sin conteo)') + n;
     }
     txt += sep2 + n;
 
     // Firma
-    txt += 'OBS: ' + n;
-    txt += sep2 + n;
-    txt += n;
+    txt += 'OBS: ______________________________' + n;
     txt += n;
     txt += '[CENTER]______________________________[/CENTER]' + n;
     txt += '[CENTER]Firma / Aclaracion / CI[/CENTER]' + n;
