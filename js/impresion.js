@@ -488,7 +488,8 @@ function generarHTMLFactura(data, size){
   // Punto de expedición
   if(f.sucursal_nro||f.punto_exp) lineas += '<p class="s">SUC: '+(f.sucursal_nro||'001')+' - P.EXP: '+(f.punto_exp||'001')+'</p>';
   lineas += '<p class="hr"></p>';
-  lineas += '<p class="c b" style="font-size:11pt;">FACTURA CONTADO</p>';
+  const esFE = f.tipo_timbrado === 'electronico' || !!(data.fe && data.fe.fe_cdc);
+  lineas += '<p class="c b" style="font-size:11pt;">'+(esFE?'FACTURA ELECTRONICA':'FACTURA CONTADO')+'</p>';
   lineas += '<p class="c b" style="font-size:11pt;">NRO: '+nroF+'</p>';
   lineas += '<p class="s">Fecha: '+fecha+' - Hora: '+hora+'</p>';
   if(data.tipoPedido && data.tipoPedido!=='llevar') lineas += '<p class="s">Tipo: '+data.tipoPedido.toUpperCase()+'</p>';
@@ -557,6 +558,43 @@ function generarHTMLFactura(data, size){
   lineas += '<p class="s">DUPLICADO: ARCHIVO TRIBUTARIO</p>';
   lineas += '<p class="hr"></p>';
   lineas += '<p class="s">LOS DATOS IMPRESOS REQUIEREN DE CUIDADOS ESPECIALES.</p>';
+
+  // ── Bloque KuDE (factura electrónica) ──
+  // El QR viaja de 3 formas según canal: <img> (impresión HTML), atributo
+  // data-qr en <p class="qr-fe"> (ESC/POS nativo lo convierte a comando QR,
+  // QuickPrinter a tag <QR>). Si la emisión asíncrona aún no devolvió el
+  // CDC, se imprime el aviso de "en proceso" — la reimpresión ya lo trae.
+  if(esFE){
+    lineas += '<p class="hr"></p>';
+    const fe = data.fe || null;
+    if(fe && fe.fe_cdc){
+      lineas += '<p class="c s b">CDC:</p>';
+      lineas += '<p class="c s" style="word-break:break-all;">'+fe.fe_cdc.replace(/(.{4})/g,'$1 ').trim()+'</p>';
+      if(fe.fe_qr){
+        var qrImg = '';
+        try {
+          if(typeof qrcode === 'function'){
+            var q = qrcode(0, 'M');
+            q.addData(fe.fe_qr);
+            q.make();
+            qrImg = '<img src="'+q.createDataURL(4, 8)+'" style="width:190px;height:190px;image-rendering:pixelated;">';
+          }
+        } catch(eQR){ console.warn('[FE] QR:', eQR.message); }
+        lineas += '<p class="c qr-fe" data-qr="'+fe.fe_qr.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+qrImg+'</p>';
+      }
+      lineas += '<p class="c s">Consulte la validez de esta Factura</p>';
+      lineas += '<p class="c s">Electronica con el CDC en:</p>';
+      lineas += '<p class="c s b">ekuatia.set.gov.py/consultas</p>';
+      lineas += '<p class="c s">Representacion grafica del</p>';
+      lineas += '<p class="c s">Documento Electronico (KuDE)</p>';
+    } else {
+      lineas += '<p class="c s b">DOCUMENTO ELECTRONICO EN PROCESO</p>';
+      lineas += '<p class="c s">Transmitiendo a SIFEN...</p>';
+      lineas += '<p class="c s">Reimprima el ticket en unos segundos</p>';
+      lineas += '<p class="c s">para obtener el QR de validez.</p>';
+    }
+  }
+
   if(configData.pie_recibo) lineas += '<p class="c s">'+configData.pie_recibo+'</p>';
   lineas += '<p class="c s b">*** GRACIAS POR SU PREFERENCIA ***</p>';
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
@@ -963,6 +1001,12 @@ function imprimirConQuickPrinter(html, size){
   const cols = size === '58' ? 32 : 42;
   const sep  = '-'.repeat(cols);
 
+  // QR de factura electrónica → tag nativo de QuickPrinter (<QR-M>...<BR>)
+  const qrFE = html.match(/class="[^"]*qr-fe[^"]*"[^>]*data-qr="([^"]+)"/i);
+  const qrTag = qrFE
+    ? '\n<CENTER><QR-M>' + qrFE[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&') + '<BR>\n'
+    : '';
+
   // Convertir HTML térmico a texto plano compatible con QuickPrinter
   let texto = html
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
@@ -988,6 +1032,9 @@ function imprimirConQuickPrinter(html, size){
     .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&nbsp;/g,' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  // QR del documento electrónico (si hay)
+  if(qrTag) texto += qrTag;
 
   // Agregar corte al final
   texto += '\n\n\n';
@@ -1108,6 +1155,7 @@ async function reimprimirVentaTurno(idVenta){
         vuelto:        '',
         tipoPedido:    'llevar',
         mesa:          null,
+        fe:            v.fe || null,   // CDC/QR del documento electrónico
       };
     }
   }
@@ -1158,6 +1206,7 @@ async function reimprimirVentaTurno(idVenta){
         vuelto:        '',
         tipoPedido:    'llevar',
         mesa:          null,
+        fe:            dbv.fe_cdc ? { fe_cdc: dbv.fe_cdc, fe_qr: dbv.fe_qr || null, fe_numero: dbv.fe_numero || null } : null,
       };
     } catch(e){
       console.warn('[Reimprimir] Error leyendo venta:', e.message);
@@ -2254,12 +2303,35 @@ async function imprimirAndroidNativo(htmlContent, size){
   if(bodyMatch) htmlParaParsear = bodyMatch[1];
   tmp.innerHTML = htmlParaParsear;
 
+  // QR nativo ESC/POS (GS ( k) — para el QR del documento electrónico
+  function qrEscPos(dataStr){
+    const out = [];
+    const d = [];
+    for(let i = 0; i < dataStr.length; i++) d.push(dataStr.charCodeAt(i) & 0xFF);
+    const len = d.length + 3;
+    out.push(GS,0x28,0x6B,0x04,0x00,0x31,0x41,0x32,0x00); // modelo 2
+    out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x43,0x05);      // tamaño módulo 5
+    out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x45,0x31);      // corrección M
+    out.push(GS,0x28,0x6B,len & 0xFF,(len >> 8) & 0xFF,0x31,0x50,0x30);
+    out.push(...d);                                        // datos
+    out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x51,0x30);      // imprimir
+    return out;
+  }
+
   const parrafos = Array.from(tmp.querySelectorAll('p'));
   let bytes = [...CMD.init, ESC, 0x74, 0x02]; // init + página latin-1
 
   parrafos.forEach(function(p){
     const cls  = p.className || '';
     const text = (p.innerText || p.textContent || '').trim();
+
+    // QR de factura electrónica — comando nativo, centrado
+    if(cls.includes('qr-fe')){
+      const qrData = p.getAttribute('data-qr') || '';
+      if(qrData) bytes.push(...CMD.center, ...qrEscPos(qrData), 0x0A, ...CMD.left);
+      return;
+    }
+
     if(!text && !cls.includes('hr')) return;
 
     if(cls.includes('hr')){ bytes.push(...sep()); return; }

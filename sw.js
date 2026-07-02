@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-pos-v1.15.23-20260702';
+const CACHE = 'ampersand-pos-v1.15.24-20260702';
 
 const ASSETS = [
   '/',
@@ -30,6 +30,7 @@ const ASSETS = [
   '/js/mesas.js',
   '/js/rubro.js',
   '/js/credito.js',
+  '/js/lib/qrcode.js',
   '/js/factura-electronica.js',
   '/js/app.js',
   '/js/init.js',

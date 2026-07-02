@@ -433,6 +433,8 @@ async function feProcesarCola() {
       if (!job.fe) {
         job.fe = await feEmitirVenta(job.doc);       // emitir UNA sola vez
         _feColaEscribir(FE_COLA_KEY, cola);
+        // Propagar CDC/QR a la venta en memoria/IndexedDB para reimpresión
+        if (typeof turnoActualizarFE === 'function') turnoActualizarFE(job.numeroFmt, job.fe);
       }
       var rows = await supaPatch('pos_ventas',
         'licencia_email=eq.' + encodeURIComponent(email) + '&fe_numero=eq.' + encodeURIComponent(job.numeroFmt),

@@ -127,6 +127,33 @@ function registrarVentaEnTurno(data){
   supaInsertVenta(data);
 }
 
+// ── Actualizar datos FE de una venta ya registrada ──
+// La emisión electrónica es asíncrona: cuando FacturaSend devuelve el CDC/QR
+// (segundos después del cobro, o desde la cola offline), esto los propaga a
+// turnoData (reimpresión en memoria), ultimoReciboData (reimpresión del
+// recibo actual) e IndexedDB (reimpresión tras cerrar la app).
+function turnoActualizarFE(numeroFmt, fe){
+  try {
+    var v = null;
+    for(var i = turnoData.ventas.length - 1; i >= 0; i--){
+      var x = turnoData.ventas[i];
+      if(x.factura && x.factura.nro_factura === numeroFmt){ v = x; break; }
+    }
+    if(v){
+      v.fe = fe;
+      turnoGuardar();
+      if(v.dbId && typeof db !== 'undefined' && db){
+        db.ventas.update(v.dbId, { fe_cdc: fe.fe_cdc, fe_qr: fe.fe_qr, fe_numero: fe.fe_numero })
+          .catch(function(){ /* venta local ya purgada */ });
+      }
+    }
+    if(typeof ultimoReciboData !== 'undefined' && ultimoReciboData &&
+       ultimoReciboData.factura && ultimoReciboData.factura.nro_factura === numeroFmt){
+      ultimoReciboData.fe = fe;
+    }
+  } catch(e){ console.warn('[FE] turnoActualizarFE:', e.message); }
+}
+
 // Insertar venta en Supabase (en background, no bloquea la UI)
 function supaInsertVenta(data){
   const email = localStorage.getItem(SK.email);
@@ -221,6 +248,7 @@ function supaInsertVenta(data){
   if(feDoc){
     feEmitirVenta(feDoc).then(function(fe){
       Object.assign(venta, fe);
+      turnoActualizarFE(feDoc._feNumeroFmt, fe);   // CDC/QR disponibles para reimpresión
       _insertarVenta();
     }).catch(function(e){
       console.warn('[FE] Emisión falló, va a la cola:', e.message);

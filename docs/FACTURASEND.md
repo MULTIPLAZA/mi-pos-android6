@@ -2,8 +2,14 @@
 
 Estado: **Fase 0-3 y 5 completas** — infra + emisión al cobrar + cola
 offline + polling de estados + anulación fiscal (cancelación ≤48hs / Nota
-de Crédito >48hs, desde Admin → Historial de Ventas → Anular). Falta:
-credenciales (sandbox o server propio) y QR en ticket térmico (fase 4).
+de Crédito >48hs, desde Admin → Historial de Ventas → Anular) + **KuDE en
+ticket térmico** (fase 4): CDC + QR + leyenda SIFEN en los 3 canales de
+impresión — HTML (`<img>` con js/lib/qrcode.js), ESC/POS nativo (comando
+GS ( k) y QuickPrinter (tag `<QR-M>`, feature premium de QuickPrinter).
+Si la emisión asíncrona aún no devolvió el CDC al momento de imprimir, el
+ticket sale con "DOCUMENTO ELECTRONICO EN PROCESO" y la reimpresión
+(memoria/IndexedDB, via turnoActualizarFE) ya trae el QR.
+Falta solo: credenciales (sandbox o server propio del usuario).
 
 Migraciones requeridas: `add_factura_electronica.sql` (fe_*) y
 `add_factura_electronica_nc.sql` (fe_nc_*). El correlativo de NC vive en
