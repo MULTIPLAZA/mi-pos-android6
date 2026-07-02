@@ -2384,9 +2384,9 @@ function buscarActualizacion(){
     : Promise.resolve();
 
   Promise.all([borrarCaches, desregistrarSW]).then(function(){
-    location.reload();
+    window.location.replace(window.location.pathname + '?_=' + Date.now());
   }).catch(function(){
-    location.reload();
+    window.location.replace(window.location.pathname + '?_=' + Date.now());
   });
 }
 
