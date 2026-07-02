@@ -2,16 +2,29 @@
 // credito.js — Sistema de fiado / crédito para Ampersand POS
 // ============================================================
 
-var _CRED_CLI_KEY    = 'pos_cred_clientes';
-var _CRED_FIADO_KEY  = 'pos_cred_fiado';
-var _CRED_COBROS_KEY = 'pos_cred_cobros';
+var _CRED_CLI_KEY      = 'pos_cred_clientes';
+var _CRED_FIADO_KEY    = 'pos_cred_fiado';
+var _CRED_COBROS_KEY   = 'pos_cred_cobros';
+var _CRED_RESETS_KEY   = 'pos_cred_cycle_resets'; // timestamp del último saldo=0 por cliente
 
 // Formato moneda sin símbolo ₲ duplicado
 function numGs(n) { return 'Gs.'+Math.round(n||0).toLocaleString('es-PY'); }
 
-// Devuelve los movimientos del ciclo activo (desde el último punto donde saldo=0)
-// Filtra cobros Gs.0 (artefactos de bug). Usado por pantalla e impresión.
+// Guarda el timestamp exacto en que el saldo del cliente llegó a 0 (corte de ciclo)
+function _cicloGuardarCorte(clienteId) {
+  var resets = {};
+  try { resets = JSON.parse(localStorage.getItem(_CRED_RESETS_KEY)||'{}'); } catch(e) {}
+  resets[clienteId] = new Date().toISOString();
+  try { localStorage.setItem(_CRED_RESETS_KEY, JSON.stringify(resets)); } catch(e) {}
+}
+
+// Devuelve solo los movimientos del ciclo activo (después del último corte a saldo=0).
+// Estrategia primaria: timestamp explícito guardado al cobrar. Fallback: balance acumulado.
 function _cicloMovs(clienteId) {
+  var resets = {};
+  try { resets = JSON.parse(localStorage.getItem(_CRED_RESETS_KEY)||'{}'); } catch(e) {}
+  var cutoff = resets[clienteId] ? new Date(resets[clienteId]) : null;
+
   var fiados = fiadoCargar();
   var cobros = cobrosCargar();
   var movs = [];
@@ -24,10 +37,21 @@ function _cicloMovs(clienteId) {
       movs.push({ tipo:'cobro', fecha:cobros[j].fecha, monto:cobros[j].monto||0, metodo:cobros[j].metodo });
   }
   movs.sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
+
+  if (cutoff) {
+    // Usar el corte explícito: solo movimientos POSTERIORES al timestamp guardado
+    var activos = [];
+    for (var k = 0; k < movs.length; k++) {
+      if (new Date(movs[k].fecha) > cutoff) activos.push(movs[k]);
+    }
+    return activos;
+  }
+
+  // Fallback para clientes sin corte guardado: balance acumulado cronológico
   var runBal = 0, lastZero = -1;
-  for (var k = 0; k < movs.length; k++) {
-    if (movs[k].tipo === 'fiado') { runBal += movs[k].monto; }
-    else { runBal -= movs[k].monto; if (runBal <= 0) { runBal = 0; lastZero = k; } }
+  for (var m = 0; m < movs.length; m++) {
+    if (movs[m].tipo === 'fiado') { runBal += movs[m].monto; }
+    else { runBal -= movs[m].monto; if (runBal <= 0) { runBal = 0; lastZero = m; } }
   }
   return lastZero >= 0 ? movs.slice(lastZero + 1) : movs;
 }
@@ -132,6 +156,12 @@ var creditoClienteSel = null;
 
 // ── PANTALLA CRÉDITO ─────────────────────────────────────────
 function abrirCredito() {
+  // Resetear estado interno: volver siempre a la lista, nunca al detalle de un cliente anterior
+  _detalleCliId = null;
+  var det = document.getElementById('creditoDetalle');
+  var lst = document.getElementById('creditoList');
+  if (det) det.style.display = 'none';
+  if (lst) lst.style.display = 'block';
   // Reemplazar la entrada actual con scSale para que atrás siempre vuelva al POS
   if (window.history && window.history.replaceState) {
     window.history.replaceState({ screen: 'scSale' }, '', '#scSale');
@@ -343,6 +373,8 @@ function confirmarCobrarFiado() {
   cobroRegistrar(_cobFiadoCId, nomStr, cobrado, metodo);
   if (typeof registrarIngreso === 'function') registrarIngreso('Cobro fiado — '+nomStr, cobrado, metodo);
   var nuevoSaldo = cliSaldo(_cobFiadoCId);
+  // Si el saldo llegó a 0, guardar el timestamp como corte de ciclo
+  if (nuevoSaldo === 0) _cicloGuardarCorte(_cobFiadoCId);
   cerrarCobrarFiado();
   if(typeof toast==='function') toast('Cobrado: '+numGs(cobrado));
   imprimirReciboCobro(nomStr, cobrado, metodo, nuevoSaldo);
