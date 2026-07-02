@@ -37,6 +37,8 @@
   Cache-Control: no-cache
 
 # HTML — sin cache para que siempre estén frescos
+/
+  Cache-Control: no-cache, no-store, must-revalidate
 /*.html
   Cache-Control: no-cache, no-store, must-revalidate
 

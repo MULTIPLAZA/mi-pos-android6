@@ -310,10 +310,47 @@ function confirmarCobrarFiado() {
   var nomStr  = document.getElementById('cobrarFiadoNombre').textContent;
   cobroRegistrar(_cobFiadoCId, nomStr, cobrado, metodo);
   if (typeof registrarIngreso === 'function') registrarIngreso('Cobro fiado — '+nomStr, cobrado, metodo);
+  var nuevoSaldo = cliSaldo(_cobFiadoCId);
   cerrarCobrarFiado();
   if(typeof toast==='function') toast('Cobrado: '+numGs(cobrado));
+  imprimirReciboCobro(nomStr, cobrado, metodo, nuevoSaldo);
   if (_detalleCliId) abrirDetalleCliente(_detalleCliId);
   else renderCreditoScreen();
+}
+
+function imprimirReciboCobro(nombre, monto, metodo, nuevoSaldo) {
+  var cfg  = (typeof configData !== 'undefined') ? configData : {};
+  var cols = parseInt(localStorage.getItem('printerSize_ticket') || '58') === 80 ? 42 : 32;
+  var sep  = '='.repeat(cols);
+  var sep2 = '-'.repeat(cols);
+  var n    = '\n';
+  function _ctr(t){ t=String(t); var sp=Math.max(0,Math.floor((cols-t.length)/2)); return ' '.repeat(sp)+t; }
+  function _pad(l,r){ var sp=Math.max(1,cols-String(l).length-String(r).length); return String(l)+' '.repeat(sp)+String(r); }
+  function _gs(v){ var s=String(Math.round(v||0)); return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
+  function _normP(s){ return String(s||'').replace(/[ÁÀÄÂ]/g,'A').replace(/[ÉÈËÊ]/g,'E').replace(/[ÍÌÏÎ]/g,'I').replace(/[ÓÒÖÔ]/g,'O').replace(/[ÚÙÜÛ]/g,'U').replace(/[áàäâ]/g,'a').replace(/[éèëê]/g,'e').replace(/[íìïî]/g,'i').replace(/[óòöô]/g,'o').replace(/[úùüû]/g,'u').replace(/Ñ/g,'N').replace(/ñ/g,'n'); }
+  var now = new Date();
+  var ds  = ('0'+now.getDate()).slice(-2)+'/'+('0'+(now.getMonth()+1)).slice(-2)+'/'+now.getFullYear();
+  var ts  = ('0'+now.getHours()).slice(-2)+':'+('0'+now.getMinutes()).slice(-2);
+
+  var txt = '';
+  if (cfg.negocio) txt += '[BOLD]' + _ctr(_normP(cfg.negocio).toUpperCase()) + '[/BOLD]' + n;
+  txt += sep2 + n;
+  txt += '[BOLD]' + _ctr('RECIBO DE COBRO') + '[/BOLD]' + n;
+  txt += sep2 + n;
+  txt += _ctr(_normP(nombre)) + n;
+  txt += _ctr(ds + ' ' + ts) + n;
+  txt += sep + n;
+  txt += '[BOLD]' + _pad('Monto cobrado:', 'Gs.'+_gs(monto)) + '[/BOLD]' + n;
+  txt += _pad('Forma de pago:', _normP(metodo)) + n;
+  txt += sep2 + n;
+  txt += _pad('Saldo pendiente:', 'Gs.'+_gs(nuevoSaldo)) + n;
+  txt += sep + n;
+  txt += _ctr('Gracias!') + n;
+  txt += '[CUT]';
+
+  if (typeof BTPrinter !== 'undefined' && typeof BTPrinter.print === 'function') {
+    BTPrinter.print(txt);
+  }
 }
 
 // ── EDITAR / NUEVO CLIENTE ───────────────────────────────────
@@ -606,15 +643,18 @@ function cliImprimirCuenta(clienteId) {
   txt += _ctr(ds + ' ' + ts) + n;
   txt += sep + n;
 
-  if (movs.length === 0) {
-    txt += _ctr('Sin movimientos') + n;
+  if (saldo === 0) {
+    // Cuenta saldada — ticket corto
+    txt += '[BOLD]' + _ctr('CUENTA AL DIA') + '[/BOLD]' + n;
+    txt += sep2 + n;
+    txt += _ctr('Sin deudas pendientes') + n;
   } else {
+    // Saldo pendiente — mostrar movimientos
     for (var mi = 0; mi < movs.length; mi++) {
       var mv = movs[mi];
       if (mv.tipo === 'fiado') {
         txt += _pad('Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+' '+_fmt(mv.fecha), '+Gs.'+_gs(mv.monto)) + n;
       } else {
-        // dd/mm solo (5 chars) + metodo hasta 8 chars → cabe en 32 cols
         var _d = new Date(mv.fecha);
         var _f5 = ('0'+_d.getDate()).slice(-2)+'/'+('0'+(_d.getMonth()+1)).slice(-2);
         var met = _normP(mv.metodo || 'efectivo').substring(0, 8);
@@ -622,13 +662,12 @@ function cliImprimirCuenta(clienteId) {
       }
     }
     txt += sep2 + n;
-    txt += '[BOLD]' + _pad('SALDO PENDIENTE', 'Gs.' + _gs(saldo)) + '[/BOLD]' + n;
-  }
-
-  if (c.limiteGs > 0) {
-    txt += sep2 + n;
-    txt += _pad('Limite credito', 'Gs.' + _gs(c.limiteGs)) + n;
-    txt += _pad('Disponible', 'Gs.' + _gs(Math.max(0, c.limiteGs - saldo))) + n;
+    txt += '[BOLD]' + _pad('DEBE', 'Gs.' + _gs(saldo)) + '[/BOLD]' + n;
+    if (c.limiteGs > 0) {
+      txt += sep2 + n;
+      txt += _pad('Limite credito', 'Gs.' + _gs(c.limiteGs)) + n;
+      txt += _pad('Disponible', 'Gs.' + _gs(Math.max(0, c.limiteGs - saldo))) + n;
+    }
   }
 
   txt += sep + n;
