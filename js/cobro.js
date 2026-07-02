@@ -60,6 +60,10 @@ function _goCobrarSetup() {
   // Seleccionar Efectivo por defecto
   document.querySelectorAll('.pay-btn').forEach((b, i) => b.classList.toggle('sel', i === 0));
 
+  // Ocultar CRÉDITO si fiado está desactivado en configuración
+  var _btnCredito = document.querySelector('.pay-btn[onclick*="credito"]');
+  if (_btnCredito) _btnCredito.style.display = localStorage.getItem('pos_credito') === '1' ? '' : 'none';
+
   // Multi-moneda: mostrar panel MM si esta activo, sino panel normal
   var _mmActivoSetup = localStorage.getItem('mm_activo') === '1';
   var _mmSecSetup = document.getElementById('mmSec');
