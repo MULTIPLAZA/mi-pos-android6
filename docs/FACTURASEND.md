@@ -3,9 +3,13 @@
 Estado: **Fase 0-3 y 5 completas** — infra + emisión al cobrar + cola
 offline + polling de estados + anulación fiscal (cancelación ≤48hs / Nota
 de Crédito >48hs, desde Admin → Historial de Ventas → Anular) + **KuDE en
-ticket térmico** (fase 4): CDC + QR + leyenda SIFEN en los 3 canales de
-impresión — HTML (`<img>` con js/lib/qrcode.js), ESC/POS nativo (comando
-GS ( k) y QuickPrinter (tag `<QR-M>`, feature premium de QuickPrinter).
+ticket térmico** (fase 4): CDC + QR + leyenda SIFEN en TODOS los canales de
+impresión — HTML (`<img>` con js/lib/qrcode.js), ESC/POS nativo por bytes
+(AndroidPrint APK, USB Print Server y Bluetooth directo, via `qrFEBytes`,
+comando GS ( k), **BT Print Server** (tag `[QR:url]` — requiere BTS v7+,
+el APK viejo imprime el tag como texto) y QuickPrinter (tag `<QR-M>`,
+feature premium). El repo BluetoothPrintServer tiene el soporte `[QR:]`
+en EscPosHelper.kt — recompilar el APK para actualizarlo.
 Si la emisión asíncrona aún no devolvió el CDC al momento de imprimir, el
 ticket sale con "DOCUMENTO ELECTRONICO EN PROCESO" y la reimpresión
 (memoria/IndexedDB, via turnoActualizarFE) ya trae el QR.

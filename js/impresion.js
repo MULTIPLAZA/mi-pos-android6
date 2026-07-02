@@ -269,6 +269,23 @@ function _imprimirConCSSMedia(html, mmW){
 // Formatear número guaraní sin símbolo (para ticket)
 function gn(n){ var s=String(Math.round(n||0)); return s.replace(/\B(?=(\d{3})+(?!\d))/g,'.'); }
 
+// ── QR nativo ESC/POS (GS ( k) — QR del documento electrónico SIFEN ──
+// Lo usan los 3 canales que arman bytes: AndroidPrint, USB Local y Bluetooth.
+function qrFEBytes(dataStr){
+  var GS = 0x1D;
+  var out = [];
+  var d = [];
+  for(var i = 0; i < dataStr.length; i++) d.push(dataStr.charCodeAt(i) & 0xFF);
+  var len = d.length + 3;
+  out.push(GS,0x28,0x6B,0x04,0x00,0x31,0x41,0x32,0x00);              // modelo 2
+  out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x43,0x05);                    // módulo 5
+  out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x45,0x31);                    // corrección M
+  out.push(GS,0x28,0x6B,len & 0xFF,(len >> 8) & 0xFF,0x31,0x50,0x30); // datos
+  for(var j = 0; j < d.length; j++) out.push(d[j]);
+  out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x51,0x30);                    // imprimir
+  return out;
+}
+
 // Padding derecho para columnas
 function padL(s,n){ s=String(s); return s.length>=n?s.substring(0,n):s+' '.repeat(n-s.length); }
 function padR(s,n){ s=String(s); return s.length>=n?s.substring(0,n):' '.repeat(n-s.length)+s; }
@@ -1990,6 +2007,14 @@ async function imprimirPCUSB(htmlContent, size){
   parrafos.forEach(function(p){
     var cls=p.className||'';
     var text=(p.innerText||p.textContent||'').trim();
+
+    // QR de factura electrónica — comando nativo, centrado
+    if(cls.includes('qr-fe')){
+      var qrData=p.getAttribute('data-qr')||'';
+      if(qrData) bytes=bytes.concat([0x1B,0x61,0x01],qrFEBytes(qrData),[0x0A,0x1B,0x61,0x00]);
+      return;
+    }
+
     if(!text&&!cls.includes('hr')) return;
     if(cls.includes('hr')){ bytes=bytes.concat(sep()); return; }
 
@@ -2303,21 +2328,6 @@ async function imprimirAndroidNativo(htmlContent, size){
   if(bodyMatch) htmlParaParsear = bodyMatch[1];
   tmp.innerHTML = htmlParaParsear;
 
-  // QR nativo ESC/POS (GS ( k) — para el QR del documento electrónico
-  function qrEscPos(dataStr){
-    const out = [];
-    const d = [];
-    for(let i = 0; i < dataStr.length; i++) d.push(dataStr.charCodeAt(i) & 0xFF);
-    const len = d.length + 3;
-    out.push(GS,0x28,0x6B,0x04,0x00,0x31,0x41,0x32,0x00); // modelo 2
-    out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x43,0x05);      // tamaño módulo 5
-    out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x45,0x31);      // corrección M
-    out.push(GS,0x28,0x6B,len & 0xFF,(len >> 8) & 0xFF,0x31,0x50,0x30);
-    out.push(...d);                                        // datos
-    out.push(GS,0x28,0x6B,0x03,0x00,0x31,0x51,0x30);      // imprimir
-    return out;
-  }
-
   const parrafos = Array.from(tmp.querySelectorAll('p'));
   let bytes = [...CMD.init, ESC, 0x74, 0x02]; // init + página latin-1
 
@@ -2328,7 +2338,7 @@ async function imprimirAndroidNativo(htmlContent, size){
     // QR de factura electrónica — comando nativo, centrado
     if(cls.includes('qr-fe')){
       const qrData = p.getAttribute('data-qr') || '';
-      if(qrData) bytes.push(...CMD.center, ...qrEscPos(qrData), 0x0A, ...CMD.left);
+      if(qrData) bytes.push(...CMD.center, ...qrFEBytes(qrData), 0x0A, ...CMD.left);
       return;
     }
 
@@ -2448,6 +2458,14 @@ async function imprimirUSBLocal(htmlContent, size){
   parrafos.forEach(function(p){
     var cls=p.className||'';
     var text=(p.innerText||p.textContent||'').trim();
+
+    // QR de factura electrónica — comando nativo, centrado
+    if(cls.includes('qr-fe')){
+      var qrData=p.getAttribute('data-qr')||'';
+      if(qrData) bytes=bytes.concat([0x1B,0x61,0x01],qrFEBytes(qrData),[0x0A,0x1B,0x61,0x00]);
+      return;
+    }
+
     if(!text&&!cls.includes('hr')) return;
     if(cls.includes('hr')){ bytes=bytes.concat(sep()); return; }
 
@@ -2701,6 +2719,14 @@ async function imprimirBluetooth(device, htmlContent, size){
   parrafos.forEach(function(p){
     const cls=p.className||'';
     const text=(p.innerText||p.textContent||'').trim();
+
+    // QR de factura electrónica — comando nativo, centrado
+    if(cls.includes('qr-fe')){
+      const qrData=p.getAttribute('data-qr')||'';
+      if(qrData) bytes.push(...CMD.center, ...qrFEBytes(qrData), 0x0A, ...CMD.left);
+      return;
+    }
+
     if(!text && !cls.includes('hr')) return;
 
     if(cls.includes('hr')){
@@ -3111,7 +3137,8 @@ var BTPrinter = {
       var vi      = f0.fecha_desde || (tc && (tc.vig_inicio || tc.fecha_desde)) || '';
       var vf      = f0.fecha_hasta || (tc && (tc.vig_fin    || tc.fecha_hasta)) || '';
       var nroFact = f0.nro_factura || f0.nroFactura;
-      txt += '[CENTER][BOLD]FACTURA CONTADO[/BOLD][/CENTER]' + n;
+      var esFEBTPS = f0.tipo_timbrado === 'electronico' || !!(data.fe && data.fe.fe_cdc);
+      txt += '[CENTER][BOLD]' + (esFEBTPS ? 'FACTURA ELECTRONICA' : 'FACTURA CONTADO') + '[/BOLD][/CENTER]' + n;
       txt += sep2 + n;
       txt += 'Timbrado: ' + f0.timbrado + n;
       if(vi) txt += 'Inicio:   ' + (vi.includes('-') ? vi.split('-').reverse().join('/') : vi) + n;
@@ -3241,6 +3268,25 @@ var BTPrinter = {
       txt += sep2 + n;
       txt += 'ORIGINAL: CLIENTE' + n;
       txt += 'DUPLICADO: ARCHIVO TRIBUTARIO' + n;
+
+      // ── Bloque KuDE (factura electrónica) ──
+      // [QR:...] lo renderiza BT Print Server v7+ como QR nativo ESC/POS.
+      if (f.tipo_timbrado === 'electronico' || (data.fe && data.fe.fe_cdc)) {
+        txt += sep2 + n;
+        if (data.fe && data.fe.fe_cdc) {
+          txt += 'CDC:' + n;
+          txt += data.fe.fe_cdc.substring(0, 22) + n;
+          txt += data.fe.fe_cdc.substring(22) + n;
+          if (data.fe.fe_qr) txt += '[QR:' + data.fe.fe_qr + ']' + n;
+          txt += ctr('Consulte la validez en') + n;
+          txt += '[BOLD]' + ctr('ekuatia.set.gov.py/consultas') + '[/BOLD]' + n;
+          txt += ctr('Representacion grafica KuDE') + n;
+        } else {
+          txt += '[CENTER][BOLD]DOC. ELECTRONICO EN PROCESO[/BOLD][/CENTER]' + n;
+          txt += ctr('Reimprima el ticket en unos') + n;
+          txt += ctr('segundos para obtener el QR') + n;
+        }
+      }
     } else {
       txt += sep2 + n;
       txt += ctr('Comprobante no valido') + n;
