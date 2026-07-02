@@ -109,6 +109,10 @@ var creditoClienteSel = null;
 
 // ── PANTALLA CRÉDITO ─────────────────────────────────────────
 function abrirCredito() {
+  // Reemplazar la entrada actual con scSale para que atrás siempre vuelva al POS
+  if (window.history && window.history.replaceState) {
+    window.history.replaceState({ screen: 'scSale' }, '', '#scSale');
+  }
   goTo('scCredito');
   renderCreditoScreen();
   // Sincronizar desde Supabase en background
