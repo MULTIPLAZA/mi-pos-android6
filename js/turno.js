@@ -183,28 +183,54 @@ function supaInsertVenta(data){
     }
   }).catch(function(e){ console.warn('[Turno] Error guardando dbId en IndexedDB:', e.message); });
 
+  // ── Factura electrónica (FacturaSend) ──
+  // Si el timbrado es electrónico y FE está activa, se arma el DE acá (con
+  // todos los datos de la venta) y se emite en background antes del insert,
+  // para que la fila ya nazca con su CDC. Si falla o no hay internet, la
+  // venta se guarda igual con fe_numero (la cola emite después y matchea
+  // por licencia_email + fe_numero). El cobro NUNCA se bloquea por esto.
+  var feDoc = (typeof feDocumentoParaVenta === 'function') ? feDocumentoParaVenta(data) : null;
+  if(feDoc) venta.fe_numero = feDoc._feNumeroFmt;
+
   // Enviar a Supabase
   if(USAR_DEMO || !navigator.onLine){
     // Sin conexión — encolar para sync posterior
+    if(feDoc && !USAR_DEMO) feColaAgregar(feDoc);
     if(db) dbQueueSync('ventas','insert', venta);
     return;
   }
 
-  supaPost('pos_ventas', venta, null, true).then(async () => {
-    _log('[Venta] Guardada en Supabase OK');
-    // Si la venta tenía un pedido satélite vinculado, marcarlo como cobrado
-    if(data._supabasePedidoId){
-      marcarPedidoSateliteCobrado(data._supabasePedidoId);
-    }
-    // Descontar stock en background
-    try {
-      await stockDescontarVenta(data.items, data.comprobante || ('VENTA-'+Date.now()));
-    } catch(e){ console.warn('[Stock] Error en stockDescontarVenta:', e.message); }
-  })
-  .catch(e => {
-    console.warn('[Venta] Error Supabase, encolando:', e.message);
-    if(db) dbQueueSync('ventas','insert', venta);
-  });
+  var _insertarVenta = function(){
+    supaPost('pos_ventas', venta, null, true).then(async () => {
+      _log('[Venta] Guardada en Supabase OK');
+      // Si la venta tenía un pedido satélite vinculado, marcarlo como cobrado
+      if(data._supabasePedidoId){
+        marcarPedidoSateliteCobrado(data._supabasePedidoId);
+      }
+      // Descontar stock en background
+      try {
+        await stockDescontarVenta(data.items, data.comprobante || ('VENTA-'+Date.now()));
+      } catch(e){ console.warn('[Stock] Error en stockDescontarVenta:', e.message); }
+    })
+    .catch(e => {
+      console.warn('[Venta] Error Supabase, encolando:', e.message);
+      if(db) dbQueueSync('ventas','insert', venta);
+    });
+  };
+
+  if(feDoc){
+    feEmitirVenta(feDoc).then(function(fe){
+      Object.assign(venta, fe);
+      _insertarVenta();
+    }).catch(function(e){
+      console.warn('[FE] Emisión falló, va a la cola:', e.message);
+      venta.fe_error = (e.message || '').substring(0, 300);
+      feColaAgregar(feDoc);
+      _insertarVenta();
+    });
+  } else {
+    _insertarVenta();
+  }
 }
 
 // ── DESCUENTO DE STOCK POR VENTA ─────────────────────────────────────────

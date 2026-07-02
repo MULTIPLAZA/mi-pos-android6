@@ -1,6 +1,25 @@
 # Factura Electrónica — Integración FacturaSend
 
-Estado: **Fase 0-1 completa** (infra lista, falta cuenta sandbox del usuario).
+Estado: **Fase 0-3 completa** — infra + emisión al cobrar + cola offline +
+polling de estados. Falta: credenciales (sandbox o server propio), QR en
+ticket (fase 4), anulación/NC (fase 5).
+
+**IMPORTANTE:** ejecutar `supabase-migrations/add_factura_electronica.sql`
+ANTES de activar FE — sin las columnas fe_*, los inserts de ventas con
+factura electrónica fallan.
+
+## Flujo de emisión (fase 2-3, implementado)
+
+1. Cobro con timbrado electrónico + FE activa → `feDocumentoParaVenta()`
+   arma el DE (turno.js → supaInsertVenta).
+2. Online: `feEmitirVenta()` emite ANTES del insert — la fila nace con
+   fe_cdc/fe_qr/fe_estado='0'. Offline o error: la venta se guarda igual
+   con fe_numero y el DE va a la cola localStorage `fe_cola`.
+3. Cola: reintenta c/3 min (y al volver internet). Emite UNA sola vez por
+   número; persiste con PATCH por licencia_email+fe_numero.
+4. Estados: CDCs pendientes en `fe_pend_cdcs`, polling c/10 min →
+   PATCH fe_estado/fe_respuesta por fe_cdc. (También manual en el admin.)
+5. El cobro nunca se bloquea por FE — todo corre en background.
 Plan completo: ver artifact "Plan de Integración FacturaSend".
 
 ## Arquitectura
