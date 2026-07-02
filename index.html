@@ -2365,44 +2365,28 @@ if('serviceWorker' in navigator){
 }
 
 // ── BOTÓN MANUAL DE ACTUALIZACIÓN ───────────────────────
+// Estrategia: borrar TODAS las cachés del SW + desregistrar + recargar.
+// Más confiable que reg.update() porque bypasea la caché del CDN de Cloudflare.
 function buscarActualizacion(){
   var btn = document.getElementById('btnCheckUpdate');
-  if(btn){ btn.textContent = '⟳ Buscando...'; btn.disabled = true; }
+  if(btn){ btn.textContent = '⟳ Limpiando...'; btn.disabled = true; }
 
-  // Si ya hay una actualización pendiente, aplicar de inmediato
-  if(_swPending){
-    if(typeof toast === 'function') toast('Aplicando actualización...');
-    setTimeout(function(){ location.reload(); }, 600);
-    return;
-  }
+  var borrarCaches = ('caches' in window)
+    ? caches.keys().then(function(nombres){
+        return Promise.all(nombres.map(function(n){ return caches.delete(n); }));
+      })
+    : Promise.resolve();
 
-  if(!_swReg){
-    if(typeof toast === 'function') toast('Servicio no disponible');
-    if(btn){ btn.textContent = '⟳ Actualizar'; btn.disabled = false; }
-    return;
-  }
+  var desregistrarSW = ('serviceWorker' in navigator)
+    ? navigator.serviceWorker.getRegistrations().then(function(regs){
+        return Promise.all(regs.map(function(r){ return r.unregister(); }));
+      })
+    : Promise.resolve();
 
-  // Forzar chequeo al servidor
-  _swReg.update().then(function(){
-    // Esperar hasta 6 s a que aparezca la nueva versión
-    var waited = 0;
-    var iv = setInterval(function(){
-      waited += 500;
-      if(_swPending){
-        clearInterval(iv);
-        if(typeof toast === 'function') toast('Actualización lista — recargando...');
-        setTimeout(function(){ location.reload(); }, 800);
-        return;
-      }
-      if(waited >= 6000){
-        clearInterval(iv);
-        if(typeof toast === 'function') toast('Ya tenés la versión más reciente');
-        if(btn){ btn.textContent = '⟳ Actualizar'; btn.disabled = false; }
-      }
-    }, 500);
+  Promise.all([borrarCaches, desregistrarSW]).then(function(){
+    location.reload();
   }).catch(function(){
-    if(typeof toast === 'function') toast('Sin conexión — no se pudo verificar');
-    if(btn){ btn.textContent = '⟳ Actualizar'; btn.disabled = false; }
+    location.reload();
   });
 }
 
