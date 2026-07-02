@@ -9,6 +9,29 @@ var _CRED_COBROS_KEY = 'pos_cred_cobros';
 // Formato moneda sin símbolo ₲ duplicado
 function numGs(n) { return 'Gs.'+Math.round(n||0).toLocaleString('es-PY'); }
 
+// Devuelve los movimientos del ciclo activo (desde el último punto donde saldo=0)
+// Filtra cobros Gs.0 (artefactos de bug). Usado por pantalla e impresión.
+function _cicloMovs(clienteId) {
+  var fiados = fiadoCargar();
+  var cobros = cobrosCargar();
+  var movs = [];
+  for (var i = 0; i < fiados.length; i++) {
+    if (fiados[i].clienteId === clienteId)
+      movs.push({ tipo:'fiado', fecha:fiados[i].fecha, monto:fiados[i].total||0, nroTicket:fiados[i].nroTicket });
+  }
+  for (var j = 0; j < cobros.length; j++) {
+    if (cobros[j].clienteId === clienteId && (cobros[j].monto||0) > 0)
+      movs.push({ tipo:'cobro', fecha:cobros[j].fecha, monto:cobros[j].monto||0, metodo:cobros[j].metodo });
+  }
+  movs.sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
+  var runBal = 0, lastZero = -1;
+  for (var k = 0; k < movs.length; k++) {
+    if (movs[k].tipo === 'fiado') { runBal += movs[k].monto; }
+    else { runBal -= movs[k].monto; if (runBal <= 0) { runBal = 0; lastZero = k; } }
+  }
+  return lastZero >= 0 ? movs.slice(lastZero + 1) : movs;
+}
+
 // ── COBROS LOG ────────────────────────────────────────────────
 function cobrosCargar()     { try { return JSON.parse(localStorage.getItem(_CRED_COBROS_KEY)||'[]'); } catch(e) { return []; } }
 function cobrosGuardar(arr) { try { localStorage.setItem(_CRED_COBROS_KEY, JSON.stringify(arr)); } catch(e) {} }
@@ -199,25 +222,15 @@ function abrirDetalleCliente(clienteId) {
   // Saldo real con ledger
   var saldo = cliSaldo(clienteId);
 
-  // Totales para resumen
-  var fiados = fiadoCargar();
-  var cobros = cobrosCargar();
-  var totalFiado = 0, cntFiado = 0;
-  var movs = [];
-  for (var fi = 0; fi < fiados.length; fi++) {
-    if (fiados[fi].clienteId === clienteId) {
-      totalFiado += (fiados[fi].total||0); cntFiado++;
-      movs.push({ tipo:'fiado', fecha:fiados[fi].fecha, nroTicket:fiados[fi].nroTicket, monto:fiados[fi].total });
-    }
+  // Ciclo activo: solo desde el último corte a saldo=0
+  var ciclo = _cicloMovs(clienteId);
+  var totalFiado = 0, cntFiado = 0, totalCobrado = 0, cntCobro = 0;
+  for (var fi = 0; fi < ciclo.length; fi++) {
+    if (ciclo[fi].tipo === 'fiado') { totalFiado += ciclo[fi].monto; cntFiado++; }
+    else { totalCobrado += ciclo[fi].monto; cntCobro++; }
   }
-  var totalCobrado = 0, cntCobro = 0;
-  for (var ci = 0; ci < cobros.length; ci++) {
-    if (cobros[ci].clienteId === clienteId) {
-      totalCobrado += (cobros[ci].monto||0); cntCobro++;
-      movs.push({ tipo:'cobro', fecha:cobros[ci].fecha, monto:cobros[ci].monto, metodo:cobros[ci].metodo });
-    }
-  }
-  movs.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); }); // más reciente primero
+  // Últimos 5 del ciclo (más reciente primero)
+  var movs = ciclo.slice().reverse();
 
   var html = '';
   // ── Cabecera ──
@@ -607,26 +620,9 @@ function cliImprimirCuenta(clienteId) {
   for (var i = 0; i < clientes.length; i++) { if (clientes[i].id === clienteId) { c = clientes[i]; break; } }
   if (!c) return;
 
-  // Movimientos: fiados + cobros del cliente, orden cronológico
-  var fiados = fiadoCargar();
-  var movs = [];
-  var totalFiado = 0;
-  for (var j = 0; j < fiados.length; j++) {
-    if (fiados[j].clienteId === clienteId) {
-      movs.push({ tipo: 'fiado', fecha: fiados[j].fecha, monto: fiados[j].total, nroTicket: fiados[j].nroTicket });
-      totalFiado += (fiados[j].total || 0);
-    }
-  }
-  var cobros = cobrosCargar();
-  var totalCobrado = 0;
-  for (var k = 0; k < cobros.length; k++) {
-    if (cobros[k].clienteId === clienteId) {
-      movs.push({ tipo: 'cobro', fecha: cobros[k].fecha, monto: cobros[k].monto, metodo: cobros[k].metodo });
-      totalCobrado += (cobros[k].monto || 0);
-    }
-  }
-  movs.sort(function(a, b) { return new Date(a.fecha) - new Date(b.fecha); });
-  var saldo = Math.max(0, totalFiado - totalCobrado);
+  // Solo ciclo activo (desde el último corte donde saldo=0)
+  var activMovs = _cicloMovs(clienteId);
+  var saldo = cliSaldo(clienteId);
 
   var cfg = (typeof configData !== 'undefined') ? configData : {};
   var cols = parseInt(localStorage.getItem('printerSize_ticket') || '58') === 80 ? 42 : 32;
@@ -668,9 +664,9 @@ function cliImprimirCuenta(clienteId) {
     txt += sep2 + n;
     txt += _ctr('Sin deudas pendientes') + n;
   } else {
-    // Saldo pendiente — mostrar movimientos
-    for (var mi = 0; mi < movs.length; mi++) {
-      var mv = movs[mi];
+    // Saldo pendiente — mostrar solo ciclo activo (desde último corte a 0)
+    for (var mi = 0; mi < activMovs.length; mi++) {
+      var mv = activMovs[mi];
       if (mv.tipo === 'fiado') {
         txt += _pad('Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+' '+_fmt(mv.fecha), '+Gs.'+_gs(mv.monto)) + n;
       } else {
