@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-admin-v20260524-arch001d-format';
+const CACHE = 'ampersand-admin-v20260702-facturasend';
 
 const ASSETS = [
   '/admin-negocio.html',
@@ -18,7 +18,9 @@ const ASSETS = [
   '/js/admin-productos.js',
   '/js/admin-inventario.js',
   '/js/admin-finanzas.js',
+  '/js/admin-fe.js',
   '/js/admin-tutoriales.js',
+  '/js/factura-electronica.js',
 ];
 
 self.addEventListener('install', e => {

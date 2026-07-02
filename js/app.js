@@ -17,7 +17,7 @@ async function sincronizarConfigNegocio(){
   try {
     const rows = await supaGet('pos_config',
       'licencia_email=eq.'+encodeURIComponent(email)+
-      '&clave=in.(negocio_config,timbrados_config,timbrados_mapa)');
+      '&clave=in.(negocio_config,timbrados_config,timbrados_mapa,facturasend_config)');
 
     rows.forEach(row => {
       try {
@@ -42,6 +42,14 @@ async function sincronizarConfigNegocio(){
             if(v && !localStorage.getItem(k)) localStorage.setItem(k,v);
           });
           _log('[Config] Negocio (sync Supabase):', configData.negocio, '| RUC:', configData.ruc);
+        }
+        if(row.clave === 'facturasend_config'){
+          // Credenciales FE configuradas desde el Panel Admin. La nube es la
+          // fuente de verdad: siempre pisan la copia local de la terminal.
+          if(typeof feSetConfig === 'function'){
+            feSetConfig({ tenantId: val.tenant_id||'', apiKey: val.api_key||'', activa: !!val.activa });
+            _log('[Config] FacturaSend (sync Supabase). Activa:', !!val.activa);
+          }
         }
       } catch(e){ console.warn('[Config] Error parsing', row.clave, e.message); }
     });

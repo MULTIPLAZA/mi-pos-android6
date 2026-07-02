@@ -1822,18 +1822,46 @@ function selTipo(t){
   var hasta=document.getElementById('mHasta');
   var certRow=document.getElementById('certRow');
   var vigFinRow=document.getElementById('vigFinRow');
+  var feRow=document.getElementById('feStatusRow');
   if(t==='electronico'){
     if(vigFin){vigFin.value='2999-12-31';vigFin.readOnly=true;vigFin.style.color='var(--muted)';}
     if(hasta){hasta.value='9999999';hasta.readOnly=true;hasta.style.color='var(--muted)';}
     if(certRow) certRow.style.display='block';
     if(vigFinRow) vigFinRow.style.opacity='.5';
+    if(feRow){feRow.style.display='block';feTimStatusBox(feRow);}
   } else {
     if(vigFin){vigFin.value='';vigFin.readOnly=false;vigFin.style.color='var(--text)';}
     if(hasta){hasta.value='5000';hasta.readOnly=false;hasta.style.color='var(--text)';}
     if(certRow) certRow.style.display='none';
     if(vigFinRow) vigFinRow.style.opacity='1';
+    if(feRow) feRow.style.display='none';
   }
   updPrev();
+}
+
+// Muestra en el modal de timbrado si el proveedor de FE (FacturaSend) ya tiene
+// credenciales cargadas. Lee la copia local y refresca desde pos_config.
+async function feTimStatusBox(el){
+  function pintar(cfg){
+    if(cfg.tenantId&&cfg.apiKey&&cfg.activa){
+      el.innerHTML='<div style="background:var(--g2);border:1px solid var(--green);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--green);font-weight:700;">✓ FacturaSend configurado — los documentos de este timbrado se emiten a SIFEN</div>';
+    } else {
+      el.innerHTML='<div style="background:rgba(255,152,0,.12);border:1px solid var(--orange);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--orange);">'+
+        '<b>Sin credenciales FacturaSend'+(cfg.tenantId&&cfg.apiKey?' activas':'')+'.</b> Este timbrado no va a poder emitir hasta configurarlas. '+
+        '<span onclick="closeMTim();goTo(\'factura-electronica\')" style="color:var(--blue);font-weight:700;cursor:pointer;text-decoration:underline;">Configurar ahora</span></div>';
+    }
+  }
+  if(typeof feGetConfig!=='function'){el.innerHTML='';return;}
+  pintar(feGetConfig());
+  // Refrescar desde la nube por si se configuró en otro dispositivo
+  try{
+    var rows=await sg('pos_config','licencia_email=ilike.'+encodeURIComponent(SE)+'&clave=eq.facturasend_config&select=valor');
+    if(rows.length){
+      var val=JSON.parse(rows[0].valor||'{}');
+      feSetConfig({tenantId:val.tenant_id||'',apiKey:val.api_key||'',activa:!!val.activa});
+      pintar(feGetConfig());
+    }
+  }catch(e){/* offline: se queda con la copia local */}
 }
 
 function updPrev(){

@@ -88,6 +88,8 @@
       <div class="sb-sep">Sistema</div>
       <div class="sb-i" id="sbi-admin" onclick="goTo('admin')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Administración</div>
+      <div class="sb-i" id="sbi-factura-electronica" onclick="goTo('factura-electronica')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>Factura Electrónica</div>
       <div class="sb-i" id="sbi-config" onclick="goTo('config')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M16.24 7.76a6 6 0 0 1 0 8.49M6.34 17.66a6 6 0 0 1 0-8.49M4.93 19.07a10 10 0 0 1 0-14.14"/></svg>Configuración</div>
     </div>
@@ -185,6 +187,8 @@
         </div>
       </div>
     </div>
+    <!-- Estado credenciales FacturaSend (solo electrónico) -->
+    <div id="feStatusRow" style="display:none;margin-bottom:12px;"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
       <div>
         <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">N° Sucursal *</label>
@@ -224,6 +228,8 @@
 <script src="js/config.js"></script>
 <!-- ARCH-001 compat: sin type=module para Android 6 / Chrome <61 -->
 <script src="js/lib/index-compat.js"></script>
+<!-- Capa adaptadora FE — la usan admin-fe.js (config/estados) y el modal de timbrado -->
+<script src="js/factura-electronica.js?v=20260702001"></script>
 <!-- Solo se carga el dashboard up-front; el resto son lazy-loaded por goTo() (PERF-001) -->
 <script src="js/admin-dashboard.js"></script>
 <script>
@@ -247,6 +253,7 @@ window._adminModules = {
   'rep-productos': 'js/admin-finanzas.js',
   'rep-compras':'js/admin-finanzas.js',
   admin:        'js/admin-finanzas.js',
+  'factura-electronica': 'js/admin-fe.js',
   tutoriales:   'js/admin-tutoriales.js'
 };
 window._adminLoaded = {};
@@ -477,7 +484,7 @@ function goTo(p){
   curPage=p; closeSB();
   document.querySelectorAll('.sb-i').forEach(function(el){el.classList.toggle('on',el.id==='sbi-'+p);});
   document.querySelectorAll('.bn').forEach(function(el){el.classList.toggle('on',el.id==='bni-'+p);});
-  var titles={dashboard:'Dashboard',ventas:'Ventas',terminales:'Terminales',cajas:'Cajas / Turnos',cierres:'Cierres de Turno',importar:'Importar productos',productos:'Productos',insumos:'Insumos',inventarios:'Inventarios',extracto:'Extracto de Producto',compras:'Compras',movstock:'Movimientos de Stock',conteo:'Conteo Físico','rep-productos':'Ventas por Producto','rep-compras':'Reporte de Compras',gastos:'Gastos Fijos','plan-gastos':'Plan de Gastos',balance:'Balance P&G',iva:'Liquidación IVA',tutoriales:'Tutoriales',admin:'Administración',config:'Configuración'};
+  var titles={dashboard:'Dashboard',ventas:'Ventas',terminales:'Terminales',cajas:'Cajas / Turnos',cierres:'Cierres de Turno',importar:'Importar productos',productos:'Productos',insumos:'Insumos',inventarios:'Inventarios',extracto:'Extracto de Producto',compras:'Compras',movstock:'Movimientos de Stock',conteo:'Conteo Físico','rep-productos':'Ventas por Producto','rep-compras':'Reporte de Compras',gastos:'Gastos Fijos','plan-gastos':'Plan de Gastos',balance:'Balance P&G',iva:'Liquidación IVA',tutoriales:'Tutoriales',admin:'Administración','factura-electronica':'Factura Electrónica',config:'Configuración'};
   document.getElementById('topTitle').textContent=titles[p]||p;
   var c=document.getElementById('content');
   c.innerHTML='<div class="loading"><span class="sp"></span>Cargando...</div>';
@@ -511,6 +518,7 @@ function renderPage(p){
   else if(p==='iva') renderIVA();
   else if(p==='tutoriales') renderTutoriales();
   else if(p==='admin')  renderAdmin();
+  else if(p==='factura-electronica') renderFacturaElectronica();
   else if(p==='config') renderConfig();
 }
 
