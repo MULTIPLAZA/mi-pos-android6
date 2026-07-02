@@ -1,8 +1,13 @@
 # Factura Electrónica — Integración FacturaSend
 
-Estado: **Fase 0-3 completa** — infra + emisión al cobrar + cola offline +
-polling de estados. Falta: credenciales (sandbox o server propio), QR en
-ticket (fase 4), anulación/NC (fase 5).
+Estado: **Fase 0-3 y 5 completas** — infra + emisión al cobrar + cola
+offline + polling de estados + anulación fiscal (cancelación ≤48hs / Nota
+de Crédito >48hs, desde Admin → Historial de Ventas → Anular). Falta:
+credenciales (sandbox o server propio) y QR en ticket térmico (fase 4).
+
+Migraciones requeridas: `add_factura_electronica.sql` (fe_*) y
+`add_factura_electronica_nc.sql` (fe_nc_*). El correlativo de NC vive en
+pos_config clave `fe_nc_correlativo` (JSON por estab-punto).
 
 **IMPORTANTE:** ejecutar `supabase-migrations/add_factura_electronica.sql`
 ANTES de activar FE — sin las columnas fe_*, los inserts de ventas con

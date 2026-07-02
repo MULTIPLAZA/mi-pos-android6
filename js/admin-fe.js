@@ -186,7 +186,7 @@ async function feCargarDocs(){
     feDocs = await sg('pos_ventas',
       'licencia_email=ilike.'+encodeURIComponent(SE)+
       '&fe_cdc=not.is.null&order=fecha.desc&limit=200'+
-      '&select=id,fecha,total,factura_ruc,factura_nombre,cliente_nombre,fe_cdc,fe_estado,fe_numero,fe_respuesta');
+      '&select=id,fecha,total,factura_ruc,factura_nombre,cliente_nombre,fe_cdc,fe_estado,fe_numero,fe_respuesta,fe_nc_cdc,fe_nc_numero,fe_nc_estado,anulada');
   }catch(e){
     // Columnas fe_* aún no migradas en Supabase
     if(lista) lista.innerHTML='<div class="empty"><div class="empty-t">Falta la migración de base de datos</div><div class="empty-s">Ejecutá supabase-migrations/add_factura_electronica.sql en el SQL Editor de Supabase</div></div>';
@@ -222,6 +222,9 @@ function feBuildDocsLista(){
   return docs.map(function(d,i){
     var cliente = d.factura_nombre || d.cliente_nombre || 'Consumidor final';
     var resp = d.fe_respuesta ? '<div style="font-size:11px;color:'+(String(d.fe_estado)==='4'?'var(--red)':'var(--muted)')+';margin-top:6px;padding:8px 10px;background:var(--card2);border-radius:6px;line-height:1.5;">'+escapeHtml(d.fe_respuesta)+'</div>' : '';
+    if(d.fe_nc_cdc){
+      resp += '<div style="font-size:11px;color:var(--orange);margin-top:6px;padding:8px 10px;background:var(--card2);border-radius:6px;line-height:1.5;">Nota de Crédito '+escapeHtml(d.fe_nc_numero||'')+' '+feEstadoBadge(d.fe_nc_estado)+'<br><span style="font-family:monospace;font-size:10px;color:var(--muted);word-break:break-all;">'+d.fe_nc_cdc+'</span></div>';
+    }
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">'+
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
       '<div style="flex:1;min-width:180px;">'+

@@ -1125,12 +1125,40 @@ function _esc(s){ var d=document.createElement('div'); d.textContent=String(s==n
 function vAnularVenta(id){
   var venta = (allVP||[]).find(function(x){ return String(x.id) === String(id); });
   if(!venta){ toast('Venta no encontrada'); return; }
-  if(venta.anulada){ toast('Esta venta ya está anulada'); return; }
+  if(venta.anulada){
+    // Si quedó gestión fiscal pendiente (cancelación/NC que falló), permitir reintento
+    if(venta.fe_cdc && String(venta.fe_estado) !== '99' && String(venta.fe_estado) !== '4' && !venta.fe_nc_cdc
+       && typeof feProcesarAnulacionFiscal === 'function'){
+      if(confirm('Esta venta ya está anulada, pero el documento electrónico sigue vigente en SIFEN.\n¿Reintentar la cancelación / Nota de Crédito?')){
+        toast('Gestionando documento electrónico...');
+        feProcesarAnulacionFiscal(venta, venta.motivo_anulacion || 'Anulación de la operación', SE)
+          .then(function(r){ toast(r.mensaje, 4000); if(typeof loadVData === 'function') loadVData(filtroV||'hoy'); })
+          .catch(function(e){ alert('Falló de nuevo: '+e.message); });
+      }
+      return;
+    }
+    toast('Esta venta ya está anulada'); return;
+  }
 
   var prev = document.getElementById('vAnulOv');
   if(prev) prev.remove();
 
   var tieneFac = !!venta.tiene_factura;
+
+  // Documento electrónico: informar qué acción fiscal va a disparar la anulación
+  var feAviso = '';
+  if(venta.fe_cdc){
+    var _horasFE = (Date.now() - new Date(venta.fe_fecha_emision || venta.fecha).getTime()) / 36e5;
+    if(String(venta.fe_estado) === '99'){
+      feAviso = '<div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--muted);">El documento electrónico ya está cancelado en SIFEN.</div>';
+    } else if(venta.fe_nc_cdc){
+      feAviso = '<div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--muted);">Ya existe Nota de Crédito: '+_esc(venta.fe_nc_numero||'')+'</div>';
+    } else if(_horasFE <= 48){
+      feAviso = '<div style="background:rgba(66,165,245,.08);border:1px solid var(--blue);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--blue);font-weight:700;">⚡ Documento electrónico (menos de 48hs): se enviará el EVENTO DE CANCELACIÓN a SIFEN.</div>';
+    } else {
+      feAviso = '<div style="background:rgba(66,165,245,.08);border:1px solid var(--blue);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--blue);font-weight:700;">⚡ Documento electrónico (más de 48hs): se emitirá una NOTA DE CRÉDITO electrónica por el total.</div>';
+    }
+  }
 
   var ov = document.createElement('div');
   ov.id = 'vAnulOv';
@@ -1146,9 +1174,10 @@ function vAnularVenta(id){
         +'<div style="font-size:12px;color:var(--muted)">Total: '+gs(venta.total)+' · '+(venta.metodo_pago||'EFECTIVO').toUpperCase()+'</div>'
       +'</div>'
     +'</div>'
-    +(tieneFac
+    +(tieneFac && !feAviso
       ?'<div style="background:var(--r2);border:1px solid rgba(239,83,80,.35);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--red);font-weight:700"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Esta venta tiene factura asociada. Quedará marcada como anulada en los reportes.</div>'
       :'')
+    +feAviso
     +'<div style="background:rgba(255,152,0,.08);border:1px solid var(--orange);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:var(--text);line-height:1.5">'
       +'<strong style="color:var(--orange)">Importante:</strong> esta acción <strong>NO revierte stock automáticamente</strong>. Si la venta había descontado mercadería, ajustá desde Inventarios → Movimientos.'
     +'</div>'
@@ -1176,6 +1205,21 @@ async function vAnularVentaConfirmar(id){
     });
     var ov = document.getElementById('vAnulOv'); if(ov) ov.remove();
     toast('Venta anulada');
+
+    // Documento electrónico: cancelación en SIFEN (≤48hs) o Nota de Crédito (>48hs)
+    var _ventaFE = (allVP||[]).find(function(x){ return String(x.id) === String(id); });
+    if(_ventaFE && _ventaFE.fe_cdc && String(_ventaFE.fe_estado) !== '99' && !_ventaFE.fe_nc_cdc
+       && typeof feProcesarAnulacionFiscal === 'function'){
+      toast('Gestionando documento electrónico en SIFEN...');
+      try{
+        var rfe = await feProcesarAnulacionFiscal(_ventaFE, motivo.trim(), SE);
+        toast(rfe.mensaje, 4000);
+      }catch(eFE){
+        alert('La venta quedó ANULADA en el sistema, pero la gestión fiscal falló:\n\n'+eFE.message+
+              '\n\nPodés reintentar anulando de nuevo o gestionarlo desde la consola de FacturaSend.');
+      }
+    }
+
     // Refrescar la lista
     if(typeof loadVData === 'function') loadVData(filtroV||'hoy');
   }catch(e){

@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-admin-v20260702-facturasend-selfhosted';
+const CACHE = 'ampersand-admin-v20260702-facturasend-anulacion';
 
 const ASSETS = [
   '/admin-negocio.html',

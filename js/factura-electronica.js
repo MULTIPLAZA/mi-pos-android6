@@ -196,6 +196,45 @@ function _feIvaItem(iva) {
   return { ivaTipo: 1, ivaBase: 100, iva: 10 };
 }
 
+/** Arma el objeto cliente SIFEN a partir de RUC/nombre/dirección */
+function _feCliente(rucRaw, nombreRaw, direccion) {
+  var ruc = (rucRaw || '').trim().toUpperCase();
+  var esContribuyente = /^\d{5,8}-?\d$/.test(ruc);   // RUC válido (con o sin guión)
+  if (esContribuyente && ruc.indexOf('-') < 0) {
+    ruc = ruc.slice(0, -1) + '-' + ruc.slice(-1);     // normalizar con dígito verificador
+  }
+  var nombre = (nombreRaw && nombreRaw !== 'SIN NOMBRE') ? nombreRaw : 'Sin Nombre';
+  if (esContribuyente) {
+    return {
+      contribuyente: true,
+      ruc: ruc,
+      razonSocial: nombre,
+      tipoOperacion: 1,                                // B2B
+      direccion: direccion || '',
+      pais: 'PRY',
+      // Heurística PY: RUC 8xxxxxxx (8 dígitos) = persona jurídica
+      tipoContribuyente: /^8\d{7}-/.test(ruc) ? '2' : '1',
+      documentoTipo: '', documentoNumero: '',
+      telefono: '', celular: '', email: '',
+      codigo: '0',
+    };
+  }
+  // Consumidor final (innominado) — caso a validar en sandbox
+  return {
+    contribuyente: false,
+    ruc: '',
+    razonSocial: nombre,
+    tipoOperacion: 2,                                  // B2C
+    direccion: direccion || '',
+    pais: 'PRY',
+    tipoContribuyente: '1',
+    documentoTipo: 5,                                  // innominado
+    documentoNumero: '0',
+    telefono: '', celular: '', email: '',
+    codigo: '0',
+  };
+}
+
 /**
  * ¿Corresponde emitir FE para esta venta? Devuelve el documento DE armado
  * (más metadatos _fe*) o null. Se llama desde supaInsertVenta (turno.js).
@@ -225,44 +264,7 @@ function feArmarDocumento(data) {
   var numero = parseInt(partes[2], 10);
   if (!numero) throw new Error('Sin correlativo de factura');
 
-  // ── Cliente ──
-  var ruc = (f.ruc || '').trim().toUpperCase();
-  var esContribuyente = /^\d{5,8}-?\d$/.test(ruc);   // RUC válido (con o sin guión)
-  if (esContribuyente && ruc.indexOf('-') < 0) {
-    ruc = ruc.slice(0, -1) + '-' + ruc.slice(-1);     // normalizar con dígito verificador
-  }
-  var nombre = (f.nombre && f.nombre !== 'SIN NOMBRE') ? f.nombre : 'Sin Nombre';
-  var cliente;
-  if (esContribuyente) {
-    cliente = {
-      contribuyente: true,
-      ruc: ruc,
-      razonSocial: nombre,
-      tipoOperacion: 1,                                // B2B
-      direccion: f.direccion || '',
-      pais: 'PRY',
-      // Heurística PY: RUC 8xxxxxxx (8 dígitos) = persona jurídica
-      tipoContribuyente: /^8\d{7}-/.test(ruc) ? '2' : '1',
-      documentoTipo: '', documentoNumero: '',
-      telefono: '', celular: '', email: '',
-      codigo: '0',
-    };
-  } else {
-    // Consumidor final (innominado) — caso a validar en sandbox
-    cliente = {
-      contribuyente: false,
-      ruc: '',
-      razonSocial: nombre,
-      tipoOperacion: 2,                                // B2C
-      direccion: f.direccion || '',
-      pais: 'PRY',
-      tipoContribuyente: '1',
-      documentoTipo: 5,                                // innominado
-      documentoNumero: '0',
-      telefono: '', celular: '', email: '',
-      codigo: '0',
-    };
-  }
+  var cliente = _feCliente(f.ruc, f.nombre, f.direccion);
 
   // ── Items ──
   // Los ítems con precio negativo (descuentos como línea) se excluyen y su
@@ -471,9 +473,15 @@ async function feActualizarEstadosPendientes() {
       var est = (r.situacion !== undefined && r.situacion !== null) ? String(r.situacion) : null;
       if (est === null || est === '0' || est === '1') continue;   // sigue pendiente
       var resp = ((r.respuesta_codigo || '') + ' ' + (r.respuesta_mensaje || r.estado || '')).trim();
-      await supaPatch('pos_ventas',
+      // El CDC puede ser de una factura (fe_cdc) o de una NC (fe_nc_cdc)
+      var filas = await supaPatch('pos_ventas',
         'licencia_email=eq.' + encodeURIComponent(email) + '&fe_cdc=eq.' + encodeURIComponent(r.cdc),
-        { fe_estado: est, fe_respuesta: resp || null }, true);
+        { fe_estado: est, fe_respuesta: resp || null });
+      if (!Array.isArray(filas) || !filas.length) {
+        await supaPatch('pos_ventas',
+          'licencia_email=eq.' + encodeURIComponent(email) + '&fe_nc_cdc=eq.' + encodeURIComponent(r.cdc),
+          { fe_nc_estado: est }, true);
+      }
       quedan = quedan.filter(function(c){ return c !== r.cdc; });
       _log('[FE] Estado final CDC ' + r.cdc.substring(0, 12) + '…: ' + est + ' ' + resp);
     }
@@ -481,6 +489,160 @@ async function feActualizarEstadosPendientes() {
   } catch (e) {
     console.warn('[FE] Error consultando estados:', e.message);
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// ANULACIÓN FISCAL (fase 5)
+// Dentro de 48hs de la emisión → evento de cancelación sobre el CDC.
+// Pasadas las 48hs → Nota de Crédito electrónica (tipoDocumento 5) con
+// documentoAsociado apuntando a la factura original.
+// ══════════════════════════════════════════════════════════
+
+var FE_NC_CFG_CLAVE = 'fe_nc_correlativo';   // pos_config: {"001-001": 15, ...}
+
+/**
+ * Arma el JSON de una Nota de Crédito (tipoDocumento '5', motivo devolución)
+ * a partir de la fila de pos_ventas de la factura original.
+ */
+function feArmarNotaCredito(venta, ncNumero, timbradoNro) {
+  var partes = (venta.fe_numero || '').split('-');
+  if (partes.length !== 3) throw new Error('Venta sin fe_numero válido');
+  var estab = partes[0], punto = partes[1], numOrig = parseInt(partes[2], 10);
+
+  var items = venta.items;
+  if (typeof items === 'string') { try { items = JSON.parse(items); } catch (e) { items = []; } }
+  var visibles = (items || []).filter(function(i){ return (i.price || 0) > 0 && (i.qty || 0) > 0; });
+  if (!visibles.length) throw new Error('Venta sin ítems para la NC');
+  var bruto = visibles.reduce(function(s, i){ return s + i.price * i.qty; }, 0);
+  var objetivo = Math.round(venta.total || bruto);
+  var factor = (objetivo > 0 && bruto > 0 && objetivo !== Math.round(bruto)) ? objetivo / bruto : 1;
+  var itemsNC = visibles.map(function(i){
+    var ivaC = _feIvaItem(i.iva);
+    return {
+      codigo: String(i.id !== undefined ? i.id : '0'),
+      descripcion: i.name || i.nombre || 'Item',
+      observacion: '',
+      unidadMedida: 77,
+      cantidad: i.qty,
+      precioUnitario: Math.round(i.price * factor),
+      ivaTipo: ivaC.ivaTipo, ivaBase: ivaC.ivaBase, iva: ivaC.iva,
+    };
+  });
+  var suma = itemsNC.reduce(function(s, it){ return s + it.precioUnitario * it.cantidad; }, 0);
+  var dif = objetivo - suma;
+  if (dif !== 0) {
+    for (var k = 0; k < itemsNC.length; k++) {
+      if (itemsNC[k].cantidad === 1 && itemsNC[k].precioUnitario + dif > 0) {
+        itemsNC[k].precioUnitario += dif; suma += dif; break;
+      }
+    }
+  }
+
+  // Fecha de la factura original en hora local (documentoAsociado.fecha)
+  var fOrig = venta.fe_fecha_emision || venta.fecha;
+  var fechaOrig = _feFechaLocal(fOrig instanceof Date ? fOrig : new Date(fOrig));
+
+  var doc = {
+    tipoDocumento: '5',                                // Nota de Crédito
+    establecimiento: estab,
+    punto: punto,
+    numero: ncNumero,
+    descripcion: '',
+    observacion: '',
+    fecha: _feFechaLocal(new Date()),
+    tipoEmision: 1,
+    tipoTransaccion: 1,
+    tipoImpuesto: 1,
+    moneda: 'PYG',
+    cliente: _feCliente(venta.factura_ruc, venta.factura_nombre || venta.cliente_nombre, ''),
+    Usuario: {
+      documentoTipo: 1, documentoNumero: null,
+      nombre: 'ADMIN', cargo: 'ADMINISTRADOR',
+    },
+    notaCreditoDebito: { motivo: '2' },                // 2 = Devolución
+    documentoAsociado: {
+      formato: '1',                                    // 1 = electrónico
+      cdc: venta.fe_cdc,
+      timbrado: String(timbradoNro),
+      establecimiento: estab,
+      punto: punto,
+      numero: numOrig,
+      fecha: fechaOrig,
+    },
+    condicion: {
+      tipo: 1,
+      entregas: [{ tipo: 1, monto: suma, moneda: 'PYG', monedaDescripcion: 'Guarani', cambio: 0 }],
+    },
+    items: itemsNC,
+  };
+  doc._feNumeroFmt = estab + '-' + punto + '-' + String(ncNumero).padStart(7, '0');
+  return doc;
+}
+
+/**
+ * Gestiona el lado fiscal de una anulación de venta (la llama el admin
+ * después de marcar anulada=true). Decide cancelación vs NC según las 48hs.
+ * Devuelve {tipo:'cancelacion'|'nc', mensaje}. Lanza Error si falla.
+ */
+async function feProcesarAnulacionFiscal(venta, motivo, email) {
+  if (!venta || !venta.fe_cdc) throw new Error('La venta no tiene documento electrónico');
+  var est = String(venta.fe_estado || '');
+  if (est === '99') throw new Error('El documento ya está cancelado en SIFEN');
+  if (est === '4')  throw new Error('El documento fue rechazado por SIFEN — no requiere cancelación');
+
+  // Asegurar credenciales (el admin puede no tenerlas en localStorage)
+  if (!feActiva()) {
+    var rows = await supaGet('pos_config', 'licencia_email=ilike.' + encodeURIComponent(email) + '&clave=eq.facturasend_config&select=valor');
+    if (rows.length) {
+      var val = JSON.parse(rows[0].valor || '{}');
+      feSetConfig({ tenantId: val.tenant_id || '', apiKey: val.api_key || '', apiUrl: val.api_url || '', activa: !!val.activa });
+    }
+    if (!feGetConfig().tenantId) throw new Error('Sin credenciales FacturaSend configuradas');
+  }
+
+  var emitido = new Date(venta.fe_fecha_emision || venta.fecha);
+  var horas = (Date.now() - emitido.getTime()) / 36e5;
+
+  if (horas <= 48) {
+    // ── Evento de cancelación ──
+    await feCancelar(venta.fe_cdc, motivo || 'Anulación de la operación');
+    await supaPatch('pos_ventas', 'id=eq.' + venta.id + '&licencia_email=ilike.' + encodeURIComponent(email),
+      { fe_estado: '99', fe_respuesta: 'Cancelado: ' + (motivo || '').substring(0, 200) }, true);
+    return { tipo: 'cancelacion', mensaje: 'Cancelación enviada a SIFEN' };
+  }
+
+  // ── Nota de Crédito (pasadas las 48hs) ──
+  if (venta.fe_nc_cdc) throw new Error('Ya existe una NC para esta venta: ' + (venta.fe_nc_numero || venta.fe_nc_cdc));
+
+  // Timbrado electrónico vigente (para documentoAsociado.timbrado)
+  var tims = await supaGet('timbrados', 'licencia_email=ilike.' + encodeURIComponent(email) + '&tipo=eq.electronico&activo=eq.true&select=nro,sucursal');
+  if (!tims.length) throw new Error('Sin timbrado electrónico configurado');
+  var estab = (venta.fe_numero || '').split('-')[0];
+  var tim = tims.find(function(t){ return String(t.sucursal).padStart(3, '0') === estab; }) || tims[0];
+
+  // Correlativo propio de NC por estab-punto (pos_config fe_nc_correlativo)
+  var punto = (venta.fe_numero || '').split('-')[1];
+  var key = estab + '-' + punto;
+  var mapa = {};
+  var cfg = await supaGet('pos_config', 'licencia_email=ilike.' + encodeURIComponent(email) + '&clave=eq.' + FE_NC_CFG_CLAVE + '&select=valor');
+  if (cfg.length) { try { mapa = JSON.parse(cfg[0].valor || '{}'); } catch (e) { mapa = {}; } }
+  var ncNum = (parseInt(mapa[key], 10) || 0) + 1;
+
+  var doc = feArmarNotaCredito(venta, ncNum, tim.nro);
+  var r = await feEmitir([_feDocLimpio(doc)], { qr: true });
+  var de = (r && r.deList && r.deList[0]) || {};
+  if (!de.cdc) throw new Error('FacturaSend no devolvió CDC de la NC');
+
+  // Persistir correlativo y datos de la NC en la venta
+  mapa[key] = ncNum;
+  await supaPost('pos_config', { licencia_email: email, clave: FE_NC_CFG_CLAVE, valor: JSON.stringify(mapa) }, 'licencia_email,clave', true);
+  await supaPatch('pos_ventas', 'id=eq.' + venta.id + '&licencia_email=ilike.' + encodeURIComponent(email), {
+    fe_nc_cdc: de.cdc,
+    fe_nc_numero: de.numero || doc._feNumeroFmt,
+    fe_nc_estado: '0',
+  }, true);
+  _fePendAgregar(de.cdc);
+  return { tipo: 'nc', mensaje: 'Nota de Crédito ' + (de.numero || doc._feNumeroFmt) + ' emitida' };
 }
 
 // ── Ciclos automáticos — solo en el POS (no en el panel admin) ──
