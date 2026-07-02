@@ -248,20 +248,13 @@
   @keyframes syncCloudPulse {
     0%,100% { opacity:1; } 50% { opacity:.5; }
   }
-  @keyframes scannerDotPulse {
-    0%,100% { opacity:.4; transform:scale(.85); }
-    50%     { opacity:1;   transform:scale(1.15); }
+  .sbar-ico {
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    width:34px; height:34px; background:none; border:none; cursor:pointer;
+    color:var(--muted); opacity:.55; transition:opacity .15s;
   }
-  .scanner-badge {
-    display:flex; align-items:center; gap:5px; flex-shrink:0; margin-right:8px;
-    background:rgba(76,175,80,.1); border:1px solid rgba(76,175,80,.25); border-radius:6px;
-    padding:4px 9px; font-family:'Barlow',sans-serif; font-size:10px; font-weight:800;
-    color:#4caf50; letter-spacing:.6px; white-space:nowrap; user-select:none;
-  }
-  .scanner-dot {
-    width:7px; height:7px; border-radius:50%; background:#4caf50; flex-shrink:0;
-    animation: scannerDotPulse 1.6s ease-in-out infinite;
-  }
+  .sbar-ico--scan { color:#4caf50; opacity:.8; cursor:default; }
+  .sbar-ico:not(.sbar-ico--scan):active { opacity:1; }
 
   /* ── PANEL SYNC ─────────────────────────────────────────── */
   .sync-section { padding: 12px 14px 0; }
@@ -1277,8 +1270,9 @@
   }
   .fsearch:active { background:rgba(0,0,0,.06); }
   .search-bar {
-    background:var(--bg); padding:8px 10px;
+    background:var(--bg); padding:6px 6px 6px 10px;
     display:none; flex-shrink:0; border-bottom:1px solid var(--border);
+    align-items:center; gap:2px;
   }
   /* Desktop: buscador siempre visible */
   @media(min-width:700px){
