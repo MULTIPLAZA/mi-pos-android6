@@ -614,8 +614,11 @@ function cliImprimirCuenta(clienteId) {
       if (mv.tipo === 'fiado') {
         txt += _pad('Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+' '+_fmt(mv.fecha), '+Gs.'+_gs(mv.monto)) + n;
       } else {
-        var met = _normP(mv.metodo || 'efectivo');
-        txt += _pad('Cobro '+_fmt(mv.fecha)+' ('+met+')', '-Gs.'+_gs(mv.monto)) + n;
+        // dd/mm solo (5 chars) + metodo hasta 8 chars → cabe en 32 cols
+        var _d = new Date(mv.fecha);
+        var _f5 = ('0'+_d.getDate()).slice(-2)+'/'+('0'+(_d.getMonth()+1)).slice(-2);
+        var met = _normP(mv.metodo || 'efectivo').substring(0, 8);
+        txt += _pad('Cobro '+_f5+' '+met, '-Gs.'+_gs(mv.monto)) + n;
       }
     }
     txt += sep2 + n;
