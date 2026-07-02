@@ -26,6 +26,9 @@ function feGetConfig() {
   return {
     tenantId: localStorage.getItem('fe_tenant_id') || '',
     apiKey:   localStorage.getItem('fe_api_key')   || '',
+    // URL base de la API. Vacío = nube (api.facturasend.com.py).
+    // Self-hosted: ej. http://207.244.255.146:85/api
+    apiUrl:   localStorage.getItem('fe_api_url')   || '',
     activa:   localStorage.getItem('fe_activa') === '1',
   };
 }
@@ -33,6 +36,7 @@ function feGetConfig() {
 function feSetConfig(cfg) {
   if (cfg.tenantId !== undefined) localStorage.setItem('fe_tenant_id', (cfg.tenantId || '').trim());
   if (cfg.apiKey   !== undefined) localStorage.setItem('fe_api_key',   (cfg.apiKey || '').trim());
+  if (cfg.apiUrl   !== undefined) localStorage.setItem('fe_api_url',   (cfg.apiUrl || '').trim().replace(/\/+$/, ''));
   if (cfg.activa   !== undefined) localStorage.setItem('fe_activa',    cfg.activa ? '1' : '0');
   _log('[FE] Config actualizada. Activa:', feGetConfig().activa);
 }
@@ -61,13 +65,15 @@ async function _feFetch(ruta, body) {
   if (!cfg.tenantId || !cfg.apiKey) {
     throw new Error('Factura electrónica sin configurar (tenantId / apiKey)');
   }
+  var headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'X-FE-Tenant': cfg.tenantId,
+    'X-FE-ApiKey': cfg.apiKey,
+  };
+  if (cfg.apiUrl) headers['X-FE-BaseUrl'] = cfg.apiUrl;
   var r = await fetch(FE_PROXY + ruta, {
     method: body === null ? 'GET' : 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'X-FE-Tenant': cfg.tenantId,
-      'X-FE-ApiKey': cfg.apiKey,
-    },
+    headers: headers,
     body: body === null ? undefined : JSON.stringify(body),
     signal: _feAbortSignal(),
   });

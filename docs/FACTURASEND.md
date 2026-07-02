@@ -15,8 +15,14 @@ POS (PWA) → js/factura-electronica.js → /api/fe/* (Cloudflare Function proxy
 - **`functions/api/fe/[[ruta]].js`** — proxy catch-all. Resuelve CORS y arma el
   header `Authorization: Bearer api_key_...`. Las credenciales viajan del
   cliente en headers `X-FE-Tenant` / `X-FE-ApiKey`.
-- **Credenciales** — por negocio (multi-tenant), en localStorage:
-  `fe_tenant_id`, `fe_api_key`, `fe_activa`.
+- **Credenciales** — por negocio (multi-tenant), en Supabase `pos_config`
+  (clave `facturasend_config`) + copia local: `fe_tenant_id`, `fe_api_key`,
+  `fe_api_url`, `fe_activa`. Se configuran en Panel Admin → Factura Electrónica.
+- **Servidor** — por defecto la nube (`api.facturasend.com.py`). Tenemos un
+  FacturaSend **self-hosted propio** en `http://207.244.255.146:85` cuya API
+  es `http://207.244.255.146:85/api` (poner esa URL en el campo Servidor).
+  El proxy la recibe via header `X-FE-BaseUrl` — también resuelve el mixed
+  content (PWA https → server http).
 
 ## Fase 0 — Checklist sandbox (manual, hacer una vez)
 

@@ -21,12 +21,12 @@ async function feCargarConfigSupabase(){
     var rows = await sg('pos_config','licencia_email=ilike.'+encodeURIComponent(SE)+'&clave=eq.'+FE_CFG_CLAVE+'&select=valor');
     if(rows.length){
       var val = JSON.parse(rows[0].valor||'{}');
-      feSetConfig({ tenantId: val.tenant_id||'', apiKey: val.api_key||'', activa: !!val.activa });
+      feSetConfig({ tenantId: val.tenant_id||'', apiKey: val.api_key||'', apiUrl: val.api_url||'', activa: !!val.activa });
       return val;
     }
   }catch(e){ console.warn('[FE] Error cargando config:', e.message); }
   var c = feGetConfig();
-  return { tenant_id:c.tenantId, api_key:c.apiKey, activa:c.activa };
+  return { tenant_id:c.tenantId, api_key:c.apiKey, api_url:c.apiUrl, activa:c.activa };
 }
 
 /** Badge de estado FE. Acepta código numérico ('0','2','4'...) o null */
@@ -79,6 +79,9 @@ async function renderFEConfigTab(tc){
     // Card credenciales
     '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px;margin-bottom:14px;">'+
     '<div style="font-size:14px;font-weight:800;color:var(--text);margin-bottom:14px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Credenciales FacturaSend</div>'+
+    '<div style="margin-bottom:12px;"><label style="'+lbl+'">Servidor (URL de la API)</label>'+
+    '<input id="feApiUrl" type="text" placeholder="Vacío = nube FacturaSend (api.facturasend.com.py)" autocomplete="off" value="'+escapeHtml(val.api_url||'')+'" style="'+inp+'font-family:monospace;">'+
+    '<div style="font-size:10px;color:var(--muted);margin-top:3px;">Servidor propio (self-hosted): ej. http://207.244.255.146:85/api</div></div>'+
     '<div style="margin-bottom:12px;"><label style="'+lbl+'">Tenant ID *</label>'+
     '<input id="feTenant" type="text" placeholder="Ej: empresa123" autocomplete="off" value="'+escapeHtml(val.tenant_id||'')+'" style="'+inp+'font-family:monospace;"></div>'+
     '<div style="margin-bottom:12px;"><label style="'+lbl+'">API Key *</label>'+
@@ -99,7 +102,7 @@ async function renderFEConfigTab(tc){
     '<div style="background:rgba(66,165,245,.06);border:1px solid rgba(66,165,245,.2);border-radius:12px;padding:16px 18px;">'+
     '<div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:8px;">Requisitos previos</div>'+
     '<div style="font-size:12px;color:var(--muted);line-height:1.8;">'+
-    '1. Cuenta en <b style="color:var(--text)">console.facturasend.com.py</b> (el Tenant ID y la API Key salen de ahí).<br>'+
+    '1. Cuenta en <b style="color:var(--text)">console.facturasend.com.py</b> o en tu servidor FacturaSend propio (el Tenant ID y la API Key salen de ahí).<br>'+
     '2. Certificado digital del negocio cargado en la consola de FacturaSend.<br>'+
     '3. Timbrado electrónico habilitado por DNIT, cargado acá en <b style="color:var(--text)">Administración → Puntos de Expedición</b> con tipo Electrónico.<br>'+
     '4. Las credenciales se guardan en la nube: las terminales las reciben solas al sincronizar.'+
@@ -116,8 +119,10 @@ function feToggleKey(){
 async function feGuardarConfig(){
   var tenant = (document.getElementById('feTenant').value||'').trim();
   var apiKey = (document.getElementById('feApiKey').value||'').trim().replace(/^api_key_/,'');
+  var apiUrl = (document.getElementById('feApiUrl').value||'').trim().replace(/\/+$/,'');
   var activa = document.getElementById('feActiva').checked;
   if(activa && (!tenant || !apiKey)){ alert('Para activar, completá Tenant ID y API Key'); return; }
+  if(apiUrl && !/^https?:\/\//.test(apiUrl)){ alert('La URL del servidor debe empezar con http:// o https://'); return; }
 
   var btn = document.getElementById('feBtnSave');
   if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
@@ -125,9 +130,9 @@ async function feGuardarConfig(){
     await supaPost('pos_config', {
       licencia_email: SE,
       clave: FE_CFG_CLAVE,
-      valor: JSON.stringify({ tenant_id:tenant, api_key:apiKey, activa:activa }),
+      valor: JSON.stringify({ tenant_id:tenant, api_key:apiKey, api_url:apiUrl, activa:activa }),
     }, 'licencia_email,clave', true);
-    feSetConfig({ tenantId:tenant, apiKey:apiKey, activa:activa });
+    feSetConfig({ tenantId:tenant, apiKey:apiKey, apiUrl:apiUrl, activa:activa });
     toast('Configuración guardada');
   }catch(e){
     alert('Error al guardar: '+e.message);
@@ -138,12 +143,13 @@ async function feGuardarConfig(){
 async function feProbarConexion(){
   var tenant = (document.getElementById('feTenant').value||'').trim();
   var apiKey = (document.getElementById('feApiKey').value||'').trim().replace(/^api_key_/,'');
+  var apiUrl = (document.getElementById('feApiUrl').value||'').trim().replace(/\/+$/,'');
   var res = document.getElementById('feTestResult');
   if(!tenant || !apiKey){ if(res) res.innerHTML='<div style="font-size:12px;color:var(--orange);">Completá Tenant ID y API Key primero</div>'; return; }
 
   // Probar con lo tipeado (sin obligar a guardar antes)
   var prev = feGetConfig();
-  feSetConfig({ tenantId:tenant, apiKey:apiKey });
+  feSetConfig({ tenantId:tenant, apiKey:apiKey, apiUrl:apiUrl });
 
   var btn = document.getElementById('feBtnTest');
   if(btn){ btn.disabled=true; btn.textContent='Probando...'; }

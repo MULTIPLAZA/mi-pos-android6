@@ -1,8 +1,11 @@
 // ── Proxy FacturaSend ──
-// Reenvía /api/fe/<ruta> → https://api.facturasend.com.py/<tenantId>/<ruta>
-// El browser NO habla directo con FacturaSend (CORS + no exponer la URL real).
+// Reenvía /api/fe/<ruta> → <baseUrl>/<tenantId>/<ruta>
+// El browser NO habla directo con FacturaSend (CORS + mixed content si el
+// server FE es http:// + no exponer la URL real).
 // Credenciales: el cliente manda sus propios tenantId/apiKey en headers
 // X-FE-Tenant y X-FE-ApiKey (config del negocio, ver js/factura-electronica.js).
+// Servidor: por defecto la nube (api.facturasend.com.py); para un FacturaSend
+// self-hosted el cliente manda X-FE-BaseUrl (ej: http://207.244.255.146:85/api).
 //
 // Ejemplos:
 //   POST /api/fe/lote/create?qr=true  → POST <api>/<tenant>/lote/create?qr=true
@@ -26,10 +29,20 @@ async function proxy(context) {
     return json({ success: false, error: 'tenantId inválido' }, 400);
   }
 
+  // Base URL: nube por defecto, o servidor FacturaSend propio (self-hosted)
+  let base = FE_API_BASE;
+  const baseHdr = (request.headers.get('X-FE-BaseUrl') || '').trim().replace(/\/+$/, '');
+  if (baseHdr) {
+    if (!/^https?:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/.test(baseHdr)) {
+      return json({ success: false, error: 'X-FE-BaseUrl inválida' }, 400);
+    }
+    base = baseHdr;
+  }
+
   // params.ruta es el catch-all [[ruta]]: array de segmentos
   const ruta = Array.isArray(params.ruta) ? params.ruta.join('/') : (params.ruta || '');
   const qs = new URL(request.url).search;
-  const target = FE_API_BASE + '/' + tenant + '/' + ruta + qs;
+  const target = base + '/' + tenant + '/' + ruta + qs;
 
   const init = {
     method: request.method,

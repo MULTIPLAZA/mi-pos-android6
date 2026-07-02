@@ -47,7 +47,7 @@ async function sincronizarConfigNegocio(){
           // Credenciales FE configuradas desde el Panel Admin. La nube es la
           // fuente de verdad: siempre pisan la copia local de la terminal.
           if(typeof feSetConfig === 'function'){
-            feSetConfig({ tenantId: val.tenant_id||'', apiKey: val.api_key||'', activa: !!val.activa });
+            feSetConfig({ tenantId: val.tenant_id||'', apiKey: val.api_key||'', apiUrl: val.api_url||'', activa: !!val.activa });
             _log('[Config] FacturaSend (sync Supabase). Activa:', !!val.activa);
           }
         }
