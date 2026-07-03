@@ -25,37 +25,68 @@ function rubroGetTipo(){
   return localStorage.getItem('pos_tipo_negocio') || 'gastronomia';
 }
 
-// ── Defaults por tipo ─────────────────────────────────────
+// ── CATÁLOGO DE CAPACIDADES POR RUBRO ─────────────────────
+// Un rubro NO es un "tipo" con lógica propia — es un conjunto de
+// capacidades activadas. Agregar un rubro nuevo = agregar una fila acá,
+// no escribir if(tipo===…) por todo el código. Cada pantalla pregunta
+// rubroTiene('balanza') / usaAgenda() en vez de comparar el tipo.
+//
+// 'cocina' NO va en el catálogo: su default es especial (refleja el
+// sistema legacy de comandas) y se resuelve en _rubroDefaults.
+var _RUBRO_CAPS = {
+  gastronomia:  { mesas:true,  delivery:true,  mitades:true,  codigo_barras:false, balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:false },
+  retail:       { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:false },
+  despensa:     { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false },
+  autoservicio: { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false },
+  barberia:     { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:false, agenda:true,  profesionales:true,  es_servicio:true  },
+};
+
+// Rubros de la "familia retail" — comparten UI de mostrador (escáner
+// siempre abierto, sin comandas de cocina, ficha de producto retail).
+var _RUBRO_FAMILIA_RETAIL = { retail:1, despensa:1, autoservicio:1 };
+
+// ── Defaults por tipo (claves consistentes con rubroFlag) ──
 function _rubroDefaults(tipo){
-  if(tipo === 'retail'){
-    return { usa_mesas: false, usa_cocina: false, usa_delivery: false, usa_mitades: false };
-  }
-  // gastronomia (default) — usa_cocina refleja comandasHabilitadas existente
-  return {
-    usa_mesas:    true,
-    usa_cocina:   !!(configData && configData.comandasHabilitadas !== undefined
-                      ? configData.comandasHabilitadas
-                      : localStorage.getItem('pos_comandas') === '1'),
-    usa_delivery: true,
-    usa_mitades:  true,
-  };
+  var caps = _RUBRO_CAPS[tipo] || _RUBRO_CAPS.gastronomia;
+  // cocina: en gastronomía refleja el toggle legacy de comandas; en el
+  // resto arranca apagada (override explícito la puede prender igual).
+  var cocinaDefault = (tipo === 'gastronomia')
+    ? !!(configData && configData.comandasHabilitadas !== undefined
+          ? configData.comandasHabilitadas
+          : localStorage.getItem('pos_comandas') === '1')
+    : false;
+  var out = {};
+  for(var k in caps){ out[k] = caps[k]; }
+  out.cocina = cocinaDefault;
+  return out;
 }
 
-// ── Leer un flag (con override explícito) ─────────────────
+// ── Leer un flag/capacidad (con override explícito) ───────
 function rubroFlag(flag){
   var stored = localStorage.getItem('pos_flag_' + flag);
   if(stored === '1') return true;
   if(stored === '0') return false;
   // Sin override explícito → usar default del tipo
-  return _rubroDefaults(rubroGetTipo())[flag];
+  return !!_rubroDefaults(rubroGetTipo())[flag];
 }
+// Alias semántico para las capacidades nuevas.
+function rubroTiene(cap){ return rubroFlag(cap); }
+
+// Lista de todas las capacidades conocidas (para persistencia y UI del super-admin).
+var RUBRO_CAPACIDADES = ['mesas','cocina','delivery','mitades','codigo_barras','balanza','stock_estricto','agenda','profesionales','es_servicio'];
 
 // Atajos semánticos usados en el código de los módulos:
-function esRetail()    { return rubroGetTipo() === 'retail'; }
-function usaMesas()    { return rubroFlag('mesas');    }
-function usaCocina()   { return rubroFlag('cocina');   }
-function usaDelivery() { return rubroFlag('delivery'); }
-function usaMitades()  { return rubroFlag('mitades');  }
+function esRetail()        { return !!_RUBRO_FAMILIA_RETAIL[rubroGetTipo()]; }
+function usaMesas()        { return rubroFlag('mesas');         }
+function usaCocina()       { return rubroFlag('cocina');        }
+function usaDelivery()     { return rubroFlag('delivery');      }
+function usaMitades()      { return rubroFlag('mitades');       }
+function usaCodigoBarras() { return rubroFlag('codigo_barras'); }
+function usaBalanza()      { return rubroFlag('balanza');       }
+function stockEstricto()   { return rubroFlag('stock_estricto');}
+function usaAgenda()       { return rubroFlag('agenda');        }
+function usaProfesionales(){ return rubroFlag('profesionales'); }
+function esRubroServicios(){ return rubroFlag('es_servicio');   }
 
 // ── Setear tipo de negocio ────────────────────────────────
 // Al cambiar el tipo se limpian los overrides para que los defaults entren.
@@ -144,7 +175,7 @@ function rubroAplicarUI(){
   // Comandas" y el toggle "Comandas" SOLO en retail sin cocina. En gastronomía
   // (o retail con cocina habilitada vía override) se dejan visibles, para no
   // cambiar el flujo y para no esconder el toggle que justamente activa cocina.
-  var ocultarCocinaUI = (rubroGetTipo() === 'retail') && !usaCocina();
+  var ocultarCocinaUI = esRetail() && !usaCocina();
   var comandaPrinter = document.getElementById('comandaPrinterSection');
   if(comandaPrinter) comandaPrinter.style.display = ocultarCocinaUI ? 'none' : '';
   var comandaToggleField = document.getElementById('cfgComandasField');
@@ -153,8 +184,9 @@ function rubroAplicarUI(){
   var artComandaRow = document.getElementById('artComandaRow');
   if(artComandaRow) artComandaRow.style.display = ocultarCocinaUI ? 'none' : '';
 
-  // En retail: buscador siempre visible y con foco para escanear sin tocar pantalla
-  if(rubroGetTipo() === 'retail'){
+  // En familia retail (retail/despensa/autoservicio): buscador siempre visible
+  // y con foco para escanear sin tocar pantalla.
+  if(esRetail()){
     var sbar = document.getElementById('sbar');
     if(sbar) sbar.classList.add('open');
   }
@@ -173,10 +205,17 @@ var _RUBRO_MAPA = {
   // Retail
   retail:'retail',       electronica:'retail',  ferreteria:'retail',
   farmacia:'retail',     ropa:'retail',         indumentaria:'retail',
-  supermercado:'retail', minimercado:'retail',  minimarket:'retail',
   libreria:'retail',     jugueteria:'retail',   bazar:'retail',
   perfumeria:'retail',   kiosco:'retail',       calzado:'retail',
   joyeria:'retail',      relojeria:'retail',    optica:'retail',
+  // Despensa / autoservicio (retail con balanza y stock estricto)
+  despensa:'despensa',   almacen:'despensa',    minimercado:'despensa',
+  minimarket:'despensa', supermercado:'autoservicio', autoservicio:'autoservicio',
+  autoservice:'autoservicio', comestibles:'despensa', proveeduria:'despensa',
+  // Barbería / peluquería / estética (servicios con agenda)
+  barberia:'barberia',   peluqueria:'barberia', salon:'barberia',
+  estetica:'barberia',   spa:'barberia',        manicura:'barberia',
+  barber:'barberia',
 };
 function _rubroLicenciaToTipo(rubro) {
   if(!rubro) return null;
@@ -211,9 +250,10 @@ async function rubroCargarDesdeSupabase(){
       var cfg = JSON.parse(rows[0].valor || '{}');
       // tipo_negocio: servidor siempre gana (limpia stale de localStorage)
       if(cfg.tipo_negocio) localStorage.setItem('pos_tipo_negocio', cfg.tipo_negocio);
-      // flags: solo si el usuario no tiene override local explícito
-      ['mesas','cocina','delivery','mitades'].forEach(function(f){
-        if(cfg['flag_' + f] !== undefined && localStorage.getItem('pos_flag_' + f) === null){
+      // flags: solo si el usuario no tiene override local explícito y el
+      // servidor mandó un valor concreto (no null). Cubre todo el catálogo.
+      RUBRO_CAPACIDADES.forEach(function(f){
+        if(cfg['flag_' + f] !== undefined && cfg['flag_' + f] !== null && localStorage.getItem('pos_flag_' + f) === null){
           localStorage.setItem('pos_flag_' + f, cfg['flag_' + f] ? '1' : '0');
         }
       });
@@ -248,17 +288,13 @@ async function _rubroGuardarSupabase(){
   if(!email || (typeof USAR_DEMO !== 'undefined' && USAR_DEMO)) return;
   if(typeof supaPost !== 'function') return;
   try {
-    var payload = {
-      licencia_email: email,
-      clave: 'rubro_config',
-      valor: JSON.stringify({
-        tipo_negocio: rubroGetTipo(),
-        flag_mesas:    localStorage.getItem('pos_flag_mesas')    !== null ? usaMesas()    : null,
-        flag_cocina:   localStorage.getItem('pos_flag_cocina')   !== null ? usaCocina()   : null,
-        flag_delivery: localStorage.getItem('pos_flag_delivery') !== null ? usaDelivery() : null,
-        flag_mitades:  localStorage.getItem('pos_flag_mitades')  !== null ? usaMitades()  : null,
-      }),
-    };
+    // Persistir tipo + solo los flags con override explícito (null = usar
+    // default del tipo). Cubre todas las capacidades del catálogo.
+    var cfg = { tipo_negocio: rubroGetTipo() };
+    RUBRO_CAPACIDADES.forEach(function(cap){
+      cfg['flag_' + cap] = (localStorage.getItem('pos_flag_' + cap) !== null) ? rubroFlag(cap) : null;
+    });
+    var payload = { licencia_email: email, clave: 'rubro_config', valor: JSON.stringify(cfg) };
     await supaPost('pos_config', payload, 'licencia_email,clave', true);
     _log('[Rubro] Config guardada en Supabase');
   } catch(e){
