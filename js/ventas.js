@@ -147,6 +147,7 @@ function addCart(id, tileEl){
   if(typeof sndTap === 'function') sndTap();
   if(showTkt)renderTkt();
   if(tileEl) animAddToCart(tileEl, getProductColor(p));
+  if(typeof avisarStockSiCorresponde === 'function') avisarStockSiCorresponde(p);
 }
 function chgQty(lineId,d){
   if(typeof _modoLectura !== 'undefined' && _modoLectura){

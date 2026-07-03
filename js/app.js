@@ -954,6 +954,53 @@ function _findProdByCodigo(q, candidatos){
   });
 }
 
+// ── STOCK EN EL POS (rubros con stock estricto) ──────────────
+// Carga las cantidades del depósito de la terminal en memoria para avisar a
+// la cajera cuando un producto llega a cero. NO bloquea la venta (solo
+// avisa): con datos offline stale, un bloqueo duro pararía ventas legítimas.
+// Rubros que lo usan: despensa / autoservicio (stockEstricto()).
+var _stockPOS = {};
+
+async function cargarStockPOS(){
+  if(typeof stockEstricto !== 'function' || !stockEstricto()) return;
+  // Cache offline primero (para tener algo aunque no haya internet)
+  try { _stockPOS = JSON.parse(localStorage.getItem('pos_stock_cache') || '{}'); } catch(e){ _stockPOS = {}; }
+  var depId = parseInt(localStorage.getItem('pos_deposito_id'), 10);
+  var email = localStorage.getItem('lic_email');
+  if(!depId || !email || !navigator.onLine || (typeof USAR_DEMO !== 'undefined' && USAR_DEMO)) return;
+  try {
+    var rows = await supaGet('stock', 'deposito_id=eq.' + depId + '&select=producto_id,cantidad&limit=5000');
+    var map = {};
+    (rows || []).forEach(function(s){ map[s.producto_id] = parseFloat(s.cantidad) || 0; });
+    _stockPOS = map;
+    try { localStorage.setItem('pos_stock_cache', JSON.stringify(map)); } catch(e){}
+    _log('[Stock] Cargado en POS:', Object.keys(map).length, 'productos');
+  } catch(e){ console.warn('[Stock] No se pudo cargar:', e.message); }
+}
+
+// Cantidad de un producto ya cargada en el carrito actual.
+function _cantEnCart(prodId){
+  if(typeof cart === 'undefined') return 0;
+  return cart.filter(function(l){ return l.id === prodId && !l.esDescuento; })
+             .reduce(function(s, l){ return s + (l.qty || 0); }, 0);
+}
+
+// Avisa si el producto rastrea inventario y lo que hay en el carrito supera
+// el stock disponible. No bloquea — solo toast. Llamar DESPUÉS de agregar.
+function avisarStockSiCorresponde(p){
+  if(typeof stockEstricto !== 'function' || !stockEstricto()) return;
+  if(!p || !p.inventario) return;
+  var disp = _stockPOS[p.id];
+  if(disp === undefined) return; // sin dato de stock → no molestar
+  var enCart = _cantEnCart(p.id);
+  if(enCart > disp){
+    var falta = Math.round((enCart - disp) * 1000) / 1000;
+    if(typeof toast === 'function'){
+      toast('⚠ ' + p.name.substring(0, 18) + ': stock ' + (disp <= 0 ? 'agotado' : disp) + (falta > 0 ? ' · faltan ' + falta : ''));
+    }
+  }
+}
+
 // ── BALANZA: código EAN-13 con peso/precio embebido ──────────
 // Las balanzas de despensa imprimen etiquetas EAN-13 donde el propio código
 // lleva el PLU del producto + el peso (o el precio total). Formato típico
@@ -1005,6 +1052,7 @@ function _balanzaAgregar(bal){
   if(showTkt && typeof renderTkt === 'function') renderTkt();
   toast('+' + prod.name.substring(0,16) + ' \xb7 ' + kg.toFixed(3) + 'kg \xb7 ' + gs(total));
   if(typeof sndTap === 'function') sndTap();
+  if(typeof avisarStockSiCorresponde === 'function') avisarStockSiCorresponde(prod);
   return true;
 }
 

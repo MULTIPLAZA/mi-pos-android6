@@ -1081,6 +1081,7 @@ function pmKiloOK(){
   toast('+' + p.name.substring(0,16) + ' \xb7 ' + gs(total));
   if(typeof sndTap === 'function') sndTap();
   if(showTkt) renderTkt();
+  if(typeof avisarStockSiCorresponde === 'function') avisarStockSiCorresponde(p);
 }
 
 // ── CATEGORÍAS ───────────────────────────────────────────────────────────────
@@ -2021,6 +2022,8 @@ async function supaLoadProductos(){
     renderCatPills();
     filterP();
     try { await cargarDescuentosConfig(); } catch(ed){ console.warn('[Desc]', ed.message); }
+    // Stock en memoria para aviso de stock estricto (despensa/autoservicio)
+    if(typeof cargarStockPOS === 'function') cargarStockPOS();
 
     // Cachear imágenes en IndexedDB para uso offline
     if(db){

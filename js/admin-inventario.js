@@ -1872,14 +1872,14 @@ async function movGuardar(){
       var dep=(_mov.deps.find(function(d){return d.id===depId;})||{});
       var sucId=dep.sucursal_id||null;
 
-      // Leer stock actual
+      // Leer stock actual + costo (para costo promedio ponderado en compras)
       var prodIds=_mov.items.map(function(i){return i.prodId;});
       var stockR=await sg('stock',
         'deposito_id=eq.'+depId+'&producto_id=in.('+prodIds.join(',')+')'
-        +'&licencia_id=eq.'+licId+'&select=producto_id,cantidad'
+        +'&licencia_id=eq.'+licId+'&select=producto_id,cantidad,costo_unitario'
       );
       var stockMap={};
-      stockR.forEach(function(s){stockMap[s.producto_id]=s.cantidad||0;});
+      stockR.forEach(function(s){stockMap[s.producto_id]={cantidad:s.cantidad||0, costo:s.costo_unitario||0};});
 
       // Crear comprobante encabezado
       var totalMonto=_mov.items.reduce(function(s,i){return s+(i.cantidad||0)*(i.costo||0);},0);
@@ -1898,20 +1898,32 @@ async function movGuardar(){
       var itemsIns=[];
       for(var k=0;k<_mov.items.length;k++){
         var it=_mov.items[k];
-        var antes=stockMap[it.prodId]||0;
+        var prev=stockMap[it.prodId]||{cantidad:0, costo:0};
+        var antes=prev.cantidad;
         var cantMov=it.cantidad*signo;
         var desp=antes+cantMov;
+        // COSTO PROMEDIO PONDERADO: solo en ingresos con costo (compra/entrada).
+        // nuevo = (stock_antes × costo_antes + cant_comprada × costo_compra)
+        //         / (stock_antes + cant_comprada)
+        // Si no había stock previo (o sin costo), el costo pasa a ser el de la compra.
+        var costoStock=it.costo||prev.costo||0;
+        if(signo>0 && it.costo>0){
+          costoStock=(antes>0 && prev.costo>0)
+            ? Math.round((antes*prev.costo + it.cantidad*it.costo) / (antes + it.cantidad))
+            : it.costo;
+        }
+        it._costoProm=costoStock; // lo usa la actualización de pos_productos abajo
         itemsIns.push({
           comprobante_id:compId, producto_id:it.prodId,
           nombre_producto:it.nombre,
           cantidad:cantMov, cantidad_antes:antes, cantidad_despues:desp,
-          costo_unitario:it.costo||0
+          costo_unitario:it.costo||0   // costo de ESTA compra (registro histórico)
         });
-        // Upsert stock (fire and forget)
+        // Upsert stock con el costo promedio (fire and forget)
         supaPost('stock',{
             deposito_id:depId, sucursal_id:sucId, licencia_id:licId,
             producto_id:it.prodId, nombre_producto:it.nombre,
-            cantidad:desp, costo_unitario:it.costo||0,
+            cantidad:desp, costo_unitario:costoStock,
             updated_at:now
         },'deposito_id,producto_id',true).catch(function(e){console.warn('[Stock upsert]',e.message);});
       }
@@ -1930,11 +1942,13 @@ async function movGuardar(){
       toast('Salida guardada — '+_mov.items.length+' productos');
     } else { // compra o entrada
       await procesarLado(depEntradaId, +1, tipo==='compra'?'compra':'entrada');
-      // Si es compra: actualizar último costo en pos_productos
+      // Si es compra: actualizar el costo del producto al PROMEDIO PONDERADO
+      // (calculado en procesarLado y guardado en it._costoProm), no al último.
       if(tipo==='compra'){
         _mov.items.forEach(function(it){
           if(it.costo>0){
-            supaPatch('pos_productos','id=eq.'+it.prodId,{costo:it.costo,updated_at:now},true)
+            var costoFinal=(it._costoProm!=null)?it._costoProm:it.costo;
+            supaPatch('pos_productos','id=eq.'+it.prodId,{costo:costoFinal,updated_at:now},true)
               .catch(function(e){console.warn('[Costo update]',e.message);});
           }
         });
