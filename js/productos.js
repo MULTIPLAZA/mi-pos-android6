@@ -1060,8 +1060,12 @@ function pmKiloOK(){
   if(_pesoModo === 'kg'){
     kg = parseFloat(_pesoVal) || 0;
   } else {
+    // Modo IMPORTE: el monto tipeado es la fuente de verdad. El peso se deriva
+    // con precisión completa (SIN redondear a 3 decimales) para que
+    // round(peso × precio) dé exactamente el importe. Antes se redondeaba el
+    // peso y el total arrastraba (ej: se cobraba 4998 en vez de 5000).
     var monto = parseInt(_pesoVal) || 0;
-    kg = p.price > 0 ? Math.round((monto / p.price) * 1000) / 1000 : 0;
+    kg = p.price > 0 ? monto / p.price : 0;
   }
   if(kg <= 0){ toast('Ingresá un peso o importe'); return; }
   var total  = Math.round(kg * p.price);

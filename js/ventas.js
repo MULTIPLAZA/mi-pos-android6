@@ -172,7 +172,9 @@ function calcItemTotal(item) {
   if (item.esDescuento) return item.price;
   const base = item.price * item.qty;
   if (item.desc && item.desc > 0) return Math.round(base * (1 - item.desc / 100));
-  return base;
+  // Redondear: en venta por peso, price × qty puede ser fraccionario
+  // (ej. 6000 × 0.83333 = 4999.98) y debe cerrar en Gs entero.
+  return Math.round(base);
 }
 
 function calcSubtotal() {

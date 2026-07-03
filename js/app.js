@@ -954,8 +954,68 @@ function _findProdByCodigo(q, candidatos){
   });
 }
 
+// ── BALANZA: código EAN-13 con peso/precio embebido ──────────
+// Las balanzas de despensa imprimen etiquetas EAN-13 donde el propio código
+// lleva el PLU del producto + el peso (o el precio total). Formato típico
+// (Systel/Kretz, PY/AR): 2 + PLU(5) + [check interno] + valor(5) + verificador.
+// Configurable en localStorage:
+//   'balanza_prefijo' → primer dígito de etiquetas de balanza (default '2')
+//   'balanza_modo'    → 'peso' (valor en gramos) | 'precio' (valor en Gs) — default 'peso'
+function _parseBalanzaEAN13(code){
+  if(!code || !/^\d{13}$/.test(code)) return null;
+  var prefijo = localStorage.getItem('balanza_prefijo') || '2';
+  if(code[0] !== prefijo[0]) return null;
+  return {
+    plu:   code.substring(1, 6),                    // PLU: 5 dígitos tras el prefijo
+    valor: parseInt(code.substring(7, 12), 10) || 0,// valor: 5 dígitos antes del verificador
+    modo:  localStorage.getItem('balanza_modo') || 'peso',
+  };
+}
+
+// Agrega al carrito una línea por peso desde una etiqueta de balanza.
+// Devuelve true si encontró el producto y lo agregó; false si no (para
+// que el escáner siga con el flujo normal).
+function _balanzaAgregar(bal){
+  var candidatos = (typeof PRODS !== 'undefined' ? PRODS : []).filter(function(p){
+    return !p.itemLibre && !p.esInsumo && p.activo !== false && p.activo !== 0;
+  });
+  // Buscar por PLU tal cual y sin ceros a la izquierda (ej. '00042' y '42')
+  var pluNum = String(parseInt(bal.plu, 10));
+  var prod = _findProdByCodigo(bal.plu.toLowerCase(), candidatos)
+          || _findProdByCodigo(pluNum.toLowerCase(), candidatos);
+  if(!prod) return false;
+
+  var kg, total;
+  if(bal.modo === 'precio'){
+    total = bal.valor;                              // Gs directo desde la etiqueta
+    kg    = prod.price > 0 ? total / prod.price : 0;// peso derivado (preciso)
+  } else {
+    kg    = bal.valor / 1000;                       // gramos → kg
+    total = Math.round(kg * prod.price);
+  }
+  if(kg <= 0) return false;
+
+  cart.push({
+    lineId: Date.now()*1000 + Math.floor(Math.random()*1000),
+    id: prod.id, name: prod.name, price: prod.price,
+    qty: kg, obs: '', enviado: false, iva: prod.iva, color: prod.color,
+    cat: prod.cat, esKilo: true,
+  });
+  updUI(); updBtnGuardar();
+  if(showTkt && typeof renderTkt === 'function') renderTkt();
+  toast('+' + prod.name.substring(0,16) + ' \xb7 ' + kg.toFixed(3) + 'kg \xb7 ' + gs(total));
+  if(typeof sndTap === 'function') sndTap();
+  return true;
+}
+
 function _procesarCodigoScanner(raw){
   var q = raw.toLowerCase();
+  // 0. Balanza: si el rubro usa balanza y el código es una etiqueta EAN-13
+  //    de peso, resolver el producto + peso directo.
+  if(typeof usaBalanza === 'function' && usaBalanza()){
+    var bal = _parseBalanzaEAN13(raw.trim());
+    if(bal && _balanzaAgregar(bal)){ _mostrarTicketMobile(); return; }
+  }
   var candidatos = (typeof PRODS !== 'undefined' ? PRODS : []).filter(function(p){
     return !p.itemLibre && !p.esInsumo && p.activo !== false && p.activo !== 0;
   });
@@ -997,6 +1057,18 @@ function sinputKeydown(e){
   var raw = document.getElementById('sinput').value.trim();
   if(!raw) return;
   var q = raw.toLowerCase();
+
+  // 0. Balanza: etiqueta EAN-13 de peso (si el rubro usa balanza)
+  if(typeof usaBalanza === 'function' && usaBalanza()){
+    var bal = _parseBalanzaEAN13(raw);
+    if(bal && _balanzaAgregar(bal)){
+      document.getElementById('sinput').value = '';
+      if(typeof filterP === 'function') filterP();
+      _mostrarTicketMobile();
+      document.getElementById('sinput').blur();
+      return;
+    }
+  }
 
   // Candidatos: excluir itemLibre, insumos, inactivos (igual que _filterPInternal)
   var candidatos = PRODS.filter(function(p){
