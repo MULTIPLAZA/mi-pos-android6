@@ -37,6 +37,12 @@ async function sincronizarConfigNegocio(){
           if(val.pie_recibo && !localStorage.getItem('pie_recibo'))    configData.pie_recibo  = val.pie_recibo;
           if(val.mostrar_ruc !== undefined && !localStorage.getItem('mostrar_ruc')) configData.mostrar_ruc = val.mostrar_ruc;
           if(val.moneda && !localStorage.getItem('moneda')) configData.moneda = val.moneda;
+          // Config de factura A4: el servidor SIEMPRE gana (para que cambios
+          // hechos en el admin lleguen a la terminal, no como los datos base
+          // que se fijan una vez).
+          ['factura_formato','actividad_economica','factura_giro','habilitacion','logo_url'].forEach(k=>{
+            if(val[k] !== undefined && val[k] !== null) localStorage.setItem(k, val[k]);
+          });
           // Solo persistir a localStorage las claves que NO existen aún
           Object.entries(val).forEach(([k,v])=>{
             if(v && !localStorage.getItem(k)) localStorage.setItem(k,v);

@@ -562,6 +562,26 @@ async function renderConfig(){
   function chk(val){ return val ? 'checked' : ''; }
   function selOpt(cur, val){ return cur===val ? 'selected' : ''; }
 
+  var facFormato = localStorage.getItem('factura_formato') || 'ticket';
+  var facturaSection = [
+    '<div class="cfg-s">',
+      '<div class="cfg-st">Factura autoimpresa</div>',
+      '<div class="cfg-r">',
+        '<div><div class="cfg-rl">Formato de impresion</div><div class="cfg-rs">Ticket termico o Hoja A4 pre-impresa</div></div>',
+        '<select class="cfg-inp" id="cfgFacFormato" onchange="onChangeFacFormato()" style="max-width:200px;">',
+          '<option value="ticket" '+selOpt(facFormato,'ticket')+'>Ticket (termica)</option>',
+          '<option value="a4" '+selOpt(facFormato,'a4')+'>Hoja A4</option>',
+        '</select>',
+      '</div>',
+      '<div id="facA4Fields" style="display:'+(facFormato==='a4'?'block':'none')+';">',
+        '<div class="cfg-r"><div><div class="cfg-rl">Actividad economica</div><div class="cfg-rs">Texto que aparece bajo el nombre (giro DNIT)</div></div><input class="cfg-inp" id="cfgActividad" value="'+v('actividad_economica')+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Giro / subtitulo</div><div class="cfg-rs">Ej: VENTA DE PRODUCTOS PARA...</div></div><input class="cfg-inp" id="cfgGiro" value="'+v('factura_giro')+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Habilitacion</div><div class="cfg-rs">Nro de habilitacion DNIT</div></div><input class="cfg-inp" id="cfgHabilitacion" value="'+v('habilitacion')+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Logo (URL)</div><div class="cfg-rs">Direccion de la imagen del logo</div></div><input class="cfg-inp" id="cfgLogo" value="'+v('logo_url')+'"></div>',
+      '</div>',
+    '</div>',
+  ].join('');
+
   var rubroSection = [
     '<div class="cfg-s">',
       '<div class="cfg-st">Tipo de negocio</div>',
@@ -596,6 +616,7 @@ async function renderConfig(){
     '<div class="cfg-r"><div><div class="cfg-rl">Direccion</div></div><input class="cfg-inp" id="cfgD" value="'+v('ad')+'"></div>'+
     '<div class="cfg-r"><div><div class="cfg-rl">Telefono</div></div><input class="cfg-inp" id="cfgT" value="'+v('at')+'"></div>'+
     '</div>'+
+    facturaSection+
     rubroSection+
     '<div class="cfg-s"><div class="cfg-st">Licencia</div>'+
     '<div class="cfg-r"><div><div class="cfg-rl">Email</div><div class="cfg-rs">'+(SE||'—')+'</div></div><span class="tag tag-g">Plan '+(SP||'—')+'</span></div>'+
@@ -660,8 +681,24 @@ async function _saveRubroSupabase(tipo, fMesas, fCocina, fDelivery, fMitades){
   } catch(e){ console.warn('[Rubro admin] Error guardando:', e.message); }
 }
 
+// Muestra/oculta los campos A4 según el formato elegido
+function onChangeFacFormato(){
+  var fmt=(document.getElementById('cfgFacFormato')||{}).value||'ticket';
+  localStorage.setItem('factura_formato', fmt);
+  var box=document.getElementById('facA4Fields');
+  if(box) box.style.display = fmt==='a4' ? 'block' : 'none';
+}
+
 async function saveConf(){
-  var cfg={an:document.getElementById('cfgN').value,ar:document.getElementById('cfgRuc').value,ad:document.getElementById('cfgD').value,at:document.getElementById('cfgT').value};
+  var g=function(id){var el=document.getElementById(id);return el?el.value:'';};
+  var cfg={
+    an:g('cfgN'), ar:g('cfgRuc'), ad:g('cfgD'), at:g('cfgT'),
+    factura_formato:     (document.getElementById('cfgFacFormato')||{}).value || 'ticket',
+    actividad_economica: g('cfgActividad'),
+    factura_giro:        g('cfgGiro'),
+    habilitacion:        g('cfgHabilitacion'),
+    logo_url:            g('cfgLogo'),
+  };
   Object.entries(cfg).forEach(function(e){localStorage.setItem(e[0],e[1]);});
   document.getElementById('sbNeg').textContent=cfg.an||'Mi Negocio';
   try{

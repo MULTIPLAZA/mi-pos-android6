@@ -623,6 +623,249 @@ function generarHTMLFactura(data, size){
   return '<html><head><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
 }
 
+// ── NÚMERO A LETRAS (para "TOTAL A PAGAR" en factura A4) ──────
+function numeroALetras(num){
+  num = Math.round(num || 0);
+  if(num === 0) return 'CERO';
+  var UNI = ['','UNO','DOS','TRES','CUATRO','CINCO','SEIS','SIETE','OCHO','NUEVE','DIEZ','ONCE','DOCE','TRECE','CATORCE','QUINCE','DIECISEIS','DIECISIETE','DIECIOCHO','DIECINUEVE','VEINTE'];
+  var DEC = ['','','VEINTE','TREINTA','CUARENTA','CINCUENTA','SESENTA','SETENTA','OCHENTA','NOVENTA'];
+  var CEN = ['','CIENTO','DOSCIENTOS','TRESCIENTOS','CUATROCIENTOS','QUINIENTOS','SEISCIENTOS','SETECIENTOS','OCHOCIENTOS','NOVECIENTOS'];
+  function seccion(n){ // 0..999
+    if(n === 100) return 'CIEN';
+    var t = '', c = Math.floor(n/100), resto = n%100;
+    if(c) t += CEN[c] + ' ';
+    if(resto <= 20){ t += UNI[resto]; }
+    else if(resto < 30){ t += 'VEINTI' + UNI[resto-20]; }
+    else { var d = Math.floor(resto/10), u = resto%10; t += DEC[d]; if(u) t += ' Y ' + UNI[u]; }
+    return t.trim();
+  }
+  // 'UNO' → 'UN' antes de MIL/MILLONES ('VEINTIUNO MIL' → 'VEINTIUN MIL')
+  function apocopar(s){ return s.replace(/UNO$/, 'UN'); }
+  var partes = [];
+  var millones = Math.floor(num/1000000);
+  var miles    = Math.floor((num%1000000)/1000);
+  var cientos  = num%1000;
+  if(millones){ partes.push(millones === 1 ? 'UN MILLON' : apocopar(seccion(millones)) + ' MILLONES'); }
+  if(miles){    partes.push(miles === 1 ? 'MIL' : apocopar(seccion(miles)) + ' MIL'); }
+  if(cientos){  partes.push(seccion(cientos)); }
+  return partes.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+// Abre un HTML A4 en ventana nueva para imprimir (blob + fallback <a>).
+function _abrirImpresionA4(html){
+  try{
+    var blob = new Blob([html], {type:'text/html;charset=utf-8'});
+    var url  = URL.createObjectURL(blob);
+    var win  = window.open(url, '_blank');
+    if(!win){
+      var a = document.createElement('a');
+      a.href = url; a.target = '_blank'; a.rel = 'noopener';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 20000);
+  }catch(e){ if(typeof toast==='function') toast('Error al abrir la factura: '+e.message); }
+}
+
+// ── FACTURA A4 (formato hoja pre-impresa Paraguay) ───────────
+// Replica la factura A4 clásica: logo + actividad económica + habilitación,
+// timbrado y vigencia, tabla con columnas EXENTO/GRAVADO5%/GRAVADO10%, total
+// en letras, liquidación de IVA y dos copias (Original: Cliente / Duplicado).
+function _fechaLargaES(d){
+  var meses = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var f = (d instanceof Date) ? d : new Date(d || Date.now());
+  return f.getDate() + ' de ' + meses[f.getMonth()] + ' de ' + f.getFullYear();
+}
+
+function generarHTMLFacturaA4(data){
+  var cfg = (typeof configData !== 'undefined') ? configData : {};
+  var f   = data.factura || {};
+  var esc = (typeof escapeHtml === 'function') ? escapeHtml : function(s){ return String(s == null ? '' : s); };
+
+  // ── Datos del emisor (negocio) ──
+  var emp = {
+    nombre:     cfg.negocio    || 'MI NEGOCIO',
+    ruc:        cfg.ruc        || '',
+    dir:        cfg.direccion  || '',
+    tel:        cfg.telefono   || '',
+    actividad:  localStorage.getItem('actividad_economica') || '',
+    giro:       localStorage.getItem('factura_giro')        || '',
+    habilitacion: localStorage.getItem('habilitacion')      || '',
+    logo:       localStorage.getItem('logo_url')            || '',
+  };
+
+  // ── Vigencia del timbrado ──
+  var tim = (typeof getTimbradoActivo === 'function') ? getTimbradoActivo() : null;
+  var vi  = f.fecha_desde || (tim && (tim.vig_inicio || tim.vig_ini || tim.fecha_desde)) || '';
+  var vf  = f.fecha_hasta || (tim && (tim.vig_fin    || tim.fecha_hasta)) || '';
+  var fmtFecha = function(s){ return s ? (String(s).includes('-') ? String(s).slice(0,10).split('-').reverse().join('/') : s) : ''; };
+
+  // ── IVA: repartir cada línea en su columna (precios IVA incluido) ──
+  var exento = 0, grav5 = 0, grav10 = 0;
+  var itemsFact = (data.items || []).filter(function(i){ return !i.esDescuento; });
+  itemsFact.forEach(function(it){
+    var sub = it.desc > 0 ? Math.round(it.price*it.qty*(1-it.desc/100)) : Math.round(it.price*it.qty);
+    if(it.iva === '10' || it.iva === 10)      grav10 += sub;
+    else if(it.iva === '5' || it.iva === 5)   grav5  += sub;
+    else                                       exento += sub;
+  });
+  // Descuento de ticket, proporcional
+  var totalDesc = (data.items || []).filter(function(i){ return i.esDescuento; }).reduce(function(s,i){ return s+(i.montoDesc||0); }, 0);
+  var subFact = exento + grav5 + grav10;
+  if(totalDesc > 0 && subFact > 0){
+    var factor = (subFact - totalDesc) / subFact;
+    exento = Math.round(exento*factor); grav5 = Math.round(grav5*factor); grav10 = Math.round(grav10*factor);
+  }
+  var total   = exento + grav5 + grav10;
+  var iva5    = Math.round(grav5/21);
+  var iva10   = Math.round(grav10/11);
+  var totalIva= iva5 + iva10;
+
+  var condicion = ((data.metodo || '').toLowerCase().indexOf('cr') === 0) ? 'CREDITO' : 'CONTADO';
+
+  // ── Filas de items (mínimo 8 para llenar la hoja) ──
+  function filasItems(){
+    var out = '';
+    itemsFact.forEach(function(it){
+      var sub = it.desc > 0 ? Math.round(it.price*it.qty*(1-it.desc/100)) : Math.round(it.price*it.qty);
+      var col10 = (it.iva === '10' || it.iva === 10) ? gn(sub) : '0';
+      var col5  = (it.iva === '5'  || it.iva === 5)  ? gn(sub) : '0';
+      var colE  = (!(it.iva === '10'||it.iva===10||it.iva==='5'||it.iva===5)) ? gn(sub) : '0';
+      var cant  = it.esKilo ? (parseFloat(it.qty)||0).toFixed(3) : it.qty;
+      out += '<tr>'
+        + '<td class="c">'+cant+'</td>'
+        + '<td>'+esc(it.name)+'</td>'
+        + '<td class="r">'+gn(it.price)+'</td>'
+        + '<td class="r">'+(it.desc>0?it.desc+'%':'0')+'</td>'
+        + '<td class="r">'+colE+'</td>'
+        + '<td class="r">'+col5+'</td>'
+        + '<td class="r">'+col10+'</td>'
+        + '</tr>';
+    });
+    // Filas vacías para dar cuerpo a la tabla
+    for(var i = itemsFact.length; i < 8; i++){
+      out += '<tr class="empty"><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+    }
+    return out;
+  }
+
+  // ── Una copia (Original / Duplicado) ──
+  function copia(label){
+    var logoCell = emp.logo
+      ? '<img src="'+esc(emp.logo)+'" style="max-width:130px;max-height:58px;object-fit:contain;">'
+      : '<div style="font-weight:bold;font-size:10px;">'+esc(emp.nombre)+'</div>';
+    return ''
+    + '<div class="fac">'
+    // Encabezado: logo | emisor | caja timbrado
+    + '<table class="hd"><tr>'
+      + '<td class="logo">'+logoCell+'</td>'
+      + '<td class="emisor">'
+        + '<div class="emp-n">'+esc(emp.nombre)+'</div>'
+        + (emp.giro ? '<div class="emp-g">'+esc(emp.giro)+'</div>' : '')
+        + (emp.actividad ? '<div class="emp-a">'+esc(emp.actividad)+'</div>' : '')
+        + '<div class="emp-d">Dir.: '+esc(emp.dir)+'</div>'
+      + '</td>'
+      + '<td class="tim">'
+        + (emp.habilitacion ? '<div><span>Habilitacion:</span> '+esc(emp.habilitacion)+'</div>' : '')
+        + '<div><b>TIMBRADO NRO:</b> <b>'+esc(f.timbrado||'')+'</b></div>'
+        + '<div><span>Inicio Vigencia</span> '+fmtFecha(vi)+'</div>'
+        + '<div><span>Fin Vigencia</span> '+fmtFecha(vf)+'</div>'
+        + '<div class="ruc-e"><b>RUC: '+esc(emp.ruc)+'</b></div>'
+        + '<div class="fac-t"><b>FACTURA</b></div>'
+        + '<div class="fac-n"><b>'+esc(f.nro_factura||'')+'</b></div>'
+      + '</td>'
+    + '</tr></table>'
+    // Bloque cliente
+    + '<table class="cli"><tr>'
+      + '<td class="cli-l">'
+        + '<div><b>Fecha de Emision:</b> '+_fechaLargaES(data.fecha)+'</div>'
+        + '<div><b>RUC:</b> '+esc(f.ruc||'')+'</div>'
+        + '<div><b>Razon Social:</b> '+esc(f.nombre||'')+'</div>'
+        + '<div><b>Direccion:</b> '+esc(f.direccion||'')+'</div>'
+      + '</td>'
+      + '<td class="cli-r">'
+        + '<div><b>Condicion de Venta:</b> '+condicion+'</div>'
+        + '<div><b>Vencimiento:</b> </div>'
+        + '<div><b>Telefono:</b> </div>'
+      + '</td>'
+    + '</tr></table>'
+    // Tabla de items
+    + '<table class="items">'
+      + '<thead><tr>'
+        + '<th class="c">Cant.</th><th>Descripcion</th><th class="r">Pre. Uni.</th><th class="r">Desc</th>'
+        + '<th class="r">EXENTO</th><th class="r">GRAV. 5%</th><th class="r">GRAV. 10%</th>'
+      + '</tr></thead>'
+      + '<tbody>'+filasItems()+'</tbody>'
+    + '</table>'
+    // Subtotal
+    + '<table class="tot"><tr>'
+      + '<td class="lbl">SUBTOTAL</td>'
+      + '<td class="r sub">'+gn(exento)+'</td><td class="r sub">'+gn(grav5)+'</td><td class="r sub">'+gn(grav10)+'</td>'
+    + '</tr></table>'
+    // Total a pagar
+    + '<table class="tpay"><tr>'
+      + '<td class="lbl"><b>TOTAL A PAGAR:</b> '+numeroALetras(total)+'</td>'
+      + '<td class="r"><b>'+gn(total)+'</b></td>'
+    + '</tr></table>'
+    // Liquidación IVA
+    + '<table class="iva"><tr>'
+      + '<td class="lbl">LIQUIDACION DEL IVA:</td>'
+      + '<td class="r">(5%) '+gn(iva5)+'</td>'
+      + '<td class="r">(10%) '+gn(iva10)+'</td>'
+      + '<td class="r"><b>TOTAL IVA: '+gn(totalIva)+'</b></td>'
+    + '</tr></table>'
+    // Legal + firma
+    + '<table class="foot"><tr>'
+      + '<td class="legal">La falta de pago de esta factura a su vencimiento devengara un interes mensual; el simple vencimiento establecera la mora, autorizando la consulta e inclusion en la base de datos de informaciones comerciales conforme a la Ley 1682. A los efectos legales se acepta la competencia de los Tribunales de la Capital.</td>'
+      + '<td class="firma">'
+        + '<div>Recibi conforme: Firma _______________ C.I. Nro: ________</div>'
+        + '<div style="margin-top:8px;">Aclaracion: _______________ Fcha: ________</div>'
+        + '<div class="copia-lbl"><b>'+label+'</b></div>'
+      + '</td>'
+    + '</tr></table>'
+    + '</div>';
+  }
+
+  var css = ''
+    + '@page{size:A4 portrait;margin:8mm;}'
+    + '*{box-sizing:border-box;}'
+    + 'body{font-family:Arial,Helvetica,sans-serif;font-size:8.5px;color:#000;margin:0;}'
+    + '.fac{border:1px solid #000;margin-bottom:6mm;}'
+    + 'table{border-collapse:collapse;width:100%;}'
+    + '.hd td{border:1px solid #000;vertical-align:middle;padding:3px 5px;}'
+    + '.hd .logo{width:150px;text-align:center;}'
+    + '.hd .emisor{text-align:center;}'
+    + '.emp-n{font-weight:bold;font-size:11px;}'
+    + '.emp-g{font-weight:bold;font-style:italic;font-size:9px;}'
+    + '.emp-a{font-size:7px;line-height:1.2;}'
+    + '.emp-d{font-size:8px;margin-top:2px;}'
+    + '.hd .tim{width:165px;font-size:8px;line-height:1.35;}'
+    + '.hd .tim span{color:#333;}'
+    + '.hd .tim .ruc-e,.hd .tim .fac-t,.hd .tim .fac-n{text-align:center;font-size:10px;}'
+    + '.hd .tim .fac-t{font-size:11px;margin-top:1px;}'
+    + '.cli td{border:1px solid #000;border-top:0;padding:3px 5px;vertical-align:top;line-height:1.5;}'
+    + '.cli .cli-l{width:62%;} .cli .cli-r{width:38%;}'
+    + '.items{border-top:0;}'
+    + '.items th{border:1px solid #000;background:#eee;padding:2px 4px;font-size:8px;}'
+    + '.items td{border-left:1px solid #000;border-right:1px solid #000;padding:1px 4px;font-size:8px;height:13px;}'
+    + '.items tbody tr:last-child td{border-bottom:1px solid #000;}'
+    + '.tot td,.tpay td,.iva td{border:1px solid #000;border-top:0;padding:2px 5px;}'
+    + '.tot .lbl{font-weight:bold;} .tot .sub{width:90px;}'
+    + '.tpay .lbl{width:auto;} .tpay td.r{width:110px;}'
+    + '.iva .lbl{font-weight:bold;}'
+    + '.foot td{border:1px solid #000;border-top:0;padding:4px 6px;vertical-align:top;}'
+    + '.foot .legal{width:52%;font-size:6.5px;line-height:1.3;text-align:justify;}'
+    + '.foot .firma{font-size:8px;line-height:1.6;}'
+    + '.copia-lbl{text-align:right;margin-top:6px;}'
+    + 'td.c{text-align:center;} td.r,th.r{text-align:right;}'
+    + '.items tr.empty td{color:#fff;}';
+
+  return '<html><head><meta charset="UTF-8"><title>Factura '+esc(f.nro_factura||'')+'</title><style>'+css+'</style></head><body>'
+    + copia('Original: Cliente')
+    + copia('Duplicado: Archivo Tributario')
+    + '<script>window.onload=function(){setTimeout(function(){window.print();},350);};<\/script>'
+    + '</body></html>';
+}
+
 // ── COMANDA ───────────────────────────────────────────────
 function generarHTMLComanda(data, size){
   const pad = n=>String(n).padStart(2,'0');
@@ -1244,6 +1487,16 @@ function imprimirRecibo(dataOverride){
   // (lo usa reimprimirVentaTurno desde la lista de ventas del turno).
   const data = dataOverride || ultimoReciboData;
   if(!data){ toast('Sin datos para imprimir'); return; }
+
+  // Factura autoimpresa en formato A4 (hoja pre-impresa) → va al navegador,
+  // no a la térmica. Solo para autoimpreso; la electrónica usa el KuDE.
+  var _esFactA4 = data.factura && data.factura.timbrado
+    && data.factura.tipo_timbrado !== 'electronico'
+    && localStorage.getItem('factura_formato') === 'a4';
+  if(_esFactA4){
+    _abrirImpresionA4(generarHTMLFacturaA4(data));
+    return;
+  }
 
   // BT Print Server tiene prioridad si hay MAC guardada
   const btpsTipo = localStorage.getItem('printerType_ticket');
