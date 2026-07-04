@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-admin-v20260702-facturasend-anulacion';
+const CACHE = 'ampersand-admin-v20260704-fix-asignar-terminales';
 
 const ASSETS = [
   '/admin-negocio.html',

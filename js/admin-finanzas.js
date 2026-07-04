@@ -1582,11 +1582,45 @@ async function abrirModalAsignar(timIdx){
 
   var terminales=[];
   try{
-    var rows=await sg('activaciones','email=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id,device_id,nombre_terminal,sucursal,updated_at');
+    // OJO: activaciones NO tiene columna 'updated_at' (existe 'ultima_consulta').
+    // Pedirla rompía la consulta con HTTP 400 y quedaba en silencio → modal
+    // vacío sin ningún aviso. Fix: columnas reales + toast visible si falla.
+    var rows=await sg('activaciones','email=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id,device_id,nombre_terminal,sucursal,ultima_consulta,fecha_activacion');
     _log('[Modal] activaciones:', rows.length, rows);
-    terminales=rows.filter(function(r){return r.nombre_terminal||r.device_id;})
-                   .map(function(r){return {nombre:r.nombre_terminal||r.device_id,sucursal:r.sucursal||''};});
-  }catch(e){console.warn('[Modal] Error activaciones:', e.message);}
+    var candidatas=rows.filter(function(r){return r.nombre_terminal||r.device_id;});
+    function fechaCorta(iso){
+      if(!iso) return '?';
+      var d=new Date(iso);
+      return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0');
+    }
+    // IMPORTANTE: 'nombre' es el VALOR real que se guarda en timbrado_terminales
+    // y que el POS matchea contra su localStorage.pos_terminal. 'label' es solo
+    // lo que se muestra — no deben mezclarse o el timbrado deja de aplicarse en
+    // la terminal correcta.
+    terminales=candidatas.map(function(r){
+      var sinNombre = !r.nombre_terminal;
+      return {
+        nombre: r.nombre_terminal || null, // null = terminal sin configurar aún
+        label:  sinNombre ? 'Sin nombre configurado (activada '+fechaCorta(r.fecha_activacion)+')' : r.nombre_terminal,
+        sucursal: r.sucursal||'',
+        ultima: r.ultima_consulta||null,
+        sinNombre: sinNombre,
+      };
+    });
+    // Desambiguar SOLO la etiqueta visual cuando dos terminales activas
+    // comparten el mismo nombre real (ej. dos "Caja2") — el valor que se
+    // asigna sigue siendo el nombre real tal cual, sin tocar.
+    var conteo={};
+    terminales.forEach(function(t){ if(t.nombre) conteo[t.nombre]=(conteo[t.nombre]||0)+1; });
+    terminales.forEach(function(t){
+      if(t.nombre && conteo[t.nombre]>1 && t.ultima){
+        t.label += ' (últ. conexión '+fechaCorta(t.ultima)+')';
+      }
+    });
+  }catch(e){
+    console.warn('[Modal] Error activaciones:', e.message);
+    if(typeof toast==='function') toast('No se pudieron cargar las terminales: '+e.message, 4000);
+  }
 
   var t=timbrados[timIdx];
   var asigs=t.asignaciones||[];
@@ -1614,10 +1648,20 @@ async function abrirModalAsignar(timIdx){
   if(terminales.length){
     html+='<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Seleccioná una terminal registrada:</div>';
     terminales.forEach(function(ter){
+      // Sin nombre configurado: no se puede asignar con certeza (el POS de esa
+      // terminal usa el nombre que la cajera puso en Config, no lo inventamos).
+      if(ter.sinNombre){
+        html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1.5px dashed #3a3a3a;background:#0d0d0d;margin-bottom:6px;">';
+        html+='<div style="width:10px;height:10px;border-radius:50%;background:#555;flex-shrink:0;"></div>';
+        html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--muted);">'+ter.label+'</div>';
+        html+='<div style="font-size:10.5px;color:var(--muted);">Pedile a esa terminal poner un nombre en Configuración, o escribilo abajo si ya lo sabés</div></div>';
+        html+='</div>';
+        return;
+      }
       var esYa=yaAsig.indexOf(ter.nombre)>=0;
       html+='<div data-ter="'+ter.nombre.replace(/"/g,'&quot;')+'" class="ter-sel-opt" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1.5px solid '+(esYa?'var(--green)':'#2a2a2a')+';background:'+(esYa?'rgba(76,175,80,.08)':'#111')+';cursor:'+(esYa?'default':'pointer')+';margin-bottom:6px;">';
       html+='<div style="width:10px;height:10px;border-radius:50%;background:'+(esYa?'var(--green)':'#333')+';flex-shrink:0;"></div>';
-      html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:'+(esYa?'var(--green)':'#fff')+';">'+ter.nombre+'</div>';
+      html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:'+(esYa?'var(--green)':'#fff')+';">'+ter.label+'</div>';
       if(ter.sucursal) html+='<div style="font-size:11px;color:var(--muted);">'+ter.sucursal+'</div>';
       html+='</div>';
       if(esYa) html+='<span style="font-size:10px;background:var(--g2);color:var(--green);padding:2px 7px;border-radius:10px;font-weight:700;">YA ASIGNADA</span>';
