@@ -13,6 +13,8 @@ Todos son idempotentes (`IF NOT EXISTS`): si ya corriste uno, volver a correrlo 
 | 04 | `04_barberia_profesionales.sql` | Tabla `pos_profesionales` (barberos/estilistas) | Solo barbería |
 | 05 | `05_barberia_citas.sql` | Tabla `pos_citas` (agenda de turnos) | Solo barbería |
 | 06 | `06_superadmin_tipo_negocio.sql` | `tipo_negocio` + `capacidades` en licencias | Para el super-admin nuevo |
+| 07 | `07_hospedaje_habitaciones.sql` | Tabla `pos_habitaciones` (rubro hotel/hostería) | **Sí — código ya deployado** |
+| 08 | `08_hospedaje_estadias.sql` | Tabla `pos_estadias` (folio de huésped) | **Sí — código ya deployado** |
 | 99 | `99_SEGURIDAD_rls_hardening_...` | Cierra el acceso abierto de la base | ⚠️ **NO ejecutar solo — leer abajo** |
 
 ## Importante — orden vs. deploy del código
@@ -22,6 +24,8 @@ Los archivos **01 y 02** deben ejecutarse **ANTES** de que el código que los us
 - El código de `venta_uuid` **todavía no está cableado** — primero ejecutá **02**, después avisame y activo esa pieza en el POS.
 
 Los **03–06** se ejecutan cuando arranquemos el desarrollo de barbería / super-admin (el código todavía no existe).
+
+**07 y 08 son distintos: el código del rubro Hospedaje YA ESTÁ deployado** (tablero de habitaciones, check-in, folio, check-out → cobro). Sin estas dos migraciones, cualquier licencia con rubro hotel/hospedaje/hostería no va a poder guardar nada — ejecutalas antes de asignarle ese rubro a un cliente real. Verificado con un test completo simulando toda la lógica (falta solo correr esto para que las llamadas reales a Supabase funcionen).
 
 ## ⚠️ Archivo 99 — Seguridad (RLS)
 

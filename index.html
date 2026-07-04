@@ -1433,6 +1433,12 @@
       </svg>
       Mesas
     </div>
+    <div class="drawer-item" id="drawerItemHabitaciones" style="display:none;" onclick="drawerGo('habitaciones')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/>
+      </svg>
+      Habitaciones
+    </div>
     <div class="drawer-item" id="drawerItemFiado" style="display:none;" onclick="drawerGo('fiado')">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <rect x="1" y="4" width="22" height="16" rx="2"/>
@@ -1704,6 +1710,132 @@
   <div class="mesas-modal" id="mesasModalContent"></div>
 </div>
 
+<!-- ══════════ HOSPEDAJE (rubro hotel/hostería) ══════════ -->
+<div id="scHabitaciones" class="screen">
+  <div class="mesas-header">
+    <button class="hbtn" onclick="goTo('scSale')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="mesas-title">Habitaciones</span>
+    <button class="hbtn" onclick="abrirFormHabitacion()" title="Nueva habitación">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    </button>
+  </div>
+  <div style="padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;" id="habitacionesGrid"></div>
+</div>
+
+<!-- Modal Check-in -->
+<div id="hospCheckinOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarCheckIn()">
+  <div style="background:#1e1e1e;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:20px 18px 30px;max-height:92vh;overflow-y:auto;">
+    <div style="width:36px;height:4px;background:#444;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;" id="hospCkTitulo">Check-in</div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Nombre del huésped *</label>
+      <input id="hospCkNombre" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Documento</label>
+        <input id="hospCkDoc" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Teléfono</label>
+        <input id="hospCkTel" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Check-in</label>
+        <input id="hospCkCheckin" type="date" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Salida prevista</label>
+        <input id="hospCkCheckout" type="date" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Huéspedes</label>
+        <input id="hospCkHuespedes" type="number" min="1" value="1" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Tarifa/noche (₲)</label>
+        <input id="hospCkTarifa" type="number" min="0" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="cerrarCheckIn()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CANCELAR</button>
+      <button id="hospCkBtnGuardar" onclick="confirmarCheckIn()" style="flex:2;background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;">CONFIRMAR CHECK-IN</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Folio (cuenta del huésped) -->
+<div id="hospFolioOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarFolio()">
+  <div style="background:#1e1e1e;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:20px 18px 30px;max-height:92vh;overflow-y:auto;">
+    <div style="width:36px;height:4px;background:#444;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:16px;font-weight:800;color:#fff;" id="hospFolioTitulo">Folio</div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px;" id="hospFolioSub"></div>
+    <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px;">Cargos acumulados</div>
+    <div id="hospFolioCargos" style="background:#111;border-radius:8px;padding:10px 14px;margin-bottom:10px;max-height:220px;overflow-y:auto;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 4px;margin-bottom:16px;border-top:2px solid #333;">
+      <span style="font-size:13px;color:#aaa;font-weight:700;text-transform:uppercase;">Total</span>
+      <span id="hospFolioTotal" style="font-size:22px;font-weight:800;color:#4caf50;">₲0</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px;">
+      <button onclick="hospAgregarNoche()" style="flex:1;background:#2a2a2a;border:1px solid #444;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;">+ NOCHE</button>
+      <button onclick="hospAbrirAgregarCargo()" style="flex:1;background:#2a2a2a;border:1px solid #444;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;">+ CONSUMO</button>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="cerrarFolio()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CERRAR</button>
+      <button onclick="checkOutFolio()" style="flex:2;background:#e53935;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;">CHECK-OUT / COBRAR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal alta/edición de habitación -->
+<div id="hospFormOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarFormHabitacion()">
+  <div style="background:#1e1e1e;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:20px 18px 30px;">
+    <div style="width:36px;height:4px;background:#444;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;" id="hospFormTitulo">Nueva habitación</div>
+    <input type="hidden" id="hospFormId">
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Número / nombre *</label>
+      <input id="hospFormNumero" type="text" placeholder="101" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:16px;font-weight:700;padding:10px 12px;outline:none;box-sizing:border-box;">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Tipo</label>
+        <select id="hospFormTipo" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;">
+          <option value="simple">Simple</option>
+          <option value="doble">Doble</option>
+          <option value="matrimonial">Matrimonial</option>
+          <option value="suite">Suite</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Piso</label>
+        <input id="hospFormPiso" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Capacidad</label>
+        <input id="hospFormCapacidad" type="number" min="1" value="2" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+      <div>
+        <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Tarifa/noche (₲)</label>
+        <input id="hospFormPrecio" type="number" min="0" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="cerrarFormHabitacion()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CANCELAR</button>
+      <button onclick="guardarHabitacion()" style="flex:2;background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;">GUARDAR</button>
+    </div>
+  </div>
+</div>
+
 <div id="scClosed" class="screen active">
   <header class="header">
     <button class="hbtn" onclick="openDrawer()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
@@ -1971,7 +2103,7 @@
         </div>
       </div>
       <!-- Fila Reales -->
-      <div id="mmRowBrl" style="margin-bottom:6px;">
+      <div id="mmRowBrl" style="margin-bottom:2px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇧🇷</span>
           <div class="efec-row" onclick="openNP('mm_brl')" style="flex:1;margin:0;">
@@ -1981,8 +2113,9 @@
           </div>
         </div>
       </div>
+      <p id="mmBrlSug" style="font-size:11px;color:#2ecc71;margin:0 0 6px 42px;padding:0;font-weight:600;"></p>
       <!-- Fila Pesos Arg -->
-      <div id="mmRowArs" style="margin-bottom:8px;">
+      <div id="mmRowArs" style="margin-bottom:2px;">
         <div style="display:flex;align-items:center;gap:6px;">
           <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇦🇷</span>
           <div class="efec-row" onclick="openNP('mm_ars')" style="flex:1;margin:0;">
@@ -1992,6 +2125,7 @@
           </div>
         </div>
       </div>
+      <p id="mmArsSug" style="font-size:11px;color:#2ecc71;margin:0 0 8px 42px;padding:0;font-weight:600;"></p>
       <!-- Billetes rapidos GS -->
       <div id="mmBilletesRow" class="billetes-quick">
         <button type="button" class="billete-quick-btn" onclick="setEfectivoBillete(5000)">5k</button>
@@ -2281,6 +2415,7 @@
 <script src="js/sync.js?v=20260412103"></script>
 <script src="js/licencia.js?v=20260412103"></script>
 <script src="js/mesas.js?v=20260412103"></script>
+<script src="js/hospedaje.js?v=20260705001"></script>
 <script src="js/rubro.js?v=20260604002"></script>
 
 <script src="js/credito.js?v=20260701001"></script>

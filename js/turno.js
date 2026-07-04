@@ -246,6 +246,16 @@ function supaInsertVenta(data){
       try {
         await stockDescontarVenta(data.items, data.comprobante || ('VENTA-'+Date.now()));
       } catch(e){ console.warn('[Stock] Error en stockDescontarVenta:', e.message); }
+
+      // Hospedaje: si esta venta es un check-out de habitación (rubro
+      // hospedaje), cerrar la estadía recién ahora que la venta se confirmó
+      // de verdad — no antes, para no perder el registro si el cobro falla.
+      if(window._hospedajeEstadiaCheckout && typeof hospedajeLiquidarEstadiaTrasVenta === 'function'){
+        var _estId = window._hospedajeEstadiaCheckout;
+        window._hospedajeEstadiaCheckout = null;
+        hospedajeLiquidarEstadiaTrasVenta(_estId, venta.comprobante || null)
+          .catch(function(e){ console.warn('[Hospedaje] Error liquidando estadía:', e.message); });
+      }
     })
     .catch(e => {
       console.warn('[Venta] Error Supabase, encolando:', e.message);

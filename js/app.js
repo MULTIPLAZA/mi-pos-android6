@@ -1634,6 +1634,8 @@ function drawerGo(section){
     renderTurno();
   } else if(section === 'mesas'){
     abrirPantallaMesas();
+  } else if(section === 'habitaciones'){
+    if(typeof abrirPantallaHabitaciones === 'function') abrirPantallaHabitaciones();
   } else if(section === 'fiado'){
     if(typeof abrirCredito === 'function') abrirCredito();
   } else {

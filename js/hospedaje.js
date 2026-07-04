@@ -1,0 +1,416 @@
+// ── Hospedaje: habitaciones + estadías (folio de huésped) ──
+//
+// Patrón: la ocupación de una habitación se DERIVA de si existe una
+// estadía activa para ella — igual que mesas.js deriva "ocupada" de los
+// pendientes en vez de guardar un flag separado que puede desincronizarse.
+//
+// Ciclo: check-in (crea estadía) → agregar cargos (noches, extras,
+// acumulan en la estadía mientras dura la visita, sin facturar) →
+// check-out (los cargos acumulados se cargan al carrito y se cobran con
+// el flujo normal de cobro.js — misma factura, misma FE, mismo todo).
+
+var hospHabitaciones = [];   // [{id, numero, tipo, piso, capacidad, precio_noche, estado, ...}]
+var hospEstadias     = [];   // estadías con estado='en_estadia' (las activas, una por habitación ocupada)
+var _hospHabSel      = null; // habitación tocada (para abrir check-in o folio)
+var _hospEstadiaSel  = null; // estadía abierta en el modal de folio
+
+// ── Carga (con cache offline en IndexedDB, mismo patrón que mesas_cache) ──
+async function hospCargar(){
+  const licId = parseInt(localStorage.getItem('ali')) || null;
+  const email = localStorage.getItem('lic_email');
+  if(!licId || !email || USAR_DEMO) return;
+
+  if(!navigator.onLine){
+    if(db){
+      try{
+        const habRow = await db.mesas_cache.get('hosp_habitaciones');
+        const estRow = await db.mesas_cache.get('hosp_estadias');
+        if(habRow) hospHabitaciones = JSON.parse(habRow.valor);
+        if(estRow) hospEstadias     = JSON.parse(estRow.valor);
+      }catch(e){ console.warn('[Hospedaje] Error cache offline:', e.message); }
+    }
+    return;
+  }
+
+  try{
+    hospHabitaciones = await supaGet('pos_habitaciones',
+      'licencia_email=ilike.'+encodeURIComponent(email)+'&activo=eq.true&order=orden.asc,numero.asc');
+    hospEstadias = await supaGet('pos_estadias',
+      'licencia_email=ilike.'+encodeURIComponent(email)+'&estado=eq.en_estadia&select=*');
+    if(db){
+      try{
+        await db.mesas_cache.put({ clave:'hosp_habitaciones', valor: JSON.stringify(hospHabitaciones) });
+        await db.mesas_cache.put({ clave:'hosp_estadias',     valor: JSON.stringify(hospEstadias) });
+      }catch(e){ console.warn('[Hospedaje] Error cacheando:', e.message); }
+    }
+  }catch(e){ console.warn('[Hospedaje] Error cargando:', e.message); toast('Error al cargar habitaciones'); }
+}
+
+/** Estadía activa de una habitación, o null si está libre de huésped */
+function hospEstadiaDeHabitacion(habId){
+  return hospEstadias.find(function(e){ return e.habitacion_id === habId; }) || null;
+}
+
+// ── Pantalla principal: tablero de habitaciones ──────────
+async function abrirPantallaHabitaciones(){
+  await hospCargar();
+  if(hospHabitaciones.length === 0){
+    const ok = confirm('No hay habitaciones configuradas. ¿Ir a crear una ahora?');
+    if(ok){ goTo('scHabitaciones'); renderHabitacionesScreen(); abrirFormHabitacion(); }
+    else { goTo('scHabitaciones'); renderHabitacionesScreen(); }
+    return;
+  }
+  goTo('scHabitaciones');
+  renderHabitacionesScreen();
+}
+
+function _hospColorEstado(estadoVisual){
+  if(estadoVisual === 'ocupada')       return '#e53935';
+  if(estadoVisual === 'limpieza')      return '#ff9800';
+  if(estadoVisual === 'mantenimiento') return '#757575';
+  return '#4caf50'; // libre
+}
+
+function renderHabitacionesScreen(){
+  const cont = document.getElementById('habitacionesGrid');
+  if(!cont) return;
+  if(!hospHabitaciones.length){
+    cont.innerHTML = '<div style="padding:30px;text-align:center;color:#888;">Sin habitaciones — tocá + para crear una</div>';
+    return;
+  }
+  cont.innerHTML = hospHabitaciones.map(function(h){
+    const est = hospEstadiaDeHabitacion(h.id);
+    const estadoVisual = est ? 'ocupada' : (h.estado || 'libre');
+    const color = _hospColorEstado(estadoVisual);
+    const noches = est ? Math.max(1, Math.ceil((new Date() - new Date(est.checkin+'T00:00:00')) / 86400000)) : 0;
+    const sub = est
+      ? escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.85;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</span>'
+      : (estadoVisual === 'libre' ? 'Libre' : (estadoVisual === 'limpieza' ? 'En limpieza' : 'Mantenimiento'));
+    return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
+      + 'style="background:' + color + ';color:#fff;border-radius:10px;padding:14px;cursor:pointer;min-height:88px;display:flex;flex-direction:column;justify-content:space-between;">'
+      + '<div style="font-size:17px;font-weight:800;">' + escapeHtml(h.numero) + '</div>'
+      + '<div style="font-size:12.5px;line-height:1.35;">' + sub + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+/**
+ * Tap en una habitación:
+ *   - LIBRE      → abrir Check-in
+ *   - OCUPADA    → abrir el Folio (ver/agregar cargos, check-out)
+ *   - LIMPIEZA/MANTENIMIENTO → preguntar si se libera (vuelve a libre)
+ */
+function onHabitacionTap(habId){
+  const h = hospHabitaciones.find(function(x){ return x.id === habId; });
+  if(!h) return;
+  const est = hospEstadiaDeHabitacion(habId);
+
+  if(est){
+    abrirFolio(est.id);
+    return;
+  }
+  if(h.estado === 'limpieza' || h.estado === 'mantenimiento'){
+    if(confirm('Habitación ' + h.numero + ' está en "' + h.estado + '". ¿Marcarla como libre?')){
+      hospCambiarEstadoHabitacion(habId, 'libre');
+    }
+    return;
+  }
+  abrirCheckIn(habId);
+}
+
+/** Long-press / click derecho: acciones rápidas sobre una habitación libre */
+function hospMenuHabitacion(habId){
+  const h = hospHabitaciones.find(function(x){ return x.id === habId; });
+  if(!h || hospEstadiaDeHabitacion(habId)) return; // no aplica si está ocupada
+  const opciones = ['Libre', 'Limpieza', 'Mantenimiento', 'Editar habitación'];
+  const idx = prompt('Habitación ' + h.numero + ' — elegí (1-4):\n1. Marcar Libre\n2. Marcar en Limpieza\n3. Marcar en Mantenimiento\n4. Editar habitación', '1');
+  if(idx === '1') hospCambiarEstadoHabitacion(habId, 'libre');
+  else if(idx === '2') hospCambiarEstadoHabitacion(habId, 'limpieza');
+  else if(idx === '3') hospCambiarEstadoHabitacion(habId, 'mantenimiento');
+  else if(idx === '4') abrirFormHabitacion(habId);
+}
+
+async function hospCambiarEstadoHabitacion(habId, estado){
+  const h = hospHabitaciones.find(function(x){ return x.id === habId; });
+  if(h) h.estado = estado; // optimista
+  renderHabitacionesScreen();
+  try{ await supaPatch('pos_habitaciones', 'id=eq.'+habId, { estado: estado }, true); }
+  catch(e){ toast('Error al cambiar estado: '+e.message); }
+}
+
+// ── CHECK-IN ──────────────────────────────────────────────
+function abrirCheckIn(habId){
+  const h = hospHabitaciones.find(function(x){ return x.id === habId; });
+  if(!h) return;
+  _hospHabSel = h;
+  const hoy = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const hoyStr = hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
+
+  document.getElementById('hospCkNombre').value = '';
+  document.getElementById('hospCkDoc').value = '';
+  document.getElementById('hospCkTel').value = '';
+  document.getElementById('hospCkHuespedes').value = '1';
+  document.getElementById('hospCkCheckin').value = hoyStr;
+  document.getElementById('hospCkCheckout').value = '';
+  document.getElementById('hospCkTarifa').value = h.precio_noche || 0;
+  document.getElementById('hospCkTitulo').textContent = 'Check-in — Habitación ' + h.numero;
+  document.getElementById('hospCheckinOv').style.display = 'flex';
+  setTimeout(function(){ document.getElementById('hospCkNombre').focus(); }, 200);
+}
+
+function cerrarCheckIn(){
+  document.getElementById('hospCheckinOv').style.display = 'none';
+  _hospHabSel = null;
+}
+
+async function confirmarCheckIn(){
+  if(!_hospHabSel) return;
+  const nombre = document.getElementById('hospCkNombre').value.trim();
+  if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
+  const checkin = document.getElementById('hospCkCheckin').value;
+  if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
+  const tarifa = parseInt(document.getElementById('hospCkTarifa').value) || 0;
+
+  const email = localStorage.getItem('lic_email');
+  const licId = parseInt(localStorage.getItem('ali')) || null;
+  const payload = {
+    licencia_id: licId,
+    licencia_email: email,
+    sucursal: localStorage.getItem('pos_sucursal') || null,
+    habitacion_id: _hospHabSel.id,
+    huesped_nombre: nombre,
+    huesped_documento: document.getElementById('hospCkDoc').value.trim() || null,
+    huesped_tel: document.getElementById('hospCkTel').value.trim() || null,
+    cantidad_huespedes: parseInt(document.getElementById('hospCkHuespedes').value) || 1,
+    checkin: checkin,
+    checkout_previsto: document.getElementById('hospCkCheckout').value || null,
+    tarifa_noche: tarifa,
+    // La primera noche se carga de una — es lo mínimo que corresponde cobrar.
+    cargos: [{
+      fecha: checkin, descripcion: 'Noche — Hab. ' + _hospHabSel.numero,
+      cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+    }],
+    total: tarifa,
+    estado: 'en_estadia',
+  };
+
+  const btn = document.getElementById('hospCkBtnGuardar');
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try{
+    const result = await supaPost('pos_estadias', payload, null, false);
+    const saved = Array.isArray(result) ? result[0] : result;
+    if(!saved || !saved.id) throw new Error('Sin ID de estadía');
+    hospEstadias.push(saved);
+    cerrarCheckIn();
+    renderHabitacionesScreen();
+    toast('Check-in OK — Habitación ' + _hospHabSel.numero + ' · ' + nombre);
+  }catch(e){
+    toast('Error en el check-in: ' + e.message);
+  }
+  if(btn){ btn.disabled = false; btn.textContent = 'CONFIRMAR CHECK-IN'; }
+}
+
+// ── FOLIO (cuenta acumulada del huésped) ──────────────────
+function abrirFolio(estadiaId){
+  const est = hospEstadias.find(function(e){ return e.id === estadiaId; });
+  if(!est) return;
+  _hospEstadiaSel = est;
+  const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+
+  document.getElementById('hospFolioTitulo').textContent = 'Habitación ' + (h ? h.numero : '?') + ' — ' + est.huesped_nombre;
+  document.getElementById('hospFolioSub').textContent =
+    'Check-in: ' + fmtFechaCorta(est.checkin) + (est.checkout_previsto ? ' · Salida prevista: ' + fmtFechaCorta(est.checkout_previsto) : '')
+    + (est.huesped_documento ? ' · Doc: ' + est.huesped_documento : '');
+
+  renderFolioCargos();
+  document.getElementById('hospFolioOv').style.display = 'flex';
+}
+
+function fmtFechaCorta(iso){
+  if(!iso) return '—';
+  const p = String(iso).split('-');
+  return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+}
+
+function renderFolioCargos(){
+  const est = _hospEstadiaSel;
+  const cont = document.getElementById('hospFolioCargos');
+  if(!est || !cont) return;
+  const cargos = est.cargos || [];
+  cont.innerHTML = cargos.length
+    ? cargos.map(function(c, i){
+        return '<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #2a2a2a;font-size:13px;">'
+          + '<span>' + escapeHtml(c.descripcion) + (c.cantidad > 1 ? ' ×' + c.cantidad : '') + '</span>'
+          + '<span style="font-weight:700;">' + gs(c.monto) + '</span>'
+          + '</div>';
+      }).join('')
+    : '<div style="text-align:center;color:#888;padding:14px;">Sin cargos todavía</div>';
+  document.getElementById('hospFolioTotal').textContent = gs(est.total || 0);
+}
+
+/** Agrega un producto/servicio del catálogo como cargo a la estadía */
+function hospAbrirAgregarCargo(){
+  if(!_hospEstadiaSel) return;
+  // Selector simple por nombre — reusa PRODS ya cargado en memoria por el POS
+  const nombre = prompt('¿Qué producto/servicio agregar? (nombre exacto o parte del nombre)');
+  if(!nombre) return;
+  const q = nombre.trim().toLowerCase();
+  const candidatos = (PRODS || []).filter(function(p){
+    return !p.itemLibre && !p.esInsumo && p.activo !== false && p.name.toLowerCase().includes(q);
+  });
+  if(!candidatos.length){ toast('No se encontró ningún producto con ese nombre'); return; }
+  const prod = candidatos[0];
+  const cantStr = prompt('Cantidad de "' + prod.name + '":', '1');
+  const cant = parseFloat(cantStr) || 0;
+  if(cant <= 0) return;
+  hospAgregarCargo({
+    fecha: new Date().toISOString().substring(0,10),
+    descripcion: prod.name,
+    cantidad: cant,
+    precio_unitario: prod.price,
+    monto: Math.round(prod.price * cant),
+    iva: prod.iva || '10',
+  });
+}
+
+/** Atajo directo: agregar una noche más con la tarifa configurada */
+function hospAgregarNoche(){
+  if(!_hospEstadiaSel) return;
+  const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
+  const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
+  hospAgregarCargo({
+    fecha: new Date().toISOString().substring(0,10),
+    descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
+    cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+  });
+}
+
+async function hospAgregarCargo(cargo){
+  const est = _hospEstadiaSel;
+  if(!est) return;
+  est.cargos = est.cargos || [];
+  est.cargos.push(cargo);
+  est.total = est.cargos.reduce(function(s, c){ return s + (c.monto || 0); }, 0);
+  renderFolioCargos();
+  renderHabitacionesScreen();
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
+    toast('+ ' + cargo.descripcion + ' · ' + gs(cargo.monto));
+  }catch(e){
+    toast('Error al guardar el cargo: ' + e.message);
+  }
+}
+
+function cerrarFolio(){
+  document.getElementById('hospFolioOv').style.display = 'none';
+  _hospEstadiaSel = null;
+}
+
+// ── CHECK-OUT: puente estadía → carrito → cobro normal ────
+// No reinventa el cobro: carga los cargos acumulados como líneas del
+// carrito y navega a la pantalla de venta de siempre — así la estadía
+// sale con factura, FE y todos los métodos de pago igual que cualquier
+// venta. El registro de la estadía se cierra recién cuando la venta se
+// confirma de verdad (ver hospedajeLiquidarEstadiaTrasVenta, enganchado
+// desde turno.js).
+function checkOutFolio(){
+  const est = _hospEstadiaSel;
+  if(!est) return;
+  if(!est.cargos || !est.cargos.length){ toast('Esta estadía no tiene cargos para cobrar'); return; }
+  if(cart.length > 0 && !confirm('Hay productos en el ticket actual — se van a reemplazar por la cuenta de esta habitación. ¿Continuar?')) return;
+
+  const nuevoCart = est.cargos.map(function(c){
+    return {
+      lineId: Date.now()*1000 + Math.floor(Math.random()*1000),
+      id: 'hosp-' + est.id + '-' + Math.random().toString(36).slice(2,7),
+      name: c.descripcion, price: c.precio_unitario, qty: c.cantidad,
+      obs: '', enviado: false, iva: c.iva || '10', color: '#4caf50', cat: 'Hospedaje',
+    };
+  });
+  setCart(nuevoCart);
+  setClienteNombre(est.huesped_nombre);
+  window._hospedajeEstadiaCheckout = est.id; // hook leído por turno.js al confirmar la venta
+  cerrarFolio();
+  goTo('scSale');
+  updUI(); updBtnGuardar();
+  toast('Cuenta de ' + est.huesped_nombre + ' cargada — elegí forma de pago y COBRAR');
+}
+
+/**
+ * Se llama desde turno.js DESPUÉS de que la venta de check-out se guardó
+ * con éxito. Cierra la estadía y libera la habitación (a "limpieza", no a
+ * "libre" — el personal la marca libre a mano cuando ya la preparó).
+ */
+async function hospedajeLiquidarEstadiaTrasVenta(estadiaId, comprobante){
+  const est = hospEstadias.find(function(e){ return e.id === estadiaId; });
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, {
+      estado: 'checkout',
+      checkout_real: new Date().toISOString(),
+      comprobante_venta: comprobante || null,
+    }, true);
+    if(est && est.habitacion_id){
+      await supaPatch('pos_habitaciones', 'id=eq.'+est.habitacion_id, { estado: 'limpieza' }, true);
+      const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+      if(h) h.estado = 'limpieza';
+    }
+    hospEstadias = hospEstadias.filter(function(e){ return e.id !== estadiaId; });
+    if(typeof renderHabitacionesScreen === 'function') renderHabitacionesScreen();
+    _log('[Hospedaje] Estadía liquidada:', estadiaId);
+  }catch(e){
+    console.warn('[Hospedaje] Error liquidando estadía:', e.message);
+  }
+}
+
+// ── ADMIN LIVIANO DE HABITACIONES (alta/edición desde el POS) ──
+// Un hotel chico no necesita ir al panel admin para dar de alta cuartos —
+// se hace directo desde la pantalla de Habitaciones (long-press → Editar,
+// o el botón + cuando no hay ninguna todavía).
+function abrirFormHabitacion(habId){
+  const h = habId ? hospHabitaciones.find(function(x){ return x.id === habId; }) : null;
+  document.getElementById('hospFormTitulo').textContent = h ? 'Editar habitación' : 'Nueva habitación';
+  document.getElementById('hospFormId').value = h ? h.id : '';
+  document.getElementById('hospFormNumero').value = h ? h.numero : '';
+  document.getElementById('hospFormTipo').value = h ? (h.tipo || 'simple') : 'simple';
+  document.getElementById('hospFormPiso').value = h ? (h.piso || '') : '';
+  document.getElementById('hospFormCapacidad').value = h ? (h.capacidad || 2) : 2;
+  document.getElementById('hospFormPrecio').value = h ? (h.precio_noche || 0) : 0;
+  document.getElementById('hospFormOv').style.display = 'flex';
+}
+
+function cerrarFormHabitacion(){
+  document.getElementById('hospFormOv').style.display = 'none';
+}
+
+async function guardarHabitacion(){
+  const id = document.getElementById('hospFormId').value;
+  const numero = document.getElementById('hospFormNumero').value.trim();
+  if(!numero){ toast('Ingresá el número/nombre de la habitación'); return; }
+  const email = localStorage.getItem('lic_email');
+  const licId = parseInt(localStorage.getItem('ali')) || null;
+  const payload = {
+    licencia_id: licId, licencia_email: email,
+    sucursal: localStorage.getItem('pos_sucursal') || null,
+    numero: numero,
+    tipo: document.getElementById('hospFormTipo').value,
+    piso: document.getElementById('hospFormPiso').value.trim() || null,
+    capacidad: parseInt(document.getElementById('hospFormCapacidad').value) || 2,
+    precio_noche: parseInt(document.getElementById('hospFormPrecio').value) || 0,
+    activo: true,
+  };
+  try{
+    if(id){
+      await supaPatch('pos_habitaciones', 'id=eq.'+id, payload, true);
+    } else {
+      payload.estado = 'libre';
+      await supaPost('pos_habitaciones', payload, null, true);
+    }
+    cerrarFormHabitacion();
+    await hospCargar();
+    renderHabitacionesScreen();
+    toast('Habitación guardada');
+  }catch(e){
+    toast('Error al guardar: ' + e.message);
+  }
+}

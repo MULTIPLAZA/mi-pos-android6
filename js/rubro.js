@@ -34,11 +34,12 @@ function rubroGetTipo(){
 // 'cocina' NO va en el catálogo: su default es especial (refleja el
 // sistema legacy de comandas) y se resuelve en _rubroDefaults.
 var _RUBRO_CAPS = {
-  gastronomia:  { mesas:true,  delivery:true,  mitades:true,  codigo_barras:false, balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:false },
-  retail:       { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:false },
-  despensa:     { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false },
-  autoservicio: { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false },
-  barberia:     { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:false, agenda:true,  profesionales:true,  es_servicio:true  },
+  gastronomia:  { mesas:true,  delivery:true,  mitades:true,  codigo_barras:false, balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:false, habitaciones:false, folio:false },
+  retail:       { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:false, habitaciones:false, folio:false },
+  despensa:     { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false, habitaciones:false, folio:false },
+  autoservicio: { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false, habitaciones:false, folio:false },
+  barberia:     { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:false, agenda:true,  profesionales:true,  es_servicio:true,  habitaciones:false, folio:false },
+  hospedaje:    { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:true,  habitaciones:true,  folio:true  },
 };
 
 // Rubros de la "familia retail" — comparten UI de mostrador (escáner
@@ -73,7 +74,7 @@ function rubroFlag(flag){
 function rubroTiene(cap){ return rubroFlag(cap); }
 
 // Lista de todas las capacidades conocidas (para persistencia y UI del super-admin).
-var RUBRO_CAPACIDADES = ['mesas','cocina','delivery','mitades','codigo_barras','balanza','stock_estricto','agenda','profesionales','es_servicio'];
+var RUBRO_CAPACIDADES = ['mesas','cocina','delivery','mitades','codigo_barras','balanza','stock_estricto','agenda','profesionales','es_servicio','habitaciones','folio'];
 
 // Atajos semánticos usados en el código de los módulos:
 function esRetail()        { return !!_RUBRO_FAMILIA_RETAIL[rubroGetTipo()]; }
@@ -87,6 +88,8 @@ function stockEstricto()   { return rubroFlag('stock_estricto');}
 function usaAgenda()       { return rubroFlag('agenda');        }
 function usaProfesionales(){ return rubroFlag('profesionales'); }
 function esRubroServicios(){ return rubroFlag('es_servicio');   }
+function usaHabitaciones() { return rubroFlag('habitaciones');  }
+function usaFolio()        { return rubroFlag('folio');         }
 
 // ── Setear tipo de negocio ────────────────────────────────
 // Al cambiar el tipo se limpian los overrides para que los defaults entren.
@@ -134,6 +137,10 @@ function rubroAplicarUI(){
   // Ítem de Mesas en el drawer
   var drawerMesas = document.getElementById('drawerItemMesas');
   if(drawerMesas) drawerMesas.style.display = mesas ? '' : 'none';
+
+  // Ítem de Habitaciones en el drawer (rubro hospedaje)
+  var drawerHab = document.getElementById('drawerItemHabitaciones');
+  if(drawerHab) drawerHab.style.display = usaHabitaciones() ? '' : 'none';
 
   // Barra de tipo de pedido (local/llevar/delivery) — desktop y mobile
   var tipoBarsTab = document.querySelectorAll('.tab-tipo-btns');
@@ -216,6 +223,10 @@ var _RUBRO_MAPA = {
   barberia:'barberia',   peluqueria:'barberia', salon:'barberia',
   estetica:'barberia',   spa:'barberia',        manicura:'barberia',
   barber:'barberia',
+  // Hospedaje (habitaciones + folio de estadía)
+  hotel:'hospedaje',     hospedaje:'hospedaje', hosteria:'hospedaje',
+  posada:'hospedaje',    motel:'hospedaje',     hostal:'hospedaje',
+  apart:'hospedaje',     cabanas:'hospedaje',
 };
 function _rubroLicenciaToTipo(rubro) {
   if(!rubro) return null;
