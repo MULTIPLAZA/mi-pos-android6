@@ -1825,7 +1825,6 @@ function editTim(i){
   document.getElementById('mVigIni').value=t.vig_ini||'';
   document.getElementById('mVigFin').value=t.vig_fin||'';
   document.getElementById('mSuc').value=t.sucursal||'001';
-  document.getElementById('mPEx').value='001';
   document.getElementById('mDesde').value=t.desde||'1';
   document.getElementById('mHasta').value=t.hasta||'5000';
   document.getElementById('mNomSuc').value=t.nombre_suc||'';
@@ -1843,7 +1842,6 @@ function abrirMTim(){
   document.getElementById('mTimTitle').textContent='Nuevo Punto de Expedición';
   ['mNro','mVigIni','mVigFin','mNomSuc'].forEach(function(id){document.getElementById(id).value='';});
   document.getElementById('mSuc').value='001';
-  document.getElementById('mPEx').value='001';
   document.getElementById('mDesde').value='1';
   document.getElementById('mHasta').value='5000';
   selTipo('autoimpresor');
@@ -1913,7 +1911,6 @@ function updPrev(){
   var ini=document.getElementById('mVigIni').value||'';
   var fin=document.getElementById('mVigFin').value||'';
   var suc=pad3(document.getElementById('mSuc').value||'001');
-  var pex=pad3(document.getElementById('mPEx').value||'001');
   var desde=String(document.getElementById('mDesde').value||'1').padStart(7,'0');
   var hasta=String(document.getElementById('mHasta').value||'5000').padStart(7,'0');
   var nom=document.getElementById('mNomSuc').value||'';
@@ -1932,7 +1929,6 @@ function updPrev(){
     '<div><span style="color:#666">Tipo: </span><span style="color:#ccc">'+(tipo==='electronico'?'Electrónico':'Autoimpresor')+'</span></div>'+
     '<div><span style="color:#666">Vigencia: </span><span style="color:#ccc">'+fmt(ini)+' al '+(tipo==='electronico'?'<span style="color:#555">Sin límite</span>':fmt(fin))+'</span></div>'+
     '<div><span style="color:#666">Sucursal: </span><span style="color:#ccc">'+suc+(nom?' ('+nom+')':'')+'</span></div>'+
-    '<div><span style="color:#666">Pto.Exp.: </span><span style="color:#ccc">'+pex+'</span></div>'+
     '<div><span style="color:#555;font-size:10px;">── EJEMPLO ──</span></div>'+
-    '<div style="color:#aaa">Factura N° '+suc+'-'+pex+'-<span style="color:#4caf50">0000001</span></div>'+certAlert;
+    '<div style="color:#aaa">Factura N° '+suc+'-<span style="color:#4caf50">[pto.exp.]</span>-<span style="color:#4caf50">0000001</span></div>'+certAlert;
 }

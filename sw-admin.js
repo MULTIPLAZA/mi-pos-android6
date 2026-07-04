@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-admin-v20260704-gestion-terminales';
+const CACHE = 'ampersand-admin-v20260705-fix-timbrado-logo';
 
 const ASSETS = [
   '/admin-negocio.html',

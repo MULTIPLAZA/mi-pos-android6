@@ -196,9 +196,10 @@
         <div style="font-size:10px;color:#444;margin-top:3px;text-align:center;">3 dígitos ej: 001</div>
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Punto Expedición *</label>
-        <input id="mPEx" type="text" maxlength="3" placeholder="001" value="001" oninput="this.value=this.value.replace(/\D/g,'');updPrev()" style="width:100%;background:var(--input-bg);border:1.5px solid var(--input-border);border-radius:8px;color:var(--text);font-family:'Barlow',sans-serif;font-size:16px;font-weight:700;letter-spacing:2px;padding:10px 12px;outline:none;text-align:center;">
-        <div style="font-size:10px;color:#444;margin-top:3px;text-align:center;">3 dígitos ej: 001</div>
+        <label style="font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Puntos de expedición</label>
+        <div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:11px;color:var(--muted);line-height:1.4;">
+          Se asignan por terminal en <b style="color:var(--text)">"ASIGNAR TERMINALES"</b>, no acá — un mismo timbrado puede tener varias terminales con puntos distintos.
+        </div>
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
@@ -577,7 +578,13 @@ async function renderConfig(){
         '<div class="cfg-r"><div><div class="cfg-rl">Actividad economica</div><div class="cfg-rs">Texto que aparece bajo el nombre (giro DNIT)</div></div><input class="cfg-inp" id="cfgActividad" value="'+v('actividad_economica')+'"></div>',
         '<div class="cfg-r"><div><div class="cfg-rl">Giro / subtitulo</div><div class="cfg-rs">Ej: VENTA DE PRODUCTOS PARA...</div></div><input class="cfg-inp" id="cfgGiro" value="'+v('factura_giro')+'"></div>',
         '<div class="cfg-r"><div><div class="cfg-rl">Habilitacion</div><div class="cfg-rs">Nro de habilitacion DNIT</div></div><input class="cfg-inp" id="cfgHabilitacion" value="'+v('habilitacion')+'"></div>',
-        '<div class="cfg-r"><div><div class="cfg-rl">Logo (URL)</div><div class="cfg-rs">Direccion de la imagen del logo</div></div><input class="cfg-inp" id="cfgLogo" value="'+v('logo_url')+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Logo</div><div class="cfg-rs">Subi un archivo desde tu computadora o pegá una URL</div></div>'+
+          '<div style="display:flex;align-items:center;gap:10px;">'+
+            '<img id="cfgLogoPreview" src="'+v('logo_url')+'" style="width:44px;height:44px;object-fit:contain;background:var(--card2);border:1px solid var(--border);border-radius:6px;display:'+(v('logo_url')?'block':'none')+';">'+
+            '<label class="btn-dn" style="cursor:pointer;white-space:nowrap;">SUBIR ARCHIVO<input type="file" accept="image/*" id="cfgLogoFile" onchange="onLogoFileChange(this)" style="display:none;"></label>'+
+          '</div>'+
+        '</div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Logo (URL)</div><div class="cfg-rs">O pegá la direccion de una imagen ya publicada</div></div><input class="cfg-inp" id="cfgLogo" value="'+v('logo_url')+'" oninput="onLogoUrlInput(this.value)"></div>',
       '</div>',
     '</div>',
   ].join('');
@@ -679,6 +686,45 @@ async function _saveRubroSupabase(tipo, fMesas, fCocina, fDelivery, fMitades){
       }),
     },'licencia_email,clave',true);
   } catch(e){ console.warn('[Rubro admin] Error guardando:', e.message); }
+}
+
+// Vista previa en vivo cuando se pega una URL de logo
+function onLogoUrlInput(val){
+  var prev=document.getElementById('cfgLogoPreview');
+  if(!prev) return;
+  if(val){ prev.src=val; prev.style.display='block'; } else { prev.style.display='none'; }
+}
+
+// Sube un logo desde el archivo del usuario: lo redimensiona con canvas
+// (máx 300x150, mantiene proporción, SIN estirar/distorsionar) para no
+// inflar localStorage/pos_config con imágenes pesadas, y guarda el
+// resultado como data-URI en el mismo campo #cfgLogo que ya se sincroniza.
+function onLogoFileChange(input){
+  var file=input.files&&input.files[0];
+  if(!file) return;
+  if(!file.type||!file.type.startsWith('image/')){ toast('Elegí un archivo de imagen'); return; }
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    var img=new Image();
+    img.onload=function(){
+      var MAX_W=300, MAX_H=150;
+      var ratio=Math.min(MAX_W/img.width, MAX_H/img.height, 1); // nunca agrandar, solo achicar si hace falta
+      var w=Math.round(img.width*ratio), h=Math.round(img.height*ratio);
+      var canvas=document.createElement('canvas');
+      canvas.width=w; canvas.height=h;
+      canvas.getContext('2d').drawImage(img,0,0,w,h);
+      var dataUrl=canvas.toDataURL('image/png');
+      var inp=document.getElementById('cfgLogo');
+      if(inp) inp.value=dataUrl;
+      var prev=document.getElementById('cfgLogoPreview');
+      if(prev){ prev.src=dataUrl; prev.style.display='block'; }
+      toast('Logo cargado — no olvides GUARDAR');
+    };
+    img.onerror=function(){ toast('No se pudo leer la imagen'); };
+    img.src=ev.target.result;
+  };
+  reader.onerror=function(){ toast('Error al leer el archivo'); };
+  reader.readAsDataURL(file);
 }
 
 // Muestra/oculta los campos A4 según el formato elegido

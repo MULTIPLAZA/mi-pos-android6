@@ -750,8 +750,10 @@ function generarHTMLFacturaA4(data){
 
   // ── Una copia (Original / Duplicado) ──
   function copia(label){
+    // object-fit:contain SIEMPRE mantiene la proporción del logo (nunca lo
+    // estira/distorsiona) — solo lo escala para que entre en la celda.
     var logoCell = emp.logo
-      ? '<img src="'+esc(emp.logo)+'" style="max-width:130px;max-height:58px;object-fit:contain;">'
+      ? '<img src="'+esc(emp.logo)+'" style="width:100%;max-width:142px;height:auto;max-height:64px;object-fit:contain;">'
       : '<div style="font-weight:bold;font-size:10px;">'+esc(emp.nombre)+'</div>';
     return ''
     + '<div class="fac">'
