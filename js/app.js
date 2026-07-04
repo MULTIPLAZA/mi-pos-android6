@@ -61,6 +61,33 @@ async function sincronizarConfigNegocio(){
     });
     cargarTimbradoSesion();
   } catch(e){ console.warn('[Config] Error sync:', e.message); }
+
+  // ── Detectar rename de ESTA terminal hecho desde el admin ──
+  // El admin escribe pos_config/terminal_config_<deviceId> al renombrar (ver
+  // renombrarTerminal en admin-dashboard.js). Acá esta misma terminal lo
+  // detecta y aplica su nueva identidad — sin esto, el rename quedaba solo
+  // en la base y la terminal seguía operando con su nombre local viejo.
+  try {
+    if(typeof licGetDeviceIdAsync === 'function'){
+      const deviceId = await licGetDeviceIdAsync();
+      if(deviceId){
+        const cfgRows = await supaGet('pos_config',
+          'licencia_email=eq.'+encodeURIComponent(email)+
+          '&clave=eq.terminal_config_'+encodeURIComponent(deviceId)+'&select=valor');
+        if(cfgRows && cfgRows[0]){
+          const remoto = JSON.parse(cfgRows[0].valor || '{}');
+          const nombreLocal = localStorage.getItem('pos_terminal');
+          if(remoto.terminal && remoto.terminal !== nombreLocal){
+            const anterior = nombreLocal;
+            if(typeof aplicarConfigTerminal === 'function') aplicarConfigTerminal(remoto);
+            _log('[Terminal] Renombrada desde admin:', anterior, '→', remoto.terminal);
+            if(typeof toast === 'function') toast('Esta terminal fue renombrada a "'+remoto.terminal+'"');
+            if(typeof renderGeneralInfo === 'function') renderGeneralInfo();
+          }
+        }
+      }
+    }
+  } catch(e){ console.warn('[Terminal] Error chequeando rename remoto:', e.message); }
 }
 
 function renderGeneralInfo(){

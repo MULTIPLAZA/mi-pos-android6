@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-admin-v20260704-fix-asignar-terminales';
+const CACHE = 'ampersand-admin-v20260704-gestion-terminales';
 
 const ASSETS = [
   '/admin-negocio.html',

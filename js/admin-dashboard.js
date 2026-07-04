@@ -1291,52 +1291,116 @@ function filtrVAdv(){
 
 // ── TERMINALES ────────────────────────────────────────────
 async function renderTerminales(){
-  document.getElementById('content').innerHTML='<div class="ph"><div><div class="pt">Terminales</div><div class="ps">Dispositivos registrados</div></div></div><div id="terBody"><div class="loading"><span class="sp"></span>Cargando...</div></div>';
+  document.getElementById('content').innerHTML='<div class="ph"><div><div class="pt">Terminales</div><div class="ps">Dispositivos registrados — nombre, habilitar/deshabilitar</div></div></div><div id="terBody"><div class="loading"><span class="sp"></span>Cargando...</div></div>';
+  await _cargarYRenderTerminales();
+}
+
+async function _cargarYRenderTerminales(){
   try{
     var now=new Date();
-    // Query activaciones (source of truth for registered terminals)
+    // Query activaciones SIN filtrar por activa: acá se gestionan también las
+    // deshabilitadas (para poder re-habilitarlas). Una fila = un dispositivo
+    // real — antes se agrupaba por NOMBRE, lo que mezclaba dos activaciones
+    // distintas si compartían nombre (pasa: ver "Caja2" x2 en producción) y
+    // no dejaba accionar sobre una terminal puntual sin ambigüedad.
     var acts=[];
-    try{acts=await sg('activaciones','email=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id,device_id,nombre_terminal,sucursal,ultima_consulta,fecha_activacion');}catch(e2){console.warn('activaciones err:',e2.message);}
-    // Also query pos_ventas to get activity stats per terminal
+    try{acts=await sg('activaciones','email=ilike.'+encodeURIComponent(SE)+'&select=id,device_id,nombre_terminal,sucursal,activa,ultima_consulta,fecha_activacion');}catch(e2){console.warn('activaciones err:',e2.message);}
+    // Estadísticas de venta por NOMBRE (así es como pos_ventas.terminal las guarda)
     var v=[];
     try{v=await sg('pos_ventas','licencia_email=ilike.'+encodeURIComponent(SE)+'&anulada=is.false&order=fecha.desc&limit=1000');}catch(e3){console.warn('ventas err:',e3.message);}
-    var m={};
+    var statsPorNombre={};
     v.forEach(function(x){
       var k=(x.terminal||'Principal');
-      if(!m[k])m[k]={t:x.terminal||'Principal',s:x.sucursal||'—',tot:0,ops:0,ul:null};
-      m[k].tot+=x.total||0;m[k].ops++;
-      if(!m[k].ul||x.fecha>m[k].ul)m[k].ul=x.fecha;
+      if(!statsPorNombre[k])statsPorNombre[k]={tot:0,ops:0,ul:null};
+      statsPorNombre[k].tot+=x.total||0;statsPorNombre[k].ops++;
+      if(!statsPorNombre[k].ul||x.fecha>statsPorNombre[k].ul)statsPorNombre[k].ul=x.fecha;
     });
-    // Merge activaciones into map (show all registered terminals, even those with no sales)
-    // En activaciones la columna de última actividad es `ultima_consulta`.
-    // Fallback a fecha_activacion si la terminal nunca consultó.
-    acts.forEach(function(a){
-      var k=a.nombre_terminal||a.device_id||'—';
-      var lastAct = a.ultima_consulta || a.fecha_activacion || null;
-      if(!m[k])m[k]={t:k,s:a.sucursal||'—',tot:0,ops:0,ul:lastAct};
-      else{
-        m[k].t=k;
-        if(a.sucursal)m[k].s=a.sucursal;
-        // si la activación tiene una "última consulta" más reciente que la última venta, usar esa
-        if(lastAct && (!m[k].ul || lastAct > m[k].ul)) m[k].ul=lastAct;
-      }
-      m[k].device_id=a.device_id;
-      m[k].activ_id=a.id;
+
+    var items=acts.map(function(a){
+      var st=a.nombre_terminal?(statsPorNombre[a.nombre_terminal]||{tot:0,ops:0,ul:null}):{tot:0,ops:0,ul:null};
+      var ul=st.ul||a.ultima_consulta||a.fecha_activacion||null;
+      return {
+        id:a.id, device_id:a.device_id, nombre:a.nombre_terminal||null,
+        sucursal:a.sucursal||'—', activa:a.activa!==false,
+        tot:st.tot, ops:st.ops, ul:ul,
+      };
     });
-    var items=Object.values(m);
+    // Habilitadas primero, luego por actividad más reciente
+    items.sort(function(x,y){
+      if(x.activa!==y.activa) return x.activa?-1:1;
+      return new Date(y.ul||0)-new Date(x.ul||0);
+    });
+
+    window._terItems=items; // cache para editar/toggle sin re-consultar
+
     if(!items.length){document.getElementById('terBody').innerHTML='<div class="empty"><div class="empty-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg></div><div class="empty-t">Sin terminales registradas</div></div>';return;}
+
     document.getElementById('terBody').innerHTML='<div class="tg">'+items.map(function(t){
       var ul=t.ul?new Date(t.ul):null;
       var on=ul&&(now-ul)<25*3600000;
-      return '<div class="tc '+(on?'on':'')+'">'
-        +'<div class="tc-h"><div><div class="tc-n">'+t.t+'</div><div class="tc-s">'+t.s+(t.device_id?'<br><span style="font-size:10px;color:var(--muted);font-family:monospace;">'+t.device_id+'</span>':'')+'</div></div>'
-        +'<span class="tag '+(on?'tag-g':'tag-gr')+'">'+(on?'Online':'Offline')+'</span></div>'
+      var nombreMostrado=t.nombre||'<span style="color:var(--muted);font-style:italic;">Sin nombre</span>';
+      return '<div class="tc '+(on&&t.activa?'on':'')+'" style="'+(t.activa?'':'opacity:.6;')+'">'
+        +'<div class="tc-h"><div style="flex:1;min-width:0;">'
+          +'<div class="tc-n" style="display:flex;align-items:center;gap:6px;">'+nombreMostrado
+            +'<button onclick="renombrarTerminal('+t.id+')" title="Renombrar" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
+          +'</div>'
+          +'<div class="tc-s">'+t.sucursal+(t.device_id?'<br><span style="font-size:10px;color:var(--muted);font-family:monospace;">'+t.device_id+'</span>':'')+'</div>'
+        +'</div>'
+        +'<span class="tag '+(on&&t.activa?'tag-g':'tag-gr')+'">'+(t.activa?(on?'Online':'Offline'):'Deshabilitada')+'</span></div>'
         +'<div class="tc-r"><span style="color:var(--muted)">Ventas</span><span style="color:var(--green);font-weight:700">'+gs(t.tot)+'</span></div>'
         +'<div class="tc-r"><span style="color:var(--muted)">Ops</span><span style="font-weight:700">'+t.ops+'</span></div>'
         +'<div class="tc-r"><span style="color:var(--muted)">Última act.</span><span>'+fmtDT(t.ul)+'</span></div>'
+        +'<div style="margin-top:10px;display:flex;gap:8px;">'
+          +(t.activa
+            ?'<button onclick="toggleTerminalActiva('+t.id+',false)" style="flex:1;background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;font-weight:700;padding:7px;cursor:pointer;">DESHABILITAR</button>'
+            :'<button onclick="toggleTerminalActiva('+t.id+',true)" style="flex:1;background:var(--g2);border:1px solid var(--green);border-radius:6px;color:var(--green);font-size:11px;font-weight:700;padding:7px;cursor:pointer;">HABILITAR</button>')
+        +'</div>'
         +'</div>';
     }).join('')+'</div>';
   }catch(e){document.getElementById('terBody').innerHTML='<div class="loading">Error: '+e.message+'</div>';console.error(e);}
+}
+
+// Cambia el nombre visible de una terminal (activaciones.nombre_terminal) y
+// además actualiza pos_config/terminal_config_<deviceId> para que: (a) esa
+// terminal lo recoja sola en su próximo sync (ver sincronizarConfigNegocio
+// en app.js) o (b) lo recupere automáticamente si alguna vez pierde su
+// localStorage. No cambia nada en el dispositivo de forma instantánea — se
+// aplica la próxima vez que esa terminal sincronice (al abrir la app o
+// tocar "Sincronizar").
+async function renombrarTerminal(activId){
+  var t=(window._terItems||[]).find(function(x){return x.id===activId;});
+  if(!t){toast('Terminal no encontrada');return;}
+  var nuevo=prompt('Nuevo nombre para esta terminal:', t.nombre||'');
+  if(nuevo===null) return; // canceló
+  nuevo=nuevo.trim();
+  if(!nuevo){toast('El nombre no puede quedar vacío');return;}
+  try{
+    await supaPatch('activaciones','id=eq.'+activId,{nombre_terminal:nuevo},true);
+    if(t.device_id){
+      try{
+        var rows=await sg('pos_config','licencia_email=ilike.'+encodeURIComponent(SE)+'&clave=eq.terminal_config_'+encodeURIComponent(t.device_id)+'&select=valor');
+        var cfg=(rows&&rows[0])?JSON.parse(rows[0].valor||'{}'):{};
+        cfg.terminal=nuevo;
+        await supaPost('pos_config',{licencia_email:SE,clave:'terminal_config_'+t.device_id,valor:JSON.stringify(cfg)},'licencia_email,clave',true);
+      }catch(e2){console.warn('[Terminal] No se pudo actualizar terminal_config:',e2.message);}
+    }
+    toast('Renombrada a "'+nuevo+'" — se aplica en esa terminal la próxima vez que sincronice');
+    await _cargarYRenderTerminales();
+  }catch(e){toast('Error al renombrar: '+e.message);}
+}
+
+// Habilita/deshabilita una terminal. Deshabilitarla bloquea esa terminal en
+// la próxima verificación de licencia (verificar_licencia ya chequea
+// activaciones.activa server-side — este toggle usa el mismo campo).
+async function toggleTerminalActiva(activId, nuevoValor){
+  if(!nuevoValor){
+    if(!confirm('¿Deshabilitar esta terminal?\n\nDejará de poder facturar/cobrar en la próxima verificación de licencia, hasta que la vuelvas a habilitar.')) return;
+  }
+  try{
+    await supaPatch('activaciones','id=eq.'+activId,{activa:nuevoValor},true);
+    toast(nuevoValor?'Terminal habilitada':'Terminal deshabilitada');
+    await _cargarYRenderTerminales();
+  }catch(e){toast('Error: '+e.message);}
 }
 
 // ── CIERRES DE CAJA ───────────────────────────────────────
