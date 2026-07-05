@@ -1750,15 +1750,24 @@
       <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Nacionalidad</label>
       <input id="hospCkNacionalidad" type="text" value="Paraguaya" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
       <div>
         <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Check-in</label>
-        <input id="hospCkCheckin" type="date" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">
+        <input id="hospCkCheckin" type="date" onchange="hospRecalcNoches()" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">
       </div>
       <div>
         <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Salida prevista</label>
-        <input id="hospCkCheckout" type="date" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">
+        <input id="hospCkCheckout" type="date" onchange="hospRecalcNoches()" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">
       </div>
+    </div>
+    <!-- Empujoncito: un toque calcula la salida en vez de navegar el date
+         picker — así se carga más seguido en vez de quedar en blanco. -->
+    <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap;">
+      <button type="button" onclick="hospSetNoches(1)" style="background:#222;border:1px solid #3a3a3a;color:#ccc;font-size:11px;font-weight:700;padding:5px 10px;border-radius:12px;cursor:pointer;">1 noche</button>
+      <button type="button" onclick="hospSetNoches(2)" style="background:#222;border:1px solid #3a3a3a;color:#ccc;font-size:11px;font-weight:700;padding:5px 10px;border-radius:12px;cursor:pointer;">2 noches</button>
+      <button type="button" onclick="hospSetNoches(3)" style="background:#222;border:1px solid #3a3a3a;color:#ccc;font-size:11px;font-weight:700;padding:5px 10px;border-radius:12px;cursor:pointer;">3 noches</button>
+      <button type="button" onclick="hospSetNoches(7)" style="background:#222;border:1px solid #3a3a3a;color:#ccc;font-size:11px;font-weight:700;padding:5px 10px;border-radius:12px;cursor:pointer;">1 semana</button>
+      <span id="hospNochesLbl" style="font-size:11.5px;color:#4caf50;font-weight:700;margin-left:auto;"></span>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;">
       <div>

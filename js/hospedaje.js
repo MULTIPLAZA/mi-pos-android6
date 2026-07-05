@@ -185,8 +185,38 @@ function abrirCheckIn(habId){
   document.getElementById('hospCkCheckout').value = '';
   document.getElementById('hospCkTarifa').value = h.precio_noche || 0;
   document.getElementById('hospCkTitulo').textContent = 'Check-in — Habitación ' + h.numero;
+  document.getElementById('hospNochesLbl').textContent = '';
   document.getElementById('hospCheckinOv').style.display = 'flex';
   setTimeout(function(){ document.getElementById('hospCkNombre').focus(); }, 200);
+}
+
+/**
+ * Empujoncito para que "Salida prevista" se cargue seguido en vez de
+ * quedar en blanco (necesario para una futura vista tipo calendario de
+ * ocupación) — un toque calcula la fecha en vez de tener que navegar el
+ * date picker. No es obligatorio, solo más fácil de llenar.
+ */
+function hospSetNoches(n){
+  const ckEl = document.getElementById('hospCkCheckin');
+  const base = ckEl.value ? new Date(ckEl.value+'T00:00:00') : new Date();
+  if(!ckEl.value) ckEl.value = _hospFechaISO(base);
+  const salida = new Date(base.getTime() + n*86400000);
+  document.getElementById('hospCkCheckout').value = _hospFechaISO(salida);
+  hospRecalcNoches();
+}
+
+function _hospFechaISO(d){
+  const pad = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+}
+
+function hospRecalcNoches(){
+  const lbl = document.getElementById('hospNochesLbl');
+  const ci = document.getElementById('hospCkCheckin').value;
+  const co = document.getElementById('hospCkCheckout').value;
+  if(!ci || !co){ lbl.textContent = ''; return; }
+  const noches = Math.round((new Date(co+'T00:00:00') - new Date(ci+'T00:00:00')) / 86400000);
+  lbl.textContent = noches > 0 ? noches + ' noche' + (noches!==1?'s':'') : (noches === 0 ? 'Misma fecha' : 'Fecha inválida');
 }
 
 function cerrarCheckIn(){
