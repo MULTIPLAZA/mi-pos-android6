@@ -365,6 +365,10 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
           style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:13px;padding:11px 14px;outline:none;">
           <option value="gastronomia">Gastronomia (default)</option>
           <option value="retail">Comercio / Retail</option>
+          <option value="despensa">Despensa</option>
+          <option value="autoservicio">Autoservicio / Supermercado</option>
+          <option value="barberia">Barbería / Peluquería</option>
+          <option value="hospedaje">Hospedaje (hotel/hostería)</option>
         </select>
       </div>
       <div>
@@ -653,6 +657,17 @@ const login = doLogin;
 
 // ── LICENCIAS ────────────────────────────────────────────
 const PLANES={1:'Básico',2:'Pro',3:'Completo'};
+// Etiqueta + color de la insignia "Tipo POS" — antes mostraba literal "Retail"
+// para CUALQUIER tipo que no fuera gastronomía (bug: una licencia de hospedaje
+// aparecía marcada "Retail" en la grilla). Un color por tipo para distinguir
+// de un vistazo entre los rubros ya soportados.
+const TIPO_POS_LABELS={
+  retail:      { t:'Retail',      c:'#ff9800' },
+  despensa:    { t:'Despensa',    c:'#8bc34a' },
+  autoservicio:{ t:'Autoservicio',c:'#4caf50' },
+  barberia:    { t:'Barbería',    c:'#ab47bc' },
+  hospedaje:   { t:'Hospedaje',   c:'#29b6f6' },
+};
 const RUBROS={'':'General','gastronomia':'Gastronomía','kiosco':'Kiosco/Almacén',
   'ropa':'Ropa','farmacia':'Farmacia','ferreteria':'Ferretería',
   'supermercado':'Supermercado','delivery':'Delivery','servicios':'Servicios','otro':'Otro'};
@@ -699,7 +714,8 @@ function renderL(lista){
     const pCls=l.plan_id===1?'tag-g':l.plan_id===2?'tag-b':'tag-o';
     const rb=l.rubro?`<span class="tag tag-gr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${RUBROS[l.rubro]||l.rubro}</span>`:'';
     const _tn=l._tipo_negocio||l.tipo_negocio;
-    const tn=_tn&&_tn!=='gastronomia'?`<span class="tag" style="background:rgba(255,152,0,.12);color:#ff9800;border:1px solid rgba(255,152,0,.3);">Retail</span>`:'';
+    const _tnInfo=_tn&&_tn!=='gastronomia'?(TIPO_POS_LABELS[_tn]||{t:_tn,c:'#ff9800'}):null;
+    const tn=_tnInfo?`<span class="tag" style="background:${_tnInfo.c}1f;color:${_tnInfo.c};border:1px solid ${_tnInfo.c}4d;">${_tnInfo.t}</span>`:'';
     const tp=l.tipo_pago?`<span class="tag tag-gr">${TIPOS[l.tipo_pago]||l.tipo_pago}</span>`:'';
 
     let vt='';
@@ -840,11 +856,14 @@ async function guardarL(){
   if(!clave){toast('Generá una clave');return;}
   if(!vence){toast('Seleccioná la fecha de vencimiento');return;}
 
-  // NOTA: tipo_negocio NO va al payload de licencias (columna inexistente en Supabase).
-  // Se persiste en pos_config clave='rubro_config' para que rubro.js lo levante igual
-  // que cuando el dueno lo setea desde admin-negocio. Ver: js/rubro.js rubroCargarDesdeSupabase().
+  // tipo_negocio se guarda en DOS lugares:
+  //  1. licencias.tipo_negocio — visible en la grilla, respaldo si falla el paso 2.
+  //  2. pos_config clave='rubro_config' — ESTE es el que rubro.js realmente lee
+  //     hoy en el POS (ver js/rubro.js rubroCargarDesdeSupabase). No se puede
+  //     sacar el paso 2 todavía aunque exista la columna: el POS no la consulta.
   const data={clave,plan_id:planId,nombre_cliente:nombre||null,email_cliente:email||null,
     fecha_vence:vence,notas:notas||null,rubro:rubro||null,tipo_pago:tipo,
+    tipo_negocio:tipoPOS,
     monto:monto||null,
     monto_soporte:parseInt(document.getElementById('mSoporte').value)||null,
     precio_terminal:parseInt(document.getElementById('mPrecioTer').value)||null};
