@@ -10,9 +10,10 @@
 // el flujo normal de cobro.js — misma factura, misma FE, mismo todo).
 
 var hospHabitaciones = [];   // [{id, numero, tipo, piso, capacidad, precio_noche, estado, ...}]
-var hospEstadias     = [];   // estadías con estado='en_estadia' (las activas, una por habitación ocupada)
+var hospEstadias     = [];   // estadías con estado='en_estadia' o 'reservado' (filtrado local por estado)
 var _hospHabSel      = null; // habitación tocada (para abrir check-in o folio)
 var _hospEstadiaSel  = null; // estadía abierta en el modal de folio
+var _hospReservaSel  = null; // reserva abierta en el modal de reserva
 
 // ── Carga (con cache offline en IndexedDB, mismo patrón que mesas_cache) ──
 async function hospCargar(){
@@ -35,8 +36,10 @@ async function hospCargar(){
   try{
     hospHabitaciones = await supaGet('pos_habitaciones',
       'licencia_email=ilike.'+encodeURIComponent(email)+'&activo=eq.true&order=orden.asc,numero.asc');
+    // en_estadia (ocupación real) + reservado (reservas futuras) — se
+    // separan localmente, no hace falta otra consulta.
     hospEstadias = await supaGet('pos_estadias',
-      'licencia_email=ilike.'+encodeURIComponent(email)+'&estado=eq.en_estadia&select=*');
+      'licencia_email=ilike.'+encodeURIComponent(email)+'&estado=in.(en_estadia,reservado)&select=*');
     if(db){
       try{
         await db.mesas_cache.put({ clave:'hosp_habitaciones', valor: JSON.stringify(hospHabitaciones) });
@@ -46,9 +49,23 @@ async function hospCargar(){
   }catch(e){ console.warn('[Hospedaje] Error cargando:', e.message); toast('Error al cargar habitaciones'); }
 }
 
-/** Estadía activa de una habitación, o null si está libre de huésped */
+/** Estadía EN CURSO (huésped ya adentro) de una habitación, o null */
 function hospEstadiaDeHabitacion(habId){
-  return hospEstadias.find(function(e){ return e.habitacion_id === habId; }) || null;
+  return hospEstadias.find(function(e){ return e.habitacion_id === habId && e.estado === 'en_estadia'; }) || null;
+}
+
+/** Próxima reserva (estado='reservado', aún no llegó) de una habitación, o null */
+function hospReservaProximaDeHabitacion(habId){
+  var reservas = hospEstadias.filter(function(e){ return e.habitacion_id === habId && e.estado === 'reservado'; });
+  if(!reservas.length) return null;
+  reservas.sort(function(a,b){ return a.checkin < b.checkin ? -1 : (a.checkin > b.checkin ? 1 : 0); });
+  return reservas[0];
+}
+
+function _hospEsHoy(fechaIso){
+  if(!fechaIso) return false;
+  var hoy = new Date(); var pad = function(n){ return String(n).padStart(2,'0'); };
+  return fechaIso === hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
 }
 
 // ── Pantalla principal: tablero de habitaciones ──────────
@@ -66,6 +83,7 @@ async function abrirPantallaHabitaciones(){
 
 function _hospColorEstado(estadoVisual){
   if(estadoVisual === 'ocupada')       return '#e53935';
+  if(estadoVisual === 'reservada')     return '#3b82f6';
   if(estadoVisual === 'limpieza')      return '#ff9800';
   if(estadoVisual === 'mantenimiento') return '#757575';
   return '#4caf50'; // libre
@@ -80,12 +98,18 @@ function renderHabitacionesScreen(){
   }
   cont.innerHTML = hospHabitaciones.map(function(h){
     const est = hospEstadiaDeHabitacion(h.id);
-    const estadoVisual = est ? 'ocupada' : (h.estado || 'libre');
+    const reserva = !est ? hospReservaProximaDeHabitacion(h.id) : null;
+    const estadoVisual = est ? 'ocupada' : (reserva ? 'reservada' : (h.estado || 'libre'));
     const color = _hospColorEstado(estadoVisual);
     const noches = est ? Math.max(1, Math.ceil((new Date() - new Date(est.checkin+'T00:00:00')) / 86400000)) : 0;
-    const sub = est
-      ? escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.85;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</span>'
-      : (estadoVisual === 'libre' ? 'Libre' : (estadoVisual === 'limpieza' ? 'En limpieza' : 'Mantenimiento'));
+    let sub;
+    if(est){
+      sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.85;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</span>';
+    } else if(reserva){
+      sub = escapeHtml(reserva.huesped_nombre) + '<br><span style="font-size:11px;opacity:.85;">' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin)) + '</span>';
+    } else {
+      sub = (estadoVisual === 'libre' ? 'Libre' : (estadoVisual === 'limpieza' ? 'En limpieza' : 'Mantenimiento'));
+    }
     return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
       + 'style="background:' + color + ';color:#fff;border-radius:10px;padding:14px;cursor:pointer;min-height:88px;display:flex;flex-direction:column;justify-content:space-between;">'
       + '<div style="font-size:17px;font-weight:800;">' + escapeHtml(h.numero) + '</div>'
@@ -109,6 +133,11 @@ function onHabitacionTap(habId){
     abrirFolio(est.id);
     return;
   }
+  const reserva = hospReservaProximaDeHabitacion(habId);
+  if(reserva){
+    abrirReserva(reserva.id);
+    return;
+  }
   if(h.estado === 'limpieza' || h.estado === 'mantenimiento'){
     if(confirm('Habitación ' + h.numero + ' está en "' + h.estado + '". ¿Marcarla como libre?')){
       hospCambiarEstadoHabitacion(habId, 'libre');
@@ -121,7 +150,7 @@ function onHabitacionTap(habId){
 /** Long-press / click derecho: acciones rápidas sobre una habitación libre */
 function hospMenuHabitacion(habId){
   const h = hospHabitaciones.find(function(x){ return x.id === habId; });
-  if(!h || hospEstadiaDeHabitacion(habId)) return; // no aplica si está ocupada
+  if(!h || hospEstadiaDeHabitacion(habId) || hospReservaProximaDeHabitacion(habId)) return; // no aplica si está ocupada o reservada
   const opciones = ['Libre', 'Limpieza', 'Mantenimiento', 'Editar habitación'];
   const idx = prompt('Habitación ' + h.numero + ' — elegí (1-4):\n1. Marcar Libre\n2. Marcar en Limpieza\n3. Marcar en Mantenimiento\n4. Editar habitación', '1');
   if(idx === '1') hospCambiarEstadoHabitacion(habId, 'libre');
@@ -165,13 +194,19 @@ function cerrarCheckIn(){
   _hospHabSel = null;
 }
 
-async function confirmarCheckIn(){
+/**
+ * @param {string} modo 'en_estadia' (check-in ahora, huésped ya está acá —
+ *   se carga la primera noche) o 'reservado' (reserva a futuro, no se
+ *   carga nada todavía — recién al convertirla en check-in real).
+ */
+async function confirmarCheckIn(modo){
   if(!_hospHabSel) return;
   const nombre = document.getElementById('hospCkNombre').value.trim();
   if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
   const checkin = document.getElementById('hospCkCheckin').value;
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
   const tarifa = parseInt(document.getElementById('hospCkTarifa').value) || 0;
+  const esReserva = modo === 'reservado';
 
   const email = localStorage.getItem('lic_email');
   const licId = parseInt(localStorage.getItem('ali')) || null;
@@ -188,16 +223,19 @@ async function confirmarCheckIn(){
     checkin: checkin,
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
     tarifa_noche: tarifa,
-    // La primera noche se carga de una — es lo mínimo que corresponde cobrar.
-    cargos: [{
+    // Reserva: todavía no llegó, no se cobra nada hasta el check-in real.
+    // Check-in ahora: la primera noche se carga de una, es lo mínimo que corresponde cobrar.
+    cargos: esReserva ? [] : [{
       fecha: checkin, descripcion: 'Noche — Hab. ' + _hospHabSel.numero,
       cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
     }],
-    total: tarifa,
-    estado: 'en_estadia',
+    total: esReserva ? 0 : tarifa,
+    estado: modo,
   };
 
-  const btn = document.getElementById('hospCkBtnGuardar');
+  const btnId = esReserva ? 'hospCkBtnReservar' : 'hospCkBtnGuardar';
+  const btn = document.getElementById(btnId);
+  const txtOriginal = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
   try{
     const result = await supaPost('pos_estadias', payload, null, false);
@@ -206,11 +244,88 @@ async function confirmarCheckIn(){
     hospEstadias.push(saved);
     cerrarCheckIn();
     renderHabitacionesScreen();
-    toast('Check-in OK — Habitación ' + _hospHabSel.numero + ' · ' + nombre);
+    toast(esReserva
+      ? 'Reserva OK — Habitación ' + _hospHabSel.numero + ' · ' + nombre
+      : 'Check-in OK — Habitación ' + _hospHabSel.numero + ' · ' + nombre);
   }catch(e){
-    toast('Error en el check-in: ' + e.message);
+    toast('Error al guardar: ' + e.message);
   }
-  if(btn){ btn.disabled = false; btn.textContent = 'CONFIRMAR CHECK-IN'; }
+  if(btn){ btn.disabled = false; btn.textContent = txtOriginal; }
+}
+
+// ── RESERVAS (reservado — habitación separada para el futuro) ────────────
+function abrirReserva(estadiaId){
+  const res = hospEstadias.find(function(e){ return e.id === estadiaId; });
+  if(!res) return;
+  _hospReservaSel = res;
+  const h = hospHabitaciones.find(function(x){ return x.id === res.habitacion_id; });
+  document.getElementById('hospResTitulo').textContent = 'Habitación ' + (h ? h.numero : '?') + ' — ' + res.huesped_nombre;
+  document.getElementById('hospResSub').textContent =
+    'Llega: ' + fmtFechaCorta(res.checkin) + (res.checkout_previsto ? ' · Salida prevista: ' + fmtFechaCorta(res.checkout_previsto) : '')
+    + ' · Tarifa: ' + gs(res.tarifa_noche || 0) + '/noche'
+    + (res.huesped_tel ? ' · Tel: ' + res.huesped_tel : '');
+  document.getElementById('hospReservaOv').style.display = 'flex';
+}
+
+function cerrarReserva(){
+  document.getElementById('hospReservaOv').style.display = 'none';
+  _hospReservaSel = null;
+}
+
+async function hospCancelarReserva(){
+  const res = _hospReservaSel;
+  if(!res) return;
+  if(!confirm('¿Cancelar la reserva de ' + res.huesped_nombre + '?')) return;
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'cancelado' }, true);
+    hospEstadias = hospEstadias.filter(function(e){ return e.id !== res.id; });
+    cerrarReserva();
+    renderHabitacionesScreen();
+    toast('Reserva cancelada');
+  }catch(e){ toast('Error al cancelar: ' + e.message); }
+}
+
+/** Convierte una reserva en check-in real (el huésped llegó) — carga la primera noche recién ahora. */
+async function hospConvertirReservaEnCheckin(){
+  const res = _hospReservaSel;
+  if(!res) return;
+  const tarifa = res.tarifa_noche || 0;
+  const cargos = [{
+    fecha: new Date().toISOString().substring(0,10),
+    descripcion: 'Noche — Hab. ' + (hospHabitaciones.find(function(h){ return h.id === res.habitacion_id; })||{}).numero,
+    cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+  }];
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'en_estadia', cargos: cargos, total: tarifa }, true);
+    res.estado = 'en_estadia'; res.cargos = cargos; res.total = tarifa;
+    cerrarReserva();
+    renderHabitacionesScreen();
+    toast('Check-in confirmado — ' + res.huesped_nombre);
+  }catch(e){ toast('Error al confirmar check-in: ' + e.message); }
+}
+
+/** Lista simple de todas las reservas futuras, ordenadas por fecha de llegada */
+function abrirReservasList(){
+  const cont = document.getElementById('hospReservasListCont');
+  const reservas = hospEstadias.filter(function(e){ return e.estado === 'reservado'; })
+    .sort(function(a,b){ return a.checkin < b.checkin ? -1 : (a.checkin > b.checkin ? 1 : 0); });
+  if(!reservas.length){
+    cont.innerHTML = '<div style="text-align:center;color:#888;padding:20px;">Sin reservas próximas</div>';
+  } else {
+    cont.innerHTML = reservas.map(function(r){
+      const h = hospHabitaciones.find(function(x){ return x.id === r.habitacion_id; });
+      return '<div onclick="cerrarReservasList();abrirReserva(\'' + r.id + '\')" style="display:flex;justify-content:space-between;align-items:center;padding:12px 4px;border-bottom:1px solid #2a2a2a;cursor:pointer;">'
+        + '<div><div style="font-weight:700;color:#fff;">Hab. ' + escapeHtml(h ? h.numero : '?') + ' — ' + escapeHtml(r.huesped_nombre) + '</div>'
+        + '<div style="font-size:11.5px;color:#888;margin-top:2px;">' + (_hospEsHoy(r.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(r.checkin)) + '</div></div>'
+        + '<span style="color:#3b82f6;font-size:18px;">›</span>'
+        + '</div>';
+    }).join('');
+  }
+  document.getElementById('hospReservasListOv').style.display = 'flex';
+}
+
+function cerrarReservasList(){
+  document.getElementById('hospReservasListOv').style.display = 'none';
 }
 
 // ── FOLIO (cuenta acumulada del huésped) ──────────────────

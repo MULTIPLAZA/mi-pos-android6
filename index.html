@@ -1717,6 +1717,9 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <span class="mesas-title">Habitaciones</span>
+    <button class="hbtn" onclick="abrirReservasList()" title="Próximas reservas">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </button>
     <button class="hbtn" onclick="abrirFormHabitacion()" title="Nueva habitación">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
@@ -1767,10 +1770,35 @@
         <input id="hospCkTarifa" type="number" min="0" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
       </div>
     </div>
-    <div style="display:flex;gap:10px;">
-      <button onclick="cerrarCheckIn()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CANCELAR</button>
-      <button id="hospCkBtnGuardar" onclick="confirmarCheckIn()" style="flex:2;background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;">CONFIRMAR CHECK-IN</button>
+    <div style="display:flex;gap:8px;">
+      <button onclick="cerrarCheckIn()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:12.5px;font-weight:700;padding:13px 8px;cursor:pointer;">CANCELAR</button>
+      <button id="hospCkBtnReservar" onclick="confirmarCheckIn('reservado')" style="flex:1;background:#2a2a2a;border:1.5px solid #3b82f6;color:#3b82f6;border-radius:8px;font-size:12px;font-weight:800;padding:13px 6px;cursor:pointer;">RESERVAR</button>
+      <button id="hospCkBtnGuardar" onclick="confirmarCheckIn('en_estadia')" style="flex:1.4;background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:12.5px;font-weight:800;padding:13px 6px;cursor:pointer;">CHECK-IN AHORA</button>
     </div>
+  </div>
+</div>
+
+<!-- Modal Reserva (detalle + acciones sobre una habitación reservada) -->
+<div id="hospReservaOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarReserva()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:4px;color:#fff;" id="hospResTitulo">Reserva</div>
+    <div style="font-size:12.5px;color:#888;margin-bottom:18px;" id="hospResSub"></div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="cerrarReserva()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:12.5px;font-weight:700;padding:13px 8px;cursor:pointer;">CERRAR</button>
+      <button onclick="hospCancelarReserva()" style="flex:1;background:#2a2a2a;border:1.5px solid #e53935;color:#e53935;border-radius:8px;font-size:12px;font-weight:800;padding:13px 6px;cursor:pointer;">CANCELAR RESERVA</button>
+      <button onclick="hospConvertirReservaEnCheckin()" style="flex:1.4;background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:12.5px;font-weight:800;padding:13px 6px;cursor:pointer;">CHECK-IN AHORA</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal lista de próximas reservas -->
+<div id="hospReservasListOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarReservasList()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;">Próximas reservas</div>
+    <div id="hospReservasListCont" style="max-height:60vh;overflow-y:auto;"></div>
+    <button onclick="cerrarReservasList()" style="width:100%;margin-top:16px;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CERRAR</button>
   </div>
 </div>
 
