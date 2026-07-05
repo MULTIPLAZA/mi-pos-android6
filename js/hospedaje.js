@@ -101,7 +101,11 @@ function renderHabitacionesScreen(){
     const reserva = !est ? hospReservaProximaDeHabitacion(h.id) : null;
     const estadoVisual = est ? 'ocupada' : (reserva ? 'reservada' : (h.estado || 'libre'));
     const color = _hospColorEstado(estadoVisual);
-    const noches = est ? Math.max(1, Math.ceil((new Date() - new Date(est.checkin+'T00:00:00')) / 86400000)) : 0;
+    // Contar las noches REALMENTE cargadas (cargos), no una resta de fechas —
+    // eso se desincroniza apenas el check-in queda con fecha futura/pasada
+    // distinta a "hoy", o se agregan noches extra a mano (bug real: la
+    // tarjeta decía "1 noche" con 3 cargos de noche ya en el folio).
+    const noches = est ? (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length : 0;
     let sub;
     if(est){
       sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.85;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</span>';
@@ -357,6 +361,83 @@ function abrirReservasList(){
 
 function cerrarReservasList(){
   document.getElementById('hospReservasListOv').style.display = 'none';
+}
+
+// ── CALENDARIO DE OCUPACIÓN (vista semanal tipo "tape chart") ────────────
+// Filas = habitaciones, columnas = días de la semana visible. Una
+// estadía/reserva "cubre" un día si checkin <= día < checkout_previsto
+// (si no hay checkout_previsto, se considera abierta indefinidamente —
+// por eso el empujoncito de chips de duración en el check-in: cuantas
+// más estadías tengan fecha de salida, más útil es esta vista).
+var _hospCalWeekStart = null;
+
+function _hospLunesDeSemana(d){
+  var dia = d.getDay(); // 0=domingo..6=sábado
+  var offset = dia === 0 ? -6 : 1 - dia;
+  var lunes = new Date(d.getFullYear(), d.getMonth(), d.getDate() + offset);
+  return lunes;
+}
+
+function abrirCalendarioOcupacion(){
+  _hospCalWeekStart = _hospLunesDeSemana(new Date());
+  goTo('scHospCalendario');
+  renderCalendarioOcupacion();
+}
+
+function hospCalMoverSemana(delta){
+  _hospCalWeekStart = new Date(_hospCalWeekStart.getFullYear(), _hospCalWeekStart.getMonth(), _hospCalWeekStart.getDate() + delta*7);
+  renderCalendarioOcupacion();
+}
+
+function hospCalHoy(){
+  _hospCalWeekStart = _hospLunesDeSemana(new Date());
+  renderCalendarioOcupacion();
+}
+
+function _hospEstadiaCubreDia(e, diaStr){
+  if(e.checkin > diaStr) return false;
+  if(e.checkout_previsto && diaStr >= e.checkout_previsto) return false;
+  return true;
+}
+
+function renderCalendarioOcupacion(){
+  const dias = [];
+  for(let i=0;i<7;i++){ dias.push(new Date(_hospCalWeekStart.getFullYear(), _hospCalWeekStart.getMonth(), _hospCalWeekStart.getDate()+i)); }
+  const diasStr = dias.map(_hospFechaISO);
+  const nombresDia = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const hoyStr = _hospFechaISO(new Date());
+
+  document.getElementById('hospCalRango').textContent = fmtFechaCorta(diasStr[0]) + ' — ' + fmtFechaCorta(diasStr[6]);
+
+  const theadHtml = '<tr>'
+    + '<th style="padding:8px 10px;background:#1a1a1a;position:sticky;left:0;z-index:1;min-width:80px;text-align:left;font-size:10.5px;color:#888;text-transform:uppercase;">Habitación</th>'
+    + dias.map(function(d, i){
+        const esHoy = diasStr[i] === hoyStr;
+        return '<th style="padding:8px 4px;min-width:64px;text-align:center;font-size:10.5px;color:' + (esHoy?'#4caf50':'#888') + ';font-weight:800;">' + nombresDia[d.getDay()] + '<br>' + d.getDate() + '</th>';
+      }).join('')
+    + '</tr>';
+
+  const rowsHtml = hospHabitaciones.map(function(h){
+    const celdas = diasStr.map(function(dStr){
+      const est = hospEstadias.find(function(e){
+        return e.habitacion_id === h.id && (e.estado === 'en_estadia' || e.estado === 'reservado') && _hospEstadiaCubreDia(e, dStr);
+      });
+      const esHoy = dStr === hoyStr;
+      const color = est ? (est.estado === 'en_estadia' ? '#e53935' : '#3b82f6') : '#1e1e1e';
+      const texto = est ? escapeHtml((est.huesped_nombre||'').split(' ')[0]) : '';
+      const onclick = est
+        ? 'onclick="' + (est.estado === 'en_estadia' ? 'abrirFolio(\'' + est.id + '\')' : 'abrirReserva(\'' + est.id + '\')') + '"'
+        : '';
+      return '<td ' + onclick + ' style="background:' + color + ';color:#fff;text-align:center;font-size:10px;font-weight:700;padding:9px 2px;'
+        + 'cursor:' + (est ? 'pointer' : 'default') + ';border:1px solid #2a2a2a;' + (esHoy ? 'outline:2px solid #4caf50;outline-offset:-2px;' : '') + 'min-width:64px;">'
+        + texto + '</td>';
+    }).join('');
+    return '<tr><td style="padding:9px 10px;font-weight:800;color:#fff;background:#1a1a1a;position:sticky;left:0;white-space:nowrap;border:1px solid #2a2a2a;">' + escapeHtml(h.numero) + '</td>' + celdas + '</tr>';
+  }).join('');
+
+  document.getElementById('hospCalTabla').innerHTML = hospHabitaciones.length
+    ? '<table style="border-collapse:collapse;"><thead>' + theadHtml + '</thead><tbody>' + rowsHtml + '</tbody></table>'
+    : '<div style="text-align:center;color:#888;padding:30px;">Sin habitaciones configuradas</div>';
 }
 
 // ── FOLIO (cuenta acumulada del huésped) ──────────────────
