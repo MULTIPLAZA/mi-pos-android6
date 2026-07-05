@@ -109,29 +109,23 @@ function renderHabitacionesScreen(){
     const reserva = !est ? hospReservaProximaDeHabitacion(h.id) : null;
     const estadoVisual = est ? 'ocupada' : (reserva ? 'reservada' : (h.estado || 'libre'));
     const color = _hospColorEstado(estadoVisual);
-    const badge = '<span class="hosp-card-badge" style="background:' + color + '1f;color:' + color + ';">' + _hospLabelEstado(estadoVisual) + '</span>';
     // Contar las noches REALMENTE cargadas (cargos), no una resta de fechas —
     // eso se desincroniza apenas el check-in queda con fecha futura/pasada
     // distinta a "hoy", o se agregan noches extra a mano (bug real: la
     // tarjeta decía "1 noche" con 3 cargos de noche ya en el folio).
     const noches = est ? (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length : 0;
-    let cuerpo;
+    let sub;
     if(est){
-      cuerpo = '<div class="hosp-card-guest">' + escapeHtml(est.huesped_nombre) + '</div>'
-        + '<div class="hosp-card-sub">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</div>';
+      sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</span>';
     } else if(reserva){
-      cuerpo = '<div class="hosp-card-guest">' + escapeHtml(reserva.huesped_nombre) + '</div>'
-        + '<div class="hosp-card-sub">' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin)) + '</div>';
+      sub = escapeHtml(reserva.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin)) + '</span>';
     } else {
-      cuerpo = '<div class="hosp-card-sub" style="margin-top:0;">' + _hospLabelEstado(estadoVisual) + '</div>';
+      sub = _hospLabelEstado(estadoVisual);
     }
     return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
-      + 'style="border-left:4px solid ' + color + ';">'
-      + '<div class="hosp-card-top">'
-      + '<div class="hosp-card-num"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="2.4"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>' + escapeHtml(h.numero) + '</div>'
-      + badge
-      + '</div>'
-      + cuerpo
+      + 'style="background:' + color + ';">'
+      + '<div class="hosp-card-num">' + escapeHtml(h.numero) + '</div>'
+      + '<div class="hosp-card-sub">' + sub + '</div>'
       + '</div>';
   }).join('');
 }
