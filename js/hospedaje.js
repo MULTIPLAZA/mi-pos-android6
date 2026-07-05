@@ -252,29 +252,110 @@ function renderFolioCargos(){
   document.getElementById('hospFolioTotal').textContent = gs(est.total || 0);
 }
 
-/** Agrega un producto/servicio del catálogo como cargo a la estadía */
-function hospAbrirAgregarCargo(){
+// ── "+ CONSUMO": reusa la pantalla NORMAL de venta (categorías, buscador,
+// favoritos, todo) en vez de duplicar un selector de productos aparte —
+// el mozo/recepcionista ya sabe usarla. Se activa un "modo carga a
+// habitación": el carrito arranca vacío, el botón COBRAR se convierte en
+// "CARGAR A HAB. X" (interceptado en goCobrar(), ver pedidos.js), y un
+// banner arriba deja claro en qué modo está y permite cancelar.
+var _hospConsumoEstadiaId = null;
+
+function hospAbrirConsumo(){
   if(!_hospEstadiaSel) return;
-  // Selector simple por nombre — reusa PRODS ya cargado en memoria por el POS
-  const nombre = prompt('¿Qué producto/servicio agregar? (nombre exacto o parte del nombre)');
-  if(!nombre) return;
-  const q = nombre.trim().toLowerCase();
-  const candidatos = (PRODS || []).filter(function(p){
-    return !p.itemLibre && !p.esInsumo && p.activo !== false && p.name.toLowerCase().includes(q);
+  const est = _hospEstadiaSel;
+  const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+  _hospConsumoEstadiaId = est.id;
+  window._hospedajeCargandoConsumo = { estadiaId: est.id, habNumero: h ? h.numero : '' };
+  setCart([]);
+  cerrarFolio();
+  const banner = document.getElementById('hospConsumoBanner');
+  const bannerTxt = document.getElementById('hospConsumoBannerTxt');
+  const label = 'CARGAR A HAB. ' + (h ? h.numero : '');
+  if(banner) banner.style.display = 'flex';
+  if(bannerTxt) bannerTxt.textContent = 'Agregando consumo — Habitación ' + (h ? h.numero : '') + ' (' + est.huesped_nombre + ')';
+  ['btnCobrarLabel','tabCobrarLabel'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.textContent = label;
   });
-  if(!candidatos.length){ toast('No se encontró ningún producto con ese nombre'); return; }
-  const prod = candidatos[0];
-  const cantStr = prompt('Cantidad de "' + prod.name + '":', '1');
-  const cant = parseFloat(cantStr) || 0;
-  if(cant <= 0) return;
-  hospAgregarCargo({
-    fecha: new Date().toISOString().substring(0,10),
-    descripcion: prod.name,
-    cantidad: cant,
-    precio_unitario: prod.price,
-    monto: Math.round(prod.price * cant),
-    iva: prod.iva || '10',
+  var detBtn = document.getElementById('detCobrarBtn'); if(detBtn) detBtn.textContent = label;
+  goTo('scSale');
+  if(typeof updUI === 'function') updUI();
+}
+
+/** Sale del modo consumo sin cargar nada (vuelve todo a la normalidad) */
+function hospCancelarConsumo(){
+  const estadiaId = _hospConsumoEstadiaId;
+  window._hospedajeCargandoConsumo = null;
+  _hospConsumoEstadiaId = null;
+  setCart([]);
+  const banner = document.getElementById('hospConsumoBanner');
+  if(banner) banner.style.display = 'none';
+  ['btnCobrarLabel','tabCobrarLabel'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.textContent = 'COBRAR';
   });
+  var detBtn = document.getElementById('detCobrarBtn'); if(detBtn) detBtn.textContent = 'COBRAR';
+  if(typeof updUI === 'function') updUI();
+  goTo('scHabitaciones');
+  if(estadiaId) abrirFolio(estadiaId);
+}
+
+/**
+ * Llamada desde goCobrar() (pedidos.js) cuando window._hospedajeCargandoConsumo
+ * está seteado — en vez de facturar, vuelca el carrito como cargos de la
+ * estadía y descuenta stock de lo que corresponda, YA (el consumo es real
+ * en el momento, no hay que esperar al check-out que puede ser días después).
+ */
+async function hospConfirmarConsumoDesdeCart(){
+  const modo = window._hospedajeCargandoConsumo;
+  if(!modo) return;
+  if(!cart || !cart.length){ toast('No agregaste ningún producto'); return; }
+  const est = hospEstadias.find(function(e){ return e.id === modo.estadiaId; });
+  if(!est){ toast('No se encontró la estadía'); hospCancelarConsumo(); return; }
+
+  const fecha = new Date().toISOString().substring(0,10);
+  const itemsCargables = cart.filter(function(it){ return !it.esDescuento; });
+  est.cargos = est.cargos || [];
+  itemsCargables.forEach(function(it){
+    est.cargos.push({
+      fecha: fecha, descripcion: it.name, cantidad: it.qty,
+      precio_unitario: it.price, monto: Math.round(it.price * it.qty), iva: it.iva || '10',
+    });
+  });
+  est.total = est.cargos.reduce(function(s, c){ return s + (c.monto || 0); }, 0);
+
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
+  }catch(e){
+    toast('Error al guardar el consumo: ' + e.message); return;
+  }
+
+  // Stock de lo que controla inventario — best-effort, no bloquea el cargo
+  // si falla (el huésped ya consumió, el registro contable no se pierde).
+  if(typeof stockEstricto === 'function' && stockEstricto()){
+    const itemsStock = itemsCargables.filter(function(it){
+      const p = (PRODS || []).find(function(x){ return x.id === it.id; });
+      return p && p.inventario;
+    });
+    if(itemsStock.length){
+      try{ await stockDescontarVenta(itemsStock, 'HOSP-' + est.id); }
+      catch(e){ console.warn('[Hospedaje] Error descontando stock del consumo:', e.message); }
+    }
+  }
+
+  window._hospedajeCargandoConsumo = null;
+  _hospConsumoEstadiaId = null;
+  setCart([]);
+  const banner = document.getElementById('hospConsumoBanner');
+  if(banner) banner.style.display = 'none';
+  ['btnCobrarLabel','tabCobrarLabel'].forEach(function(id){
+    var el = document.getElementById(id); if(el) el.textContent = 'COBRAR';
+  });
+  var detBtn = document.getElementById('detCobrarBtn'); if(detBtn) detBtn.textContent = 'COBRAR';
+  if(typeof updUI === 'function') updUI();
+
+  toast('Consumo cargado a Habitación ' + modo.habNumero);
+  goTo('scHabitaciones');
+  renderHabitacionesScreen();
+  abrirFolio(est.id);
 }
 
 /** Atajo directo: agregar una noche más con la tarifa configurada */

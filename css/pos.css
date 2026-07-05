@@ -2432,6 +2432,19 @@
   .mesas-color-swatch.sel { border-color:#fff; transform:scale(1.15); }
   .mesas-salon-list { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
   .mesas-salon-item { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--bg); border-radius:8px; border:1px solid var(--border); }
+
+  /* Modales de Hospedaje (check-in / folio / alta habitación) — hoja al
+     pie en mobile, diálogo centrado en desktop. Sin esto, en ventanas
+     anchas (escritorio) quedan pegados abajo con mucho espacio vacío
+     arriba, en vez de aparecer como un diálogo normal. */
+  .hosp-modal-ov { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:9999; align-items:flex-end; justify-content:center; }
+  .hosp-modal-panel { background:#1e1e1e; border-radius:18px 18px 0 0; width:100%; max-width:480px; padding:20px 18px 30px; max-height:92vh; overflow-y:auto; }
+  .hosp-modal-handle { width:36px; height:4px; background:#444; border-radius:2px; margin:0 auto 16px; }
+  @media(min-width:900px){
+    .hosp-modal-ov { align-items:center; padding:24px; }
+    .hosp-modal-panel { border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.5); max-height:88vh; }
+    .hosp-modal-handle { display:none; }
+  }
   .mesas-salon-color { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
   .mesas-salon-name  { flex:1; font-size:14px; font-weight:700; color:var(--text); }
   .mesas-btn-sm { background:var(--border2); border:none; border-radius:4px; color:var(--text); font-size:11px; font-weight:700; padding:5px 10px; cursor:pointer; font-family:'Barlow',sans-serif; }

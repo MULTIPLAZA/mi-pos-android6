@@ -1725,9 +1725,9 @@
 </div>
 
 <!-- Modal Check-in -->
-<div id="hospCheckinOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarCheckIn()">
-  <div style="background:#1e1e1e;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:20px 18px 30px;max-height:92vh;overflow-y:auto;">
-    <div style="width:36px;height:4px;background:#444;border-radius:2px;margin:0 auto 16px;"></div>
+<div id="hospCheckinOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarCheckIn()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
     <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;" id="hospCkTitulo">Check-in</div>
     <div style="margin-bottom:10px;">
       <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Nombre del huésped *</label>
@@ -1775,9 +1775,9 @@
 </div>
 
 <!-- Modal Folio (cuenta del huésped) -->
-<div id="hospFolioOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarFolio()">
-  <div style="background:#1e1e1e;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:20px 18px 30px;max-height:92vh;overflow-y:auto;">
-    <div style="width:36px;height:4px;background:#444;border-radius:2px;margin:0 auto 16px;"></div>
+<div id="hospFolioOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarFolio()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
     <div style="font-size:16px;font-weight:800;color:#fff;" id="hospFolioTitulo">Folio</div>
     <div style="font-size:12px;color:#888;margin-bottom:14px;" id="hospFolioSub"></div>
     <div style="font-size:11px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:6px;">Cargos acumulados</div>
@@ -1788,7 +1788,7 @@
     </div>
     <div style="display:flex;gap:10px;margin-bottom:10px;">
       <button onclick="hospAgregarNoche()" style="flex:1;background:#2a2a2a;border:1px solid #444;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;">+ NOCHE</button>
-      <button onclick="hospAbrirAgregarCargo()" style="flex:1;background:#2a2a2a;border:1px solid #444;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;">+ CONSUMO</button>
+      <button onclick="hospAbrirConsumo()" style="flex:1;background:#2a2a2a;border:1px solid #444;border-radius:8px;color:#fff;font-size:12.5px;font-weight:700;padding:11px;cursor:pointer;">+ CONSUMO</button>
     </div>
     <div style="display:flex;gap:10px;">
       <button onclick="cerrarFolio()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CERRAR</button>
@@ -1798,9 +1798,9 @@
 </div>
 
 <!-- Modal alta/edición de habitación -->
-<div id="hospFormOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;align-items:flex-end;justify-content:center;" onclick="if(event.target===this)cerrarFormHabitacion()">
-  <div style="background:#1e1e1e;border-radius:18px 18px 0 0;width:100%;max-width:480px;padding:20px 18px 30px;">
-    <div style="width:36px;height:4px;background:#444;border-radius:2px;margin:0 auto 16px;"></div>
+<div id="hospFormOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarFormHabitacion()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
     <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;" id="hospFormTitulo">Nueva habitación</div>
     <input type="hidden" id="hospFormId">
     <div style="margin-bottom:10px;">
@@ -1910,13 +1910,20 @@
       <button class="hbtn theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Cambiar tema"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
     </div>
   </header>
+  <!-- Banner: modo "cargar consumo a habitación" — reusa la pantalla normal
+       de venta (categorías, buscador, todo) en vez de duplicar un selector
+       de productos aparte. Ver hospAbrirConsumo()/hospConfirmarConsumoDesdeCart(). -->
+  <div id="hospConsumoBanner" style="display:none;align-items:center;justify-content:space-between;gap:10px;background:rgba(76,175,80,.12);border-bottom:1px solid rgba(76,175,80,.35);padding:9px 14px;flex-shrink:0;">
+    <span style="font-size:12.5px;font-weight:700;color:#4caf50;" id="hospConsumoBannerTxt">Cargando consumo a habitación</span>
+    <button onclick="hospCancelarConsumo()" style="background:none;border:none;color:#e53935;font-size:11.5px;font-weight:800;letter-spacing:.3px;cursor:pointer;padding:4px 8px;">CANCELAR</button>
+  </div>
   <div class="action-bar">
     <button class="btn-left" id="btnGuardar" onclick="onBtnGuardar()">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" id="btnGuardarIcon"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
       <span id="btnGuardarTxt">GUARDAR</span>
       <span class="pending-badge" id="pendingBadge"></span>
     </button>
-    <button class="btn-cobrar" onclick="goCobrar()"><span>COBRAR</span><span class="camount" id="sAmt">₲0</span></button>
+    <button class="btn-cobrar" onclick="goCobrar()"><span id="btnCobrarLabel">COBRAR</span><span class="camount" id="sAmt">₲0</span></button>
   </div>
 
   <!-- Barra tipo pedido móvil -->
@@ -2003,7 +2010,7 @@
           <span class="pending-badge" id="tabPendingBadge"></span>
         </button>
         <button class="tab-btn-cobrar" onclick="goCobrar()">
-          <span>COBRAR</span>
+          <span id="tabCobrarLabel">COBRAR</span>
           <span class="tab-amt" id="tabCobrarAmt">₲0</span>
         </button>
       </div>
@@ -2053,7 +2060,7 @@
       <button class="det-cobrar-btn" onclick="imprimirTicketActual()" style="background:var(--bg-dark);border:1.5px solid var(--border);color:var(--text);margin-right:6px;padding:14px 12px;" title="Imprimir ticket">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
       </button>
-      <button class="det-cobrar-btn" onclick="goCobrar()">COBRAR</button>
+      <button class="det-cobrar-btn" id="detCobrarBtn" onclick="goCobrar()">COBRAR</button>
     </div>
   </div>
 </div>

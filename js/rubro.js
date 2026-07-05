@@ -39,7 +39,7 @@ var _RUBRO_CAPS = {
   despensa:     { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false, habitaciones:false, folio:false },
   autoservicio: { mesas:false, delivery:false, mitades:false, codigo_barras:true,  balanza:true,  stock_estricto:true,  agenda:false, profesionales:false, es_servicio:false, habitaciones:false, folio:false },
   barberia:     { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:false, agenda:true,  profesionales:true,  es_servicio:true,  habitaciones:false, folio:false },
-  hospedaje:    { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:false, agenda:false, profesionales:false, es_servicio:true,  habitaciones:true,  folio:true  },
+  hospedaje:    { mesas:false, delivery:false, mitades:false, codigo_barras:false, balanza:false, stock_estricto:true,  agenda:false, profesionales:false, es_servicio:true,  habitaciones:true,  folio:true  },
 };
 
 // Rubros de la "familia retail" — comparten UI de mostrador (escáner

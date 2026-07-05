@@ -547,6 +547,12 @@ function salirDeModoLectura(){
 
 // Cambia el boton COBRAR a REIMPRIMIR cuando hay venta cobrada en pantalla.
 function actualizarBotonCobrarLectura(){
+  // Modo hospedaje ("+ CONSUMO"): este botón tiene su propia etiqueta
+  // ("CARGAR A HAB. X") mientras dura ese modo — no pisarla acá. Sin esto,
+  // el label volvía a "COBRAR" apenas se actualizaba el carrito (que es
+  // justo lo que pasa al agregar el primer producto).
+  if(typeof window !== 'undefined' && window._hospedajeCargandoConsumo) return;
+
   var modoON = _modoLectura;
 
   // Movil — btn-cobrar tiene un <span> con el texto y otro con el monto

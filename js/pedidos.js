@@ -28,6 +28,13 @@
 //   Llama a sateliteEnviarPedido() — inserta en pos_pedidos, imprime comanda.
 // ══════════════════════════════════════════════════════════════════════════════
 function goCobrar(){
+  // Modo hospedaje: el boton COBRAR esta transformado en "CARGAR A HAB. X"
+  // (ver hospAbrirConsumo() en hospedaje.js) — el carrito se vuelca como
+  // cargos de la estadía en vez de facturarse.
+  if(typeof window !== 'undefined' && window._hospedajeCargandoConsumo){
+    if(typeof hospConfirmarConsumoDesdeCart === 'function') hospConfirmarConsumoDesdeCart();
+    return;
+  }
   // Modo lectura: el boton COBRAR esta transformado en REIMPRIMIR
   if(typeof _modoLectura !== 'undefined' && _modoLectura && _viewingCobradaVenta){
     if(typeof reimprimirVentaTurno === 'function'){
