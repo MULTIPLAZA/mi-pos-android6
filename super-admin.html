@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="description" content="Panel de administración — Ampersand POS">
-<meta name="theme-color" content="#7c3aed">
+<meta name="theme-color" content="#101113">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -12,19 +12,27 @@
 <link rel="manifest" href="/manifest-superadmin.json">
 <link rel="apple-touch-icon" href="/icon.png">
 <title>POS Admin</title>
-<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 
 *{margin:0;padding:0;box-sizing:border-box;}
 :root{
-  --bg:#0a0a0a;--card:#141414;--card2:#1a1a1a;
-  --green:#4caf50;--g2:rgba(76,175,80,.15);
-  --red:#ef5350;--r2:rgba(239,83,80,.15);
-  --orange:#ff9800;--o2:rgba(255,152,0,.15);
-  --blue:#42a5f5;--b2:rgba(66,165,245,.15);
-  --border:#222;--muted:#666;
+  /* Grafito frío — no el negro-violeta genérico de siempre */
+  --bg:#101113;--card:#17181a;--card2:#1f2023;
+  --border:#2b2d30;--muted:#6b6d70;--text2:#9a9c9f;
+  /* Acento de marca: petróleo — separado de los colores de estado (abajo).
+     No es verde/violeta: es la identidad propia de esta consola, distinta
+     del resto de los paneles de NODO. */
+  --accent:#4a9aa3;--ac2:rgba(74,154,163,.15);
+  /* Estado semántico — significan lo mismo en todo el panel */
+  --green:#5fb878;--g2:rgba(95,184,120,.14);
+  --red:#e15554;--r2:rgba(225,85,84,.14);
+  --orange:#e0a030;--o2:rgba(224,160,48,.14);
+  --blue:#5b9bd5;--b2:rgba(91,155,213,.14);
+  --mono:'JetBrains Mono',ui-monospace,Consolas,monospace;
 }
-body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:100vh;}
+body{font-family:Barlow,sans-serif;background:var(--bg);color:#f2f1ee;min-height:100vh;}
+::selection{background:var(--ac2);color:#fff;}
 
 /* ═══ LOGIN ═══ */
 #loginWrap{
@@ -33,21 +41,22 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
 }
 .lbox{
   background:var(--card);border:1px solid var(--border);
-  border-radius:14px;padding:32px 28px;width:100%;max-width:360px;
+  padding:34px 30px;width:100%;max-width:360px;
 }
-.l-ico{width:52px;height:52px;border-radius:14px;background:var(--green);
-  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}
-.l-t{font-size:20px;font-weight:800;text-align:center;margin-bottom:3px;}
-.l-s{font-size:13px;color:var(--muted);text-align:center;margin-bottom:22px;}
-.fi{margin-bottom:13px;}
-.fi label{font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;}
-.fi input{width:100%;background:#1e1e1e;border:1.5px solid #2a2a2a;border-radius:8px;
-  color:#fff;font-family:Barlow,sans-serif;font-size:15px;padding:11px 14px;outline:none;transition:border-color .2s;}
-.fi input:focus{border-color:var(--green);}
-.btn-p{width:100%;background:var(--green);border:none;border-radius:8px;color:#fff;
-  font-family:Barlow,sans-serif;font-size:14px;font-weight:800;letter-spacing:.8px;
-  text-transform:uppercase;padding:13px;cursor:pointer;margin-top:4px;}
-.l-err{color:var(--red);font-size:12px;text-align:center;margin-top:8px;display:none;}
+.l-ico{width:44px;height:44px;background:var(--accent);
+  display:flex;align-items:center;justify-content:center;margin-bottom:16px;color:#0d1416;}
+.l-t{font-size:19px;font-weight:800;margin-bottom:3px;letter-spacing:-.2px;}
+.l-s{font-size:12.5px;color:var(--muted);margin-bottom:24px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;}
+.fi{margin-bottom:14px;}
+.fi label{font-size:10.5px;color:var(--muted);letter-spacing:.7px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:6px;}
+.fi input{width:100%;background:var(--card2);border:1px solid var(--border);
+  color:#fff;font-family:Barlow,sans-serif;font-size:15px;padding:12px 14px;outline:none;transition:border-color .15s;}
+.fi input:focus{border-color:var(--accent);}
+.btn-p{width:100%;background:var(--accent);border:none;color:#0d1416;
+  font-family:Barlow,sans-serif;font-size:13px;font-weight:800;letter-spacing:1px;
+  text-transform:uppercase;padding:14px;cursor:pointer;margin-top:6px;transition:background .15s;}
+.btn-p:hover{background:#5aacb5;}
+.l-err{color:var(--red);font-size:12px;margin-top:10px;display:none;}
 
 /* ═══ APP LAYOUT ═══ */
 #app{display:none;}
@@ -56,26 +65,27 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
 #sidebar{
   display:flex;
   flex-direction:column;
-  width:220px;background:var(--card);border-right:1px solid var(--border);
+  width:224px;background:var(--card);border-right:1px solid var(--border);
   position:fixed;left:0;top:0;bottom:0;z-index:30;
   transform:translateX(-100%);
-  transition:transform .25s;
+  transition:transform .2s;
 }
 #sidebar.open{transform:translateX(0);}
-.sb-hd{padding:18px 16px;border-bottom:1px solid var(--border);}
-.sb-brand{font-size:15px;font-weight:800;color:var(--green);}
-.sb-sub{font-size:11px;color:var(--muted);margin-top:2px;}
-.sb-nav{flex:1;overflow-y:auto;padding:6px 0;}
-.sb-i{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;
-  font-size:13px;font-weight:600;color:var(--muted);margin:2px 8px;border-radius:7px;transition:all .15s;}
-.sb-i:hover{background:rgba(255,255,255,.04);color:#ccc;}
-.sb-i.on{color:var(--green);background:var(--g2);}
-.sb-ft{margin-top:auto;padding:14px 16px;border-top:1px solid var(--border);
+.sb-hd{padding:20px 18px;border-bottom:1px solid var(--border);}
+.sb-brand{font-size:14px;font-weight:800;color:var(--accent);letter-spacing:.2px;}
+.sb-sub{font-size:10.5px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:.6px;font-weight:700;}
+.sb-nav{flex:1;overflow-y:auto;padding:10px 0;}
+.sb-i{display:flex;align-items:center;gap:11px;padding:10px 18px;cursor:pointer;
+  font-size:13px;font-weight:600;color:var(--text2);border-left:2px solid transparent;transition:all .12s;}
+.sb-i:hover{background:var(--card2);color:#fff;}
+.sb-i.on{color:var(--accent);background:var(--ac2);border-left-color:var(--accent);font-weight:700;}
+.sb-ft{margin-top:auto;padding:16px 18px;border-top:1px solid var(--border);
   display:flex;align-items:center;gap:10px;}
-.sb-av{width:30px;height:30px;border-radius:50%;background:#2a2a2a;
+.sb-av{width:28px;height:28px;background:var(--card2);border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  font-weight:800;color:var(--green);font-size:13px;flex-shrink:0;}
-.btn-out{background:none;border:none;color:var(--muted);cursor:pointer;margin-left:auto;}
+  font-weight:800;color:var(--accent);font-size:12px;flex-shrink:0;}
+.btn-out{background:none;border:none;color:var(--muted);cursor:pointer;margin-left:auto;padding:4px;}
+.btn-out:hover{color:var(--red);}
 
 /* Topbar — mobile only */
 #topbar{
@@ -83,8 +93,8 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
   padding:0 14px;height:52px;display:flex;align-items:center;
   justify-content:space-between;position:sticky;top:0;z-index:30;
 }
-.tb-brand{font-size:15px;font-weight:800;color:var(--green);}
-.tb-page{font-size:12px;color:var(--muted);}
+.tb-brand{font-size:14px;font-weight:800;color:var(--accent);}
+.tb-page{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:700;}
 .btn-ic{background:none;border:none;color:var(--muted);cursor:pointer;padding:6px;}
 
 /* Main */
@@ -97,17 +107,17 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
   display:flex;z-index:20;
 }
 .bn{flex:1;display:flex;flex-direction:column;align-items:center;
-  padding:10px 4px 8px;cursor:pointer;font-size:10px;font-weight:700;
-  color:var(--muted);letter-spacing:.3px;gap:3px;text-transform:uppercase;}
-.bn.on{color:var(--green);}
+  padding:10px 4px 8px;cursor:pointer;font-size:9.5px;font-weight:700;
+  color:var(--muted);letter-spacing:.3px;gap:4px;text-transform:uppercase;border-top:2px solid transparent;}
+.bn.on{color:var(--accent);border-top-color:var(--accent);}
 
 /* ═══ DESKTOP (≥900px) ═══ */
 @media(min-width:900px){
   #sidebar{transform:translateX(0) !important;}
   #topbar{display:none;}
   #bnav{display:none;}
-  #main{margin-left:220px;padding:28px;max-width:none;}
-  #content{margin-left:220px;padding:28px;padding-bottom:40px;}
+  #main{margin-left:224px;padding:32px;max-width:none;}
+  #content{margin-left:224px;padding:32px;padding-bottom:40px;max-width:1180px;}
   #sbOv{display:none !important;}
 }
 
@@ -119,18 +129,18 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
 /* ═══ PAGES ═══ */
 .page{display:none;}.page.on{display:block;}
 .ph{display:flex;align-items:flex-start;justify-content:space-between;
-  margin-bottom:18px;flex-wrap:wrap;gap:10px;}
-.ph-t{font-size:20px;font-weight:800;}
-.ph-s{font-size:13px;color:var(--muted);margin-top:2px;}
+  margin-bottom:20px;flex-wrap:wrap;gap:10px;}
+.ph-t{font-size:19px;font-weight:800;letter-spacing:-.2px;}
+.ph-s{font-size:12.5px;color:var(--muted);margin-top:3px;font-variant-numeric:tabular-nums;}
 
 /* ═══ KPI ═══ */
-.kg{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:16px;}
-.kc{background:var(--card);border:1px solid var(--border);border-radius:10px;
-  padding:14px 16px;position:relative;overflow:hidden;}
-.kc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--c,#333);}
-.kc-l{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;font-weight:700;margin-bottom:6px;}
-.kc-v{font-size:22px;font-weight:800;color:var(--c,#fff);}
-.kc-s{font-size:11px;color:var(--muted);margin-top:3px;}
+.kg{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;margin-bottom:18px;
+  background:var(--border);border:1px solid var(--border);}
+.kc{background:var(--card);padding:15px 16px;position:relative;}
+.kc::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--c,var(--muted));}
+.kc-l{font-size:10px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;font-weight:700;margin-bottom:7px;}
+.kc-v{font-size:23px;font-weight:700;color:var(--c,#fff);font-family:var(--mono);font-variant-numeric:tabular-nums;}
+.kc-s{font-size:11px;color:var(--muted);margin-top:4px;}
 @media(min-width:640px){
   .kg.k4{grid-template-columns:repeat(4,1fr);}
   .kg.k3{grid-template-columns:repeat(3,1fr);}
@@ -138,101 +148,149 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
 
 /* ═══ SEARCH ═══ */
 .sbar{display:flex;align-items:center;gap:10px;background:var(--card);
-  border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:14px;}
+  border:1px solid var(--border);padding:11px 14px;margin-bottom:14px;}
 .sbar input{flex:1;background:transparent;border:none;color:#fff;
   font-family:Barlow,sans-serif;font-size:14px;outline:none;}
-.sbar input::placeholder{color:#444;}
+.sbar input::placeholder{color:var(--muted);}
 
-/* ═══ LICENSE CARDS ═══ */
-.lcard{background:var(--card);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;}
-.lcard-h{padding:14px 16px;display:flex;align-items:flex-start;gap:11px;}
-.ldot{width:9px;height:9px;border-radius:50%;flex-shrink:0;margin-top:5px;}
-.ldot.on{background:var(--green);}
-.ldot.off{background:#333;}
+/* ═══ LICENSE ROWS ═══
+   Fila = riel de color (estado) + clave en mono + datos + acciones.
+   En desktop es una fila horizontal densa; en mobile se apila. */
+.lcard{background:var(--card);border:1px solid var(--border);border-left:3px solid var(--rail,var(--border));margin-bottom:1px;}
+.lcard-h{padding:14px 16px;display:flex;align-items:flex-start;gap:12px;}
+.ldot{display:none;} /* reemplazado por el riel de color en .lcard */
 .lmain{flex:1;min-width:0;}
-.lkey{font-size:15px;font-weight:800;letter-spacing:.5px;}
-.lnom{font-size:13px;color:#aaa;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.lemail{font-size:11px;color:var(--muted);margin-top:1px;}
-.lmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
-.tag{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;}
-.tag-g{background:var(--g2);color:var(--green);}
-.tag-b{background:var(--b2);color:var(--blue);}
-.tag-o{background:var(--o2);color:var(--orange);}
-.tag-r{background:var(--r2);color:var(--red);}
-.tag-gr{background:#1e1e1e;color:var(--muted);}
+.lid{min-width:0;}
+.lkey{font-size:14px;font-weight:700;letter-spacing:.3px;font-family:var(--mono);}
+.lnom{font-size:13px;color:var(--text2);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600;}
+.lemail{font-size:11.5px;color:var(--muted);margin-top:1px;}
+.lmeta{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+.tag{display:inline-flex;align-items:center;padding:3px 8px;font-size:10.5px;font-weight:700;
+  letter-spacing:.2px;border:1px solid transparent;}
+.tag-g{background:var(--g2);color:var(--green);border-color:rgba(95,184,120,.3);}
+.tag-b{background:var(--b2);color:var(--blue);border-color:rgba(91,155,213,.3);}
+.tag-o{background:var(--o2);color:var(--orange);border-color:rgba(224,160,48,.3);}
+.tag-r{background:var(--r2);color:var(--red);border-color:rgba(225,85,84,.3);}
+.tag-gr{background:var(--card2);color:var(--muted);border-color:var(--border);}
 .lacts{display:flex;border-top:1px solid var(--border);}
 .la{flex:1;padding:11px 6px;background:none;border:none;font-family:Barlow,sans-serif;
-  font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.3px;text-transform:uppercase;
+  font-size:11.5px;font-weight:700;cursor:pointer;letter-spacing:.3px;text-transform:uppercase;
   display:flex;align-items:center;justify-content:center;gap:5px;transition:background .15s;}
 .la:not(:last-child){border-right:1px solid var(--border);}
-.la.cp{color:#aaa;}.la.cp:active{background:#1e1e1e;}
-.la.ed{color:var(--blue);}.la.ed:active{background:var(--b2);}
-.la.su{color:var(--red);}.la.su:active{background:var(--r2);}
-.la.ac{color:var(--green);}.la.ac:active{background:var(--g2);}
+.la.cp{color:var(--text2);}.la.cp:hover{background:var(--card2);}
+.la.ed{color:var(--accent);}.la.ed:hover{background:var(--ac2);}
+.la.su{color:var(--red);}.la.su:hover{background:var(--r2);}
+.la.ac{color:var(--green);}.la.ac:hover{background:var(--g2);}
+
+/* Desktop: fila horizontal en vez de card apilada — más denso, se escanea mejor */
+@media(min-width:900px){
+  .lcard{display:flex;align-items:stretch;}
+  .lcard-h{flex:1;align-items:center;padding:13px 18px;}
+  .lmain{display:flex;align-items:center;gap:20px;}
+  .lid{display:flex;align-items:baseline;gap:12px;flex:1;}
+  .lkey{flex-shrink:0;}
+  .lnom{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0;}
+  .lemail{white-space:nowrap;flex-shrink:0;margin-left:auto;padding-left:16px;}
+  .lmeta{margin-top:0;justify-content:flex-end;flex-shrink:0;width:280px;}
+  .lacts{flex-direction:column;border-top:none;border-left:1px solid var(--border);width:132px;flex-shrink:0;}
+  .la{flex:none;padding:0;height:25%;font-size:10.5px;}
+  .la:not(:last-child){border-right:none;border-bottom:1px solid var(--border);}
+}
 
 /* ═══ LIST ITEMS ═══ */
-.li{background:var(--card);border:1px solid var(--border);border-radius:10px;
-  padding:13px 16px;margin-bottom:10px;display:flex;align-items:center;gap:12px;}
-.li-ic{width:36px;height:36px;border-radius:9px;background:#1e1e1e;
+.li{background:var(--card);border:1px solid var(--border);
+  padding:13px 16px;margin-bottom:1px;display:flex;align-items:center;gap:12px;}
+.li-ic{width:34px;height:34px;background:var(--card2);border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--muted);}
 .li-inf{flex:1;min-width:0;}
 .li-t{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .li-s{font-size:12px;color:var(--muted);margin-top:2px;}
 .li-r{text-align:right;flex-shrink:0;}
-.li-v{font-size:15px;font-weight:700;}
+.li-v{font-size:14.5px;font-weight:700;font-family:var(--mono);font-variant-numeric:tabular-nums;}
 .li-s2{font-size:11px;color:var(--muted);margin-top:2px;}
 
+/* ═══ CARD (contenedor genérico — Reportes, RUC) ═══ */
+.card{background:var(--card);border:1px solid var(--border);}
+.card-h{display:flex;align-items:center;justify-content:space-between;padding:13px 16px;border-bottom:1px solid var(--border);}
+.card-t{font-size:13px;font-weight:700;}
+
 /* ═══ CHARTS ═══ */
-.ccard{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:16px;}
-.cc-t{font-size:13px;font-weight:700;color:#ccc;margin-bottom:3px;}
+.ccard{background:var(--card);border:1px solid var(--border);padding:16px;margin-bottom:16px;}
+.cc-t{font-size:13px;font-weight:700;color:#e8e8e8;margin-bottom:3px;}
 .cc-s{font-size:11px;color:var(--muted);margin-bottom:14px;}
 .cc-w{position:relative;height:200px;}
 .cc-leg{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;}
-.cc-li{display:flex;align-items:center;gap:6px;font-size:12px;color:#aaa;}
-.cc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
-.sec-t{font-size:11px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;
-  font-weight:700;margin:18px 0 10px;}
+.cc-li{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);}
+.cc-dot{width:8px;height:8px;flex-shrink:0;}
+.sec-t{font-size:10.5px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;
+  font-weight:700;margin:20px 0 10px;}
 
 /* ═══ MISC ═══ */
-.empty{text-align:center;padding:44px 16px;}
-.empty-i{font-size:34px;margin-bottom:10px;}
-.empty-t{font-size:15px;font-weight:700;color:#ccc;margin-bottom:6px;}
+.empty{text-align:center;padding:48px 16px;}
+.empty-i{font-size:32px;margin-bottom:12px;color:var(--muted);}
+.empty-t{font-size:15px;font-weight:700;color:#e8e8e8;margin-bottom:6px;}
 .empty-s{font-size:13px;color:var(--muted);}
-.sp{display:inline-block;width:16px;height:16px;border:2px solid #333;
-  border-top-color:var(--green);border-radius:50%;animation:sp .8s linear infinite;
+.sp{display:inline-block;width:15px;height:15px;border:2px solid var(--border);
+  border-top-color:var(--accent);border-radius:50%;animation:sp .8s linear infinite;
   vertical-align:middle;margin-right:6px;}
 @keyframes sp{to{transform:rotate(360deg);}}
 .loading{text-align:center;padding:32px;color:var(--muted);font-size:14px;}
-.btn-nueva{background:var(--green);border:none;border-radius:8px;color:#fff;
-  font-family:Barlow,sans-serif;font-size:13px;font-weight:800;
-  padding:10px 16px;cursor:pointer;letter-spacing:.3px;}
-.btn-nueva:active{background:#43a047;}
-.lcount{font-size:13px;color:var(--muted);margin-top:2px;}
+.btn-nueva{background:var(--accent);border:none;color:#0d1416;
+  font-family:Barlow,sans-serif;font-size:12.5px;font-weight:800;
+  padding:10px 18px;cursor:pointer;letter-spacing:.4px;transition:background .15s;}
+.btn-nueva:hover{background:#5aacb5;}
+.lcount{font-size:13px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums;}
 .toast{position:fixed;bottom:84px;left:50%;transform:translateX(-50%) translateY(16px);
-  background:#2a2a2a;color:#fff;padding:10px 20px;border-radius:10px;
-  font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;white-space:nowrap;}
+  background:#232427;border:1px solid var(--border);color:#fff;padding:11px 20px;
+  font-size:13px;font-weight:600;opacity:0;transition:all .25s;z-index:9999;white-space:nowrap;}
 .toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
 @media(min-width:900px){.toast{bottom:24px;}}
+
+/* ═══ FORM CONTROLS (modal crear/editar licencia, etc.) ═══ */
+.finp,.fsel{width:100%;background:var(--card2);border:1px solid var(--border);
+  color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 13px;outline:none;transition:border-color .15s;}
+.finp:focus,.fsel:focus{border-color:var(--accent);}
+.flabel{font-size:10.5px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:6px;}
+.fgrp{margin-bottom:14px;}
+.btn-secondary{background:var(--card2);border:1px solid var(--border);color:var(--text2);
+  font-family:Barlow,sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;}
+.btn-secondary:hover{background:var(--border);}
+.btn-primary{background:var(--accent);border:none;color:#0d1416;
+  font-family:Barlow,sans-serif;font-size:13px;font-weight:800;padding:14px;cursor:pointer;letter-spacing:.3px;}
+.btn-primary:hover{background:#5aacb5;}
+
+/* ═══ MODAL ═══ — hoja al pie en mobile, diálogo centrado en desktop */
+.modal-ov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:9000;
+  align-items:flex-end;justify-content:center;}
+.modal-panel{background:var(--card);border-top:1px solid var(--border);
+  width:100%;max-width:560px;padding:22px 20px 32px;max-height:92vh;overflow-y:auto;}
+.modal-handle{width:32px;height:3px;background:var(--border);margin:0 auto 18px;}
+@media(min-width:900px){
+  .modal-ov{align-items:center;padding:24px;}
+  .modal-panel{border:1px solid var(--border);max-height:88vh;box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  .modal-handle{display:none;}
+}
 
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
-<div id="loginWrap" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;">
-  <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:32px 28px;width:100%;max-width:360px;">
-    <div style="font-size:24px;font-weight:800;color:var(--green);margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> POS Admin</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:24px;">Panel de Super Administrador</div>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px;">EMAIL</label>
-      <input id="loginUser" type="email" autocomplete="username" placeholder="tu-email@dominio.com" style="width:100%;background:#1e1e1e;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:inherit;font-size:15px;padding:11px 14px;outline:none;box-sizing:border-box;">
+<div id="loginWrap">
+  <div class="lbox">
+    <div class="l-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+    <div class="l-t">POS Admin</div>
+    <div class="l-s">Panel de Super Administrador</div>
+    <div class="fi">
+      <label>Email</label>
+      <input id="loginUser" type="email" autocomplete="username" placeholder="tu-email@dominio.com">
     </div>
-    <div style="margin-bottom:16px;">
-      <label style="font-size:11px;color:var(--muted);font-weight:700;display:block;margin-bottom:5px;">CONTRASEÑA</label>
-      <input id="loginPass" type="password" autocomplete="current-password" style="width:100%;background:#1e1e1e;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:inherit;font-size:15px;padding:11px 14px;outline:none;box-sizing:border-box;" onkeydown="if(event.key==='Enter')doLogin()">
+    <div class="fi">
+      <label>Contraseña</label>
+      <input id="loginPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <button id="loginBtn" onclick="doLogin()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#fff;font-family:inherit;font-size:14px;font-weight:800;padding:13px;cursor:pointer;letter-spacing:.5px;">INGRESAR</button>
-    <div id="loginErr" style="display:none;color:var(--red);font-size:12px;text-align:center;margin-top:8px;"></div>
+    <button id="loginBtn" class="btn-p" onclick="doLogin()">INGRESAR</button>
+    <div id="loginErr" class="l-err"></div>
   </div>
 </div>
 
@@ -242,8 +300,8 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
   <!-- Sidebar -->
   <div id="sidebar">
     <div class="sb-hd">
-      <div style="font-size:14px;font-weight:800;color:var(--green);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> POS Admin</div>
-      <div style="font-size:11px;color:var(--muted);">Super Administrador</div>
+      <div class="sb-brand"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> POS Admin</div>
+      <div class="sb-sub">Super Administrador</div>
     </div>
     <div class="sb-nav">
       <div class="sb-i on" onclick="goTo('lic')">
@@ -258,9 +316,9 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>Contribuyentes</div>
     </div>
     <div class="sb-ft">
-      <div style="width:30px;height:30px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;">A</div>
-      <div style="flex:1;font-size:12px;color:#aaa;">admin</div>
-      <button onclick="logout()" style="background:none;border:none;color:var(--muted);cursor:pointer;" title="Cerrar sesión">
+      <div class="sb-av">A</div>
+      <div style="flex:1;font-size:12px;color:var(--text2);">admin</div>
+      <button class="btn-out" onclick="logout()" title="Cerrar sesión">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
       </button>
     </div>
@@ -269,12 +327,12 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
   <!-- Topbar mobile -->
   <div id="topbar">
     <div style="display:flex;align-items:center;gap:8px;">
-      <button class="menu-btn" onclick="toggleSB()">
+      <button class="menu-btn btn-ic" onclick="toggleSB()">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
-      <span style="font-size:15px;font-weight:800;color:var(--green);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> POS Admin</span>
+      <span class="tb-brand"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> POS Admin</span>
     </div>
-    <span id="tbPage" style="font-size:12px;color:var(--muted);">Licencias</span>
+    <span id="tbPage" class="tb-page">Licencias</span>
   </div>
 
   <!-- Sidebar overlay -->
@@ -302,51 +360,47 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
 </div><!-- /#app -->
 
 <!-- ══ MODAL — completamente fuera del app ══ -->
-<div id="mOv" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9000;align-items:flex-end;justify-content:center;padding:0;" onclick="if(event.target===this)closeM()">
-  <div style="background:#1a1a1a;border-radius:18px 18px 0 0;width:100%;max-width:520px;padding:20px 18px 40px;max-height:92vh;overflow-y:auto;">
-    <div style="width:36px;height:4px;background:#333;border-radius:2px;margin:0 auto 16px;"></div>
-    <div style="font-size:18px;font-weight:800;margin-bottom:18px;" id="mTitle">Nueva licencia</div>
+<div id="mOv" class="modal-ov" onclick="if(event.target===this)closeM()">
+  <div class="modal-panel">
+    <div class="modal-handle"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:20px;" id="mTitle">Nueva licencia</div>
 
-    <div style="margin-bottom:13px;">
-      <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Clave de licencia</label>
+    <div class="fgrp">
+      <label class="flabel">Clave de licencia</label>
       <div style="display:flex;gap:8px;">
-        <input id="mClave" type="text" placeholder="PRO-2026-XXXX"
-          style="flex:1;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;padding:11px 14px;outline:none;text-transform:uppercase;"
+        <input id="mClave" type="text" placeholder="PRO-2026-XXXX" class="finp"
+          style="flex:1;font-weight:700;letter-spacing:1px;text-transform:uppercase;font-family:var(--mono);"
           oninput="this.value=this.value.toUpperCase()">
-        <button onclick="genClave()"
-          style="background:var(--green);border:none;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:12px;font-weight:800;padding:0 14px;cursor:pointer;white-space:nowrap;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="8" y1="8" x2="8.01" y2="8"/><line x1="16" y1="16" x2="16.01" y2="16"/><line x1="16" y1="8" x2="16.01" y2="8"/><line x1="8" y1="16" x2="8.01" y2="16"/><line x1="12" y1="12" x2="12.01" y2="12"/></svg> GENERAR
+        <button onclick="genClave()" class="btn-primary" style="padding:0 16px;white-space:nowrap;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="8" y1="8" x2="8.01" y2="8"/><line x1="16" y1="16" x2="16.01" y2="16"/><line x1="16" y1="8" x2="16.01" y2="8"/><line x1="8" y1="16" x2="8.01" y2="16"/><line x1="12" y1="12" x2="12.01" y2="12"/></svg> GENERAR
         </button>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Plan</label>
-        <select id="mPlan" onchange="genClave()"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+        <label class="flabel">Plan</label>
+        <select id="mPlan" onchange="genClave()" class="fsel">
           <option value="1">Básico — 1 disp.</option>
           <option value="2" selected>Pro — 3 disp.</option>
           <option value="3">Completo</option>
         </select>
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Tipo de pago</label>
-        <select id="mTipo"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
-          <option value="anual"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 12a9 9 0 0 1 15.5-6.5L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.5L3 16"/><path d="M3 21v-5h5"/></svg> Anual</option>
-          <option value="mensual"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Mensual</option>
-          <option value="unico"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg> Pago único</option>
-          <option value="trial"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Trial</option>
+        <label class="flabel">Tipo de pago</label>
+        <select id="mTipo" class="fsel">
+          <option value="anual">Anual</option>
+          <option value="mensual">Mensual</option>
+          <option value="unico">Pago único</option>
+          <option value="trial">Trial</option>
         </select>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:13px;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Rubro</label>
-        <select id="mRubro"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:13px;padding:11px 14px;outline:none;">
+        <label class="flabel">Rubro</label>
+        <select id="mRubro" class="fsel">
           <option value="">General</option>
           <option value="gastronomia">Gastronomía</option>
           <option value="kiosco">Kiosco/Almacén</option>
@@ -360,9 +414,8 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
         </select>
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Tipo POS</label>
-        <select id="mTipoPOS"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:13px;padding:11px 14px;outline:none;">
+        <label class="flabel">Tipo POS</label>
+        <select id="mTipoPOS" class="fsel">
           <option value="gastronomia">Gastronomia (default)</option>
           <option value="retail">Comercio / Retail</option>
           <option value="despensa">Despensa</option>
@@ -372,60 +425,45 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#fff;min-height:10
         </select>
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Monto licencia (₲)</label>
-        <input id="mMonto" type="number" placeholder="0" min="0"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+        <label class="flabel">Monto licencia (₲)</label>
+        <input id="mMonto" type="number" placeholder="0" min="0" class="finp">
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Soporte anual (₲)</label>
-        <input id="mSoporte" type="number" placeholder="0" min="0"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+        <label class="flabel">Soporte anual (₲)</label>
+        <input id="mSoporte" type="number" placeholder="0" min="0" class="finp">
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Precio x terminal adicional (₲)</label>
-        <input id="mPrecioTer" type="number" placeholder="0" min="0"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+        <label class="flabel">Precio x terminal adicional (₲)</label>
+        <input id="mPrecioTer" type="number" placeholder="0" min="0" class="finp">
       </div>
     </div>
 
-    <div style="margin-bottom:13px;">
-      <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Nombre del cliente</label>
-      <input id="mNombre" type="text" placeholder="Ej: Pizzería Express"
-        style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+    <div class="fgrp">
+      <label class="flabel">Nombre del cliente</label>
+      <input id="mNombre" type="text" placeholder="Ej: Pizzería Express" class="finp">
     </div>
 
-    <div style="margin-bottom:13px;">
-      <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Email del cliente</label>
-      <input id="mEmail" type="email" placeholder="cliente@email.com"
-        style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+    <div class="fgrp">
+      <label class="flabel">Email del cliente</label>
+      <input id="mEmail" type="email" placeholder="cliente@email.com" class="finp">
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Vencimiento</label>
-        <input id="mVence" type="date"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+        <label class="flabel">Vencimiento</label>
+        <input id="mVence" type="date" class="finp">
       </div>
       <div>
-        <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;font-weight:700;display:block;margin-bottom:5px;">Notas</label>
-        <input id="mNotas" type="text" placeholder="Opcional"
-          style="width:100%;background:#111;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:14px;padding:11px 14px;outline:none;">
+        <label class="flabel">Notas</label>
+        <input id="mNotas" type="text" placeholder="Opcional" class="finp">
       </div>
     </div>
 
     <div style="display:flex;gap:10px;">
-      <button onclick="closeM()"
-        style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-family:Barlow,sans-serif;font-size:13px;font-weight:700;padding:14px;cursor:pointer;">
-        CANCELAR
-      </button>
-      <button onclick="guardarL()"
-        style="flex:2;background:var(--green);border:none;border-radius:8px;color:#fff;font-family:Barlow,sans-serif;font-size:13px;font-weight:800;padding:14px;cursor:pointer;letter-spacing:.5px;">
-        GUARDAR LICENCIA
-      </button>
+      <button onclick="closeM()" class="btn-secondary" style="flex:1;">CANCELAR</button>
+      <button onclick="guardarL()" class="btn-primary" style="flex:2;letter-spacing:.4px;">GUARDAR LICENCIA</button>
     </div>
   </div>
-
-
 </div>
 
 <!-- TOAST -->
@@ -719,19 +757,22 @@ function renderL(lista){
     const tp=l.tipo_pago?`<span class="tag tag-gr">${TIPOS[l.tipo_pago]||l.tipo_pago}</span>`:'';
 
     let vt='';
+    let rail='var(--green)';
     if(dias!==null){
-      if(dias<0)        vt='<span class="tag tag-r">VENCIDA</span>';
-      else if(dias<30)  vt=`<span class="tag tag-o">${dias}d</span>`;
-      else              vt=`<span class="tag tag-g">${fmt(l.fecha_vence)}</span>`;
+      if(dias<0)        { vt='<span class="tag tag-r">VENCIDA</span>'; rail='var(--red)'; }
+      else if(dias<30)  { vt=`<span class="tag tag-o">${dias}d</span>`; rail='var(--orange)'; }
+      else              { vt=`<span class="tag tag-g">${fmt(l.fecha_vence)}</span>`; }
     }
     const suspTag=!l.activa?'<span class="tag tag-r">SUSPENDIDA</span>':'';
-    return `<div class="lcard">
+    if(!l.activa) rail='var(--red)';
+    return `<div class="lcard" style="--rail:${rail};">
       <div class="lcard-h">
-        <div class="ldot ${l.activa?'on':'off'}"></div>
         <div class="lmain">
-          <div class="lkey">${l.clave}</div>
-          <div class="lnom">${l.nombre_cliente||'Sin nombre'}</div>
-          <div class="lemail">${l.email_cliente||'—'}</div>
+          <div class="lid">
+            <div class="lkey">${l.clave}</div>
+            <div class="lnom">${l.nombre_cliente||'Sin nombre'}</div>
+            <div class="lemail">${l.email_cliente||'—'}</div>
+          </div>
           <div class="lmeta">
             <span class="tag ${pCls}">${pNom}</span>
             ${rb}${tn}${tp}${vt}${suspTag}
@@ -986,7 +1027,7 @@ async function loadCli(){
 
       return '<div class="li" style="flex-wrap:wrap;gap:10px;padding:14px 16px;align-items:flex-start;">'+
         '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">'+
-          '<div style="width:10px;height:10px;border-radius:50%;flex-shrink:0;'+actDot+';margin-top:4px;"></div>'+
+          '<div style="width:9px;height:9px;flex-shrink:0;'+actDot+';margin-top:4px;"></div>'+
           '<div class="li-inf">'+
             '<div class="li-t" style="font-size:14px;font-weight:700;">'+(l.nombre_cliente||ter.neg||'Sin nombre')+'</div>'+
             '<div class="li-s">'+(l.email_cliente||'—')+(l.rubro?' · '+( RUBROS[l.rubro]||l.rubro):'')+'</div>'+
@@ -1120,7 +1161,6 @@ function buildTerCard(t, g, hoy) {
   var on    = ul && (hoy - ul) < 25 * 3600000;
   var act   = !!t.activa;
   var modo  = t.modo || 'caja';
-  var esUlt = g.items.indexOf(t) === g.items.length - 1;
   var nom   = t.nombre_terminal || 'Terminal';
   var nomSafe = nom.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
@@ -1142,14 +1182,13 @@ function buildTerCard(t, g, hoy) {
 
   // Contenedor principal
   parts.push('<div style="background:var(--card);border:1px solid var(--border);');
-  parts.push('border-top:1px solid #1a1a1a;padding:12px 14px;');
-  if (esUlt) parts.push('border-radius:0 0 10px 10px;');
+  parts.push('border-top:1px solid var(--border);padding:12px 14px;');
   parts.push('">');
   parts.push('<div style="display:flex;align-items:flex-start;gap:10px;">');
 
   // Dot online/offline
-  parts.push('<div style="width:8px;height:8px;border-radius:50%;');
-  parts.push('background:' + (on ? 'var(--green)' : '#333') + ';');
+  parts.push('<div style="width:8px;height:8px;');
+  parts.push('background:' + (on ? 'var(--green)' : 'var(--border)') + ';');
   parts.push('flex-shrink:0;margin-top:5px;"></div>');
 
   // Columna info
@@ -1161,12 +1200,12 @@ function buildTerCard(t, g, hoy) {
   if (modo === 'satelite') {
     parts.push('<span style="font-size:10px;font-weight:800;');
     parts.push('background:rgba(83,74,183,0.15);border:1px solid rgba(83,74,183,0.4);');
-    parts.push('color:#a78bfa;padding:2px 8px;border-radius:4px;letter-spacing:.5px;">');
+    parts.push('color:#a78bfa;padding:2px 8px;letter-spacing:.5px;">');
     parts.push('SATELITE</span>');
   } else {
     parts.push('<span style="font-size:10px;font-weight:800;');
     parts.push('background:var(--g2);border:1px solid rgba(76,175,80,0.4);');
-    parts.push('color:var(--green);padding:2px 8px;border-radius:4px;letter-spacing:.5px;">');
+    parts.push('color:var(--green);padding:2px 8px;letter-spacing:.5px;">');
     parts.push('CAJA</span>');
   }
   parts.push('</div>');
@@ -1177,7 +1216,7 @@ function buildTerCard(t, g, hoy) {
   parts.push('</div>');
 
   // Device ID
-  parts.push('<div style="font-size:10px;color:#3a3a3a;margin-top:2px;font-family:monospace;">');
+  parts.push('<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono);">');
   parts.push((t.device_id || '').substring(0, 24) + '...');
   parts.push('</div>');
 
@@ -1203,11 +1242,11 @@ function buildTerCard(t, g, hoy) {
 
   // Selector CAJA / SATÉLITE (solo si activa)
   if (act) {
-    parts.push('<div style="display:flex;border:1px solid #2a2a2a;border-radius:6px;overflow:hidden;">');
+    parts.push('<div style="display:flex;border:1px solid var(--border);overflow:hidden;">');
 
     // Botón CAJA
-    var cajaBg  = modo === 'caja'     ? 'var(--green)' : '#1e1e1e';
-    var cajaCol = modo === 'caja'     ? '#000'         : '#555';
+    var cajaBg  = modo === 'caja'     ? 'var(--green)' : 'var(--card2)';
+    var cajaCol = modo === 'caja'     ? '#000'         : 'var(--muted)';
     parts.push('<button');
     parts.push(' onclick="cambiarModoTer(' + t.id + ',\'caja\',\'' + nomSafe + '\',\'' + modo + '\')"');
     parts.push(' style="padding:5px 10px;font-size:10px;font-weight:800;border:none;cursor:pointer;');
@@ -1215,12 +1254,12 @@ function buildTerCard(t, g, hoy) {
     parts.push('CAJA</button>');
 
     // Botón SATÉLITE
-    var satBg   = modo === 'satelite' ? '#534AB7'       : '#1e1e1e';
-    var satCol  = modo === 'satelite' ? '#fff'           : '#555';
+    var satBg   = modo === 'satelite' ? '#534AB7'       : 'var(--card2)';
+    var satCol  = modo === 'satelite' ? '#fff'           : 'var(--muted)';
     parts.push('<button');
     parts.push(' onclick="cambiarModoTer(' + t.id + ',\'satelite\',\'' + nomSafe + '\',\'' + modo + '\')"');
     parts.push(' style="padding:5px 10px;font-size:10px;font-weight:800;border:none;cursor:pointer;');
-    parts.push('border-left:1px solid #2a2a2a;letter-spacing:.5px;');
+    parts.push('border-left:1px solid var(--border);letter-spacing:.5px;');
     parts.push('background:' + satBg + ';color:' + satCol + ';">');
     parts.push('SATELITE</button>');
 
@@ -1231,12 +1270,12 @@ function buildTerCard(t, g, hoy) {
   parts.push('<div style="display:flex;gap:5px;">');
   if (!act) {
     parts.push('<button onclick="habilitarTer(' + t.id + ')"');
-    parts.push(' style="background:var(--g2);border:1px solid var(--green);border-radius:6px;');
+    parts.push(' style="background:var(--g2);border:1px solid var(--green);');
     parts.push('color:var(--green);font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;">');
     parts.push('HABILITAR</button>');
   }
   parts.push('<button onclick="eliminarTer(' + t.id + ',\'' + nomSafe + '\',' + act + ')"');
-  parts.push(' style="background:var(--r2);border:1px solid var(--red);border-radius:6px;');
+  parts.push(' style="background:var(--r2);border:1px solid var(--red);');
   parts.push('color:var(--red);font-size:11px;font-weight:800;padding:5px 10px;cursor:pointer;">');
   parts.push('ELIMINAR</button>');
   parts.push('</div>'); // /botones
@@ -1269,16 +1308,16 @@ function renderTer(lista){
   cont.innerHTML = Object.values(grupos).map(g=>`
     <div style="margin-bottom:18px;">
       <!-- Cabecera empresa -->
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-radius:10px 10px 0 0;border-bottom:none;">
-        <div style="width:32px;height:32px;border-radius:8px;background:var(--g2);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-bottom:none;">
+        <div style="width:32px;height:32px;background:var(--ac2);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </div>
         <div style="flex:1;min-width:0;">
           <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${g.negocio||'Sin nombre'}</div>
           <div style="font-size:11px;color:var(--muted);">${g.email} · ${g.items.length} terminal${g.items.length!==1?'es':''} · ${g.plan}</div>
         </div>
         <span class="tag tag-g" style="flex-shrink:0;">${g.items.filter(t=>t.activa).length} activas</span>
-        ${g.items.length > 3 ? '<button onclick="limpiarDuplicadas(\'' + g.email + '\')" style="background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:10px;font-weight:800;padding:4px 8px;cursor:pointer;flex-shrink:0;">LIMPIAR DUPLICADAS</button>' : ''}
+        ${g.items.length > 3 ? '<button onclick="limpiarDuplicadas(\'' + g.email + '\')" style="background:var(--r2);border:1px solid var(--red);color:var(--red);font-size:10px;font-weight:800;padding:4px 8px;cursor:pointer;flex-shrink:0;">LIMPIAR DUPLICADAS</button>' : ''}
       </div>
       <!-- Terminales de esta empresa -->
       ${g.items.map(function(t){ return buildTerCard(t, g, hoy); }).join('')}
@@ -1561,18 +1600,18 @@ function calcRep(lics,terms){
   });
 
   const topts={responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1a1a',borderColor:'#333',borderWidth:1,titleColor:'#fff',bodyColor:'#aaa'}},
-    scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#666',font:{size:11}}},
-            y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#666',font:{size:11}},beginAtZero:true}}};
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#17181a',borderColor:'#2b2d30',borderWidth:1,titleColor:'#fff',bodyColor:'#9a9c9f'}},
+    scales:{x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#6b6d70',font:{size:11}}},
+            y:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#6b6d70',font:{size:11}},beginAtZero:true}}};
 
   // Gráfico 1
   if(chI){chI.destroy();chI=null;}
   chI=new Chart(document.getElementById('cIngresos').getContext('2d'),{
     type:'bar',
     data:{labels,datasets:[
-      {label:'Nuevas',data:meses.map(m=>m.nuevas),backgroundColor:'rgba(76,175,80,.8)',borderRadius:4,borderSkipped:false},
-      {label:'Recurrentes',data:meses.map(m=>m.rec),backgroundColor:'rgba(66,165,245,.7)',borderRadius:4,borderSkipped:false},
-      {label:'Único',data:meses.map(m=>m.unico),backgroundColor:'rgba(255,152,0,.7)',borderRadius:4,borderSkipped:false},
+      {label:'Nuevas',data:meses.map(m=>m.nuevas),backgroundColor:'rgba(95,184,120,.8)',borderSkipped:false},
+      {label:'Recurrentes',data:meses.map(m=>m.rec),backgroundColor:'rgba(91,155,213,.7)',borderSkipped:false},
+      {label:'Único',data:meses.map(m=>m.unico),backgroundColor:'rgba(224,160,48,.7)',borderSkipped:false},
     ]},
     options:{...topts,scales:{...topts.scales,x:{...topts.scales.x,stacked:true},y:{...topts.scales.y,stacked:true}}}
   });
@@ -1582,18 +1621,18 @@ function calcRep(lics,terms){
   chC=new Chart(document.getElementById('cChurn').getContext('2d'),{
     type:'bar',
     data:{labels,datasets:[
-      {label:'Activas',data:meses.map(m=>m.act),backgroundColor:'rgba(76,175,80,.8)',borderRadius:4,yAxisID:'y'},
-      {label:'Suspendidas',data:meses.map(m=>m.sus),backgroundColor:'rgba(239,83,80,.7)',borderRadius:4,yAxisID:'y'},
+      {label:'Activas',data:meses.map(m=>m.act),backgroundColor:'rgba(95,184,120,.8)',yAxisID:'y'},
+      {label:'Suspendidas',data:meses.map(m=>m.sus),backgroundColor:'rgba(225,85,84,.7)',yAxisID:'y'},
       {label:'Churn %',data:meses.map(m=>(m.act+m.sus)>0?Math.round(m.sus/(m.act+m.sus)*100):0),
-        type:'line',borderColor:'#ff9800',backgroundColor:'rgba(255,152,0,.08)',
-        borderWidth:2,pointBackgroundColor:'#ff9800',pointRadius:4,tension:.3,yAxisID:'y2',fill:true},
+        type:'line',borderColor:'#e0a030',backgroundColor:'rgba(224,160,48,.08)',
+        borderWidth:2,pointBackgroundColor:'#e0a030',pointRadius:4,tension:.3,yAxisID:'y2',fill:true},
     ]},
     options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{backgroundColor:'#1a1a1a',borderColor:'#333',borderWidth:1,titleColor:'#fff',bodyColor:'#aaa'}},
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#17181a',borderColor:'#2b2d30',borderWidth:1,titleColor:'#fff',bodyColor:'#9a9c9f'}},
       scales:{
-        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#666',font:{size:11}}},
-        y:{type:'linear',position:'left',grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#666',font:{size:11}},beginAtZero:true},
-        y2:{type:'linear',position:'right',grid:{drawOnChartArea:false},ticks:{color:'#ff9800',font:{size:11},callback:v=>v+'%'},beginAtZero:true,max:100}
+        x:{grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#6b6d70',font:{size:11}}},
+        y:{type:'linear',position:'left',grid:{color:'rgba(255,255,255,.05)'},ticks:{color:'#6b6d70',font:{size:11}},beginAtZero:true},
+        y2:{type:'linear',position:'right',grid:{drawOnChartArea:false},ticks:{color:'#e0a030',font:{size:11},callback:v=>v+'%'},beginAtZero:true,max:100}
       }}
   });
 
@@ -1613,7 +1652,7 @@ function calcRep(lics,terms){
       `<div class="kc" style="--c:var(--green)"><div class="kc-l">Anual</div><div class="kc-v">${pt.anual}</div><div class="kc-s">${gs(mt.anual)}/año</div></div>`+
       `<div class="kc" style="--c:var(--blue)"><div class="kc-l">Mensual</div><div class="kc-v">${pt.mensual}</div><div class="kc-s">${gs(mt.mensual)}/mes</div></div>`+
       `<div class="kc" style="--c:var(--orange)"><div class="kc-l">Pago único</div><div class="kc-v">${pt.unico}</div><div class="kc-s">${gs(mt.unico)} total</div></div>`+
-      `<div class="kc" style="--c:#555"><div class="kc-l">Trial</div><div class="kc-v">${pt.trial}</div><div class="kc-s">Sin cobro</div></div>`+
+      `<div class="kc" style="--c:var(--muted)"><div class="kc-l">Trial</div><div class="kc-v">${pt.trial}</div><div class="kc-s">Sin cobro</div></div>`+
     '</div>'+
     '<div class="sec-t" style="margin-top:16px;">Por rubro</div>'+
     Object.entries(pr).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`
@@ -1683,7 +1722,7 @@ async function handleRucFiles(files){
   const log = document.getElementById('rucLog');
   log.innerHTML = '';
 
-  function addLog(msg, color='#aaa'){
+  function addLog(msg, color='#9a9c9f'){
     const line = document.createElement('div');
     line.style.color = color;
     line.textContent = new Date().toLocaleTimeString()+' '+msg;
@@ -1774,7 +1813,7 @@ async function handleRucFiles(files){
   document.getElementById('rucProgressLabel').textContent = 'Importación completa';
   document.getElementById('rucProgressDetail').textContent = 
     totalInserted.toLocaleString()+' registros importados · '+totalErrors+' errores';
-  addLog('─────────────────────────────────', '#333');
+  addLog('─────────────────────────────────', '#2b2d30');
   addLog('TOTAL: '+totalInserted.toLocaleString()+' registros | '+totalErrors+' errores', '#fff');
 
   // Recargar estadísticas
@@ -1808,7 +1847,7 @@ async function buscarRucAdmin(q){
         return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">'+
           '<div><div style="font-size:13px;font-weight:700;color:#fff;">'+r.razon_social+'</div>'+
           '<div style="font-size:12px;color:var(--muted);">RUC: '+r.ruc+(r.dv?'-'+r.dv:'')+'</div></div>'+
-          '<span style="font-size:11px;background:rgba(0,0,0,.3);color:'+color+';padding:3px 8px;border-radius:10px;font-weight:700;">'+r.estado+'</span>'+
+          '<span style="font-size:11px;background:rgba(0,0,0,.3);color:'+color+';padding:3px 8px;font-weight:700;">'+r.estado+'</span>'+
           '</div>';
       }).join('');
     } catch(e){ el.innerHTML='<div style="color:var(--red);font-size:13px;">Error: '+e.message+'</div>'; }
@@ -1865,7 +1904,7 @@ async function renderCli(){
 async function renderTerPage(){
   document.getElementById('content').innerHTML = `
     <div class="ph"><div><div class="pt">Terminales</div><div class="ps" id="terCount">Cargando...</div></div>
-    <select id="terFiltroEmp" onchange="filtrarTer()" style="background:#1e1e1e;border:1px solid #2a2a2a;border-radius:8px;color:#fff;font-family:inherit;font-size:13px;padding:8px 12px;outline:none;"><option value="">Todas las empresas</option></select></div>
+    <select id="terFiltroEmp" onchange="filtrarTer()" class="fsel" style="width:auto;font-size:13px;padding:8px 12px;"><option value="">Todas las empresas</option></select></div>
     <div class="sbar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
     <input placeholder="Buscar terminal..." oninput="filtrarTer()" id="terQ"></div>
     <div id="terList"><div class="loading"><span class="sp"></span></div></div>`;
@@ -1903,12 +1942,12 @@ async function renderRuc(){
       <div style="padding:16px;">
         <div style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.6;">
           Seleccioná uno o varios archivos TXT del SET (ruc1.txt ... ruc9.txt).<br>
-          Formato: <code style="background:#1e1e1e;padding:2px 6px;border-radius:4px;font-size:11px;">RUC|RAZON_SOCIAL|DV|CODIGO|ESTADO|</code>
+          Formato: <code style="background:var(--card2);padding:2px 6px;font-size:11px;">RUC|RAZON_SOCIAL|DV|CODIGO|ESTADO|</code>
         </div>
-        <div id="rucDropZone" style="border:2px dashed #2a2a2a;border-radius:10px;padding:30px;text-align:center;cursor:pointer;margin-bottom:14px;">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#555" stroke-width="1.5" style="margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-          <div style="font-size:14px;font-weight:700;color:#aaa;margin-bottom:4px;">Arrastrá los archivos acá</div>
-          <div style="font-size:12px;color:#555;">o hacé click para seleccionar</div>
+        <div id="rucDropZone" style="border:2px dashed var(--border);padding:30px;text-align:center;cursor:pointer;margin-bottom:14px;">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" style="margin-bottom:8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <div style="font-size:14px;font-weight:700;color:var(--text2);margin-bottom:4px;">Arrastrá los archivos acá</div>
+          <div style="font-size:12px;color:var(--muted);">o hacé click para seleccionar</div>
           <input type="file" id="rucFileInput" accept=".txt" multiple style="display:none">
         </div>
         <div id="rucProgress" style="display:none;">
@@ -1916,20 +1955,19 @@ async function renderRuc(){
             <span style="font-size:13px;font-weight:700;" id="rucProgressLabel">Procesando...</span>
             <span style="font-size:12px;color:var(--muted);" id="rucProgressPct">0%</span>
           </div>
-          <div style="background:#1e1e1e;border-radius:4px;height:8px;overflow:hidden;margin-bottom:8px;">
-            <div id="rucProgressBar" style="height:100%;width:0%;background:var(--green);border-radius:4px;transition:width .3s;"></div>
+          <div style="background:var(--card2);height:8px;overflow:hidden;margin-bottom:8px;">
+            <div id="rucProgressBar" style="height:100%;width:0%;background:var(--accent);transition:width .3s;"></div>
           </div>
           <div style="font-size:12px;color:var(--muted);" id="rucProgressDetail"></div>
         </div>
-        <div id="rucLog" style="display:none;background:#0a0a0a;border:1px solid #1e1e1e;border-radius:8px;padding:12px;font-family:monospace;font-size:11px;max-height:200px;overflow-y:auto;color:#aaa;"></div>
+        <div id="rucLog" style="display:none;background:var(--bg);border:1px solid var(--border);padding:12px;font-family:var(--mono);font-size:11px;max-height:200px;overflow-y:auto;color:var(--text2);"></div>
       </div>
     </div>
     <div class="card">
       <div class="card-h"><span class="card-t"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M21 21l-4.35-4.35"/><circle cx="11" cy="11" r="7"/></svg> Consultar contribuyente</span></div>
       <div style="padding:16px;">
         <div style="display:flex;gap:8px;margin-bottom:12px;">
-          <input id="rucBuscarInput" type="text" placeholder="Ingresá RUC o nombre..."
-            style="flex:1;background:#1e1e1e;border:1.5px solid #2a2a2a;border-radius:8px;color:#fff;font-family:inherit;font-size:14px;padding:10px 14px;outline:none;">
+          <input id="rucBuscarInput" type="text" placeholder="Ingresá RUC o nombre..." class="finp" style="flex:1;">
         </div>
         <div id="rucResultados"></div>
       </div>
@@ -1940,9 +1978,9 @@ async function renderRuc(){
   var fi = document.getElementById('rucFileInput');
   if(dz){
     dz.onclick = function(){ fi.click(); };
-    dz.ondragover = function(e){ e.preventDefault(); dz.style.borderColor='var(--green)'; };
-    dz.ondragleave = function(){ dz.style.borderColor='#2a2a2a'; };
-    dz.ondrop = function(e){ e.preventDefault(); dz.style.borderColor='#2a2a2a'; handleRucFiles(e.dataTransfer.files); };
+    dz.ondragover = function(e){ e.preventDefault(); dz.style.borderColor='var(--accent)'; };
+    dz.ondragleave = function(){ dz.style.borderColor='var(--border)'; };
+    dz.ondrop = function(e){ e.preventDefault(); dz.style.borderColor='var(--border)'; handleRucFiles(e.dataTransfer.files); };
   }
   if(fi){ fi.onchange = function(){ handleRucFiles(fi.files); }; }
 
