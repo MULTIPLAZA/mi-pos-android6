@@ -233,6 +233,7 @@ async function confirmarCheckIn(modo){
     estado: modo,
   };
 
+  const numeroHab = _hospHabSel.numero; // capturar ANTES de cerrarCheckIn(), que limpia _hospHabSel
   const btnId = esReserva ? 'hospCkBtnReservar' : 'hospCkBtnGuardar';
   const btn = document.getElementById(btnId);
   const txtOriginal = btn ? btn.textContent : '';
@@ -245,8 +246,8 @@ async function confirmarCheckIn(modo){
     cerrarCheckIn();
     renderHabitacionesScreen();
     toast(esReserva
-      ? 'Reserva OK — Habitación ' + _hospHabSel.numero + ' · ' + nombre
-      : 'Check-in OK — Habitación ' + _hospHabSel.numero + ' · ' + nombre);
+      ? 'Reserva OK — Habitación ' + numeroHab + ' · ' + nombre
+      : 'Check-in OK — Habitación ' + numeroHab + ' · ' + nombre);
   }catch(e){
     toast('Error al guardar: ' + e.message);
   }
