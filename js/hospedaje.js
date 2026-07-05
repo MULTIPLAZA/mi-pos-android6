@@ -46,7 +46,56 @@ async function hospCargar(){
         await db.mesas_cache.put({ clave:'hosp_estadias',     valor: JSON.stringify(hospEstadias) });
       }catch(e){ console.warn('[Hospedaje] Error cacheando:', e.message); }
     }
+    // "Night audit": después del horario de corte, cualquier huésped que
+    // siga alojado ya le corresponde una noche más — se carga sola, sin
+    // que nadie tenga que acordarse de tocar "+ NOCHE" cada día.
+    await hospAutoCargarNochesVencidas();
   }catch(e){ console.warn('[Hospedaje] Error cargando:', e.message); toast('Error al cargar habitaciones'); }
+}
+
+// ── NIGHT AUDIT: cargo automático de noches vencidas ──────────────────
+// Regla del hotel: el "día" cierra a las HOSP_CUTOFF_HORA (10:00 por
+// default). Un huésped que sigue en_estadia después de ese horario ya
+// consumió una noche más, se haya acordado el personal de cargarla o no.
+var HOSP_CUTOFF_HORA = 10;
+
+/** "Hoy" en términos de día de hotel — antes del corte, seguimos en el día de ayer. */
+function _hospDiaHotelActual(){
+  const ahora = new Date();
+  const d = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate());
+  if(ahora.getHours() < HOSP_CUTOFF_HORA) d.setDate(d.getDate()-1);
+  return d;
+}
+
+/** Cuántas noches corresponden desde el check-in hasta el día de hotel actual (mínimo 1). */
+function _hospNochesEsperadas(checkinStr){
+  const checkin = new Date(checkinStr+'T00:00:00');
+  const dias = Math.round((_hospDiaHotelActual() - checkin) / 86400000);
+  return Math.max(1, dias + 1);
+}
+
+async function hospAutoCargarNochesVencidas(){
+  const activas = hospEstadias.filter(function(e){ return e.estado === 'en_estadia'; });
+  for(const est of activas){
+    const esperadas = _hospNochesEsperadas(est.checkin);
+    const cargadas = (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length;
+    const faltantes = esperadas - cargadas;
+    if(faltantes <= 0) continue;
+    const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+    const tarifa = est.tarifa_noche || (h && h.precio_noche) || 0;
+    const hoyIso = _hospFechaISO(new Date());
+    for(let i=0;i<faltantes;i++){
+      est.cargos.push({
+        fecha: hoyIso, descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
+        cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+      });
+    }
+    est.total = est.cargos.reduce(function(s,c){ return s + (c.monto || 0); }, 0);
+    try{
+      await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
+      _log('[Hospedaje] Night audit: +' + faltantes + ' noche(s) auto-cargadas — ' + est.huesped_nombre);
+    }catch(e){ console.warn('[Hospedaje] Error en night audit:', e.message); }
+  }
 }
 
 /** Estadía EN CURSO (huésped ya adentro) de una habitación, o null */
