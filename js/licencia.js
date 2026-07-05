@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.36 (2026-07-05)';
+var APP_VERSION = 'v1.15.37 (2026-07-05)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -435,6 +435,28 @@ async function doActivar(){
     btn.style.background='#4caf50';
     btn.innerHTML='ACTIVAR';
     licShowError(res.error); return;
+  }
+  // Si este dispositivo ya tenía OTRA licencia (email distinto) activada
+  // antes, limpiar TODOS los datos de negocio que quedaron en caché local —
+  // si no, el nombre/RUC/dirección/teléfono/logo/ciudad/sucursal/terminal de
+  // la cuenta anterior se filtran a la cuenta nueva. Bug real detectado: al
+  // reactivar este equipo con una licencia de Hospedaje distinta, siguió
+  // mostrando "CARLOS CARDOZO PINTOS" con su RUC y dirección real (datos de
+  // una cuenta de retail probada antes en el mismo dispositivo) — porque
+  // sincronizarConfigNegocio() NUNCA pisa una clave local ya existente
+  // (para no perder ediciones recientes offline), así que estas claves
+  // sobreviven indefinidamente entre licencias si no se limpian acá.
+  var emailAnterior = localStorage.getItem(SK.email);
+  if(emailAnterior && emailAnterior.toLowerCase() !== email.toLowerCase()){
+    ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
+     'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
+     'pos_logo','pos_sucursal','pos_deposito_id','pos_terminal',SK.negocio]
+      .forEach(function(k){ localStorage.removeItem(k); });
+    if(typeof configData !== 'undefined'){
+      configData.negocio=''; configData.ciudad=''; configData.ruc='';
+      configData.direccion=''; configData.telefono='';
+    }
+    _log('[Activar] Licencia distinta a la anterior en este dispositivo — cache de negocio limpiada por completo');
   }
   licGuardar(res);
   document.getElementById('scActivacion').style.display='none';
@@ -878,6 +900,12 @@ function doContactarSoporte(){
 function doDesactivar(){
   if(!confirm('Desactivar esta licencia en este dispositivo?')) return;
   Object.values(SK).forEach(k=>localStorage.removeItem(k));
+  // Estas claves de negocio viven FUERA de SK (legacy) — sin esto, "Cambiar
+  // licencia" no dejaba el equipo realmente limpio para la próxima cuenta.
+  ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
+   'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
+   'pos_logo','pos_sucursal','pos_deposito_id','pos_terminal']
+    .forEach(function(k){ localStorage.removeItem(k); });
   // Limpiar IndexedDB para que no queden datos de la cuenta anterior
   try {
     if(typeof db !== 'undefined' && db){
