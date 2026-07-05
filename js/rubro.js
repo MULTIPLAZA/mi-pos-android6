@@ -142,6 +142,11 @@ function rubroAplicarUI(){
   var drawerHab = document.getElementById('drawerItemHabitaciones');
   if(drawerHab) drawerHab.style.display = usaHabitaciones() ? '' : 'none';
 
+  // "Precio pizza por mitad" en Configuración — solo tiene sentido en
+  // gastronomía (mitades). En despensa/barbería/hospedaje/etc. no aplica.
+  var fieldMitad = document.getElementById('fieldMitadPizza');
+  if(fieldMitad) fieldMitad.style.display = usaMitades() ? '' : 'none';
+
   // Barra de tipo de pedido (local/llevar/delivery) — desktop y mobile
   var tipoBarsTab = document.querySelectorAll('.tab-tipo-btns');
   var tipoBarMob  = document.querySelector('.mob-tipo-bar');
