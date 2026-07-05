@@ -142,6 +142,11 @@ function rubroAplicarUI(){
   var drawerHab = document.getElementById('drawerItemHabitaciones');
   if(drawerHab) drawerHab.style.display = usaHabitaciones() ? '' : 'none';
 
+  // Acceso directo a Habitaciones en el header del POS (rubro hospedaje) —
+  // sin esto, solo se llegaba abriendo el drawer.
+  var btnHabHeader = document.getElementById('btnHeaderHabitaciones');
+  if(btnHabHeader) btnHabHeader.style.display = usaHabitaciones() ? 'flex' : 'none';
+
   // "Precio pizza por mitad" en Configuración — solo tiene sentido en
   // gastronomía (mitades). En despensa/barbería/hospedaje/etc. no aplica.
   var fieldMitad = document.getElementById('fieldMitadPizza');

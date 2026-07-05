@@ -150,6 +150,7 @@ function abrirCheckIn(habId){
   document.getElementById('hospCkNombre').value = '';
   document.getElementById('hospCkDoc').value = '';
   document.getElementById('hospCkTel').value = '';
+  document.getElementById('hospCkNacionalidad').value = 'Paraguaya';
   document.getElementById('hospCkHuespedes').value = '1';
   document.getElementById('hospCkCheckin').value = hoyStr;
   document.getElementById('hospCkCheckout').value = '';
@@ -182,6 +183,7 @@ async function confirmarCheckIn(){
     huesped_nombre: nombre,
     huesped_documento: document.getElementById('hospCkDoc').value.trim() || null,
     huesped_tel: document.getElementById('hospCkTel').value.trim() || null,
+    huesped_nacionalidad: document.getElementById('hospCkNacionalidad').value.trim() || null,
     cantidad_huespedes: parseInt(document.getElementById('hospCkHuespedes').value) || 1,
     checkin: checkin,
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
@@ -221,7 +223,8 @@ function abrirFolio(estadiaId){
   document.getElementById('hospFolioTitulo').textContent = 'Habitación ' + (h ? h.numero : '?') + ' — ' + est.huesped_nombre;
   document.getElementById('hospFolioSub').textContent =
     'Check-in: ' + fmtFechaCorta(est.checkin) + (est.checkout_previsto ? ' · Salida prevista: ' + fmtFechaCorta(est.checkout_previsto) : '')
-    + (est.huesped_documento ? ' · Doc: ' + est.huesped_documento : '');
+    + (est.huesped_documento ? ' · Doc: ' + est.huesped_documento : '')
+    + (est.huesped_nacionalidad ? ' · ' + est.huesped_nacionalidad : '');
 
   renderFolioCargos();
   document.getElementById('hospFolioOv').style.display = 'flex';

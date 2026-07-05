@@ -1743,6 +1743,10 @@
         <input id="hospCkTel" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
       </div>
     </div>
+    <div style="margin-bottom:10px;">
+      <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Nacionalidad</label>
+      <input id="hospCkNacionalidad" type="text" value="Paraguaya" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <div>
         <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Check-in</label>
@@ -1901,6 +1905,7 @@
         <!-- Badge numérico — oculto cuando todo OK -->
         <span class="sync-count hidden" id="syncCount"></span>
       </button>
+      <button class="hbtn" id="btnHeaderHabitaciones" onclick="abrirPantallaHabitaciones()" title="Habitaciones" style="display:none;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg></button>
       <button class="hbtn" id="btnClienteNombre" onclick="abrirInputClienteNombre()" title="Nombre del cliente"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></button>
       <button class="hbtn theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="Cambiar tema"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></button>
     </div>
