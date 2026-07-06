@@ -139,7 +139,13 @@ function _hospColorEstado(estadoVisual){
 }
 
 function _hospLabelTipo(tipo){
-  var labels = { simple:'Simple', doble:'Doble', matrimonial:'Matrimonial', suite:'Suite', otro:'Otro' };
+  var labels = {
+    individual:'Individual', matrimonial:'Matrimonial', triplo:'Triplo',
+    quadruplo:'Quadruplo', quintuplo:'Quintuplo', otro:'Otro',
+    // valores viejos (simple/doble/suite) — se conservan para habitaciones
+    // ya guardadas con el catálogo anterior, no se ofrecen más en el form.
+    simple:'Simple', doble:'Doble', suite:'Suite',
+  };
   return labels[tipo] || '';
 }
 
@@ -830,7 +836,7 @@ function abrirFormHabitacion(habId){
   document.getElementById('hospFormTitulo').textContent = h ? 'Editar habitación' : 'Nueva habitación';
   document.getElementById('hospFormId').value = h ? h.id : '';
   document.getElementById('hospFormNumero').value = h ? h.numero : '';
-  document.getElementById('hospFormTipo').value = h ? (h.tipo || 'simple') : 'simple';
+  document.getElementById('hospFormTipo').value = h ? (h.tipo || 'individual') : 'individual';
   document.getElementById('hospFormPiso').value = h ? (h.piso || '') : '';
   document.getElementById('hospFormCapacidad').value = h ? (h.capacidad || 2) : 2;
   document.getElementById('hospFormPrecio').value = h ? (h.precio_noche || 0) : 0;
