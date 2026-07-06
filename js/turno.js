@@ -567,6 +567,13 @@ async function renderTurno(){
     .reduce((s,v) => s+v.total, 0);
   const saldoEsperado = turnoData.efectivoInicial + totalVentasEfectivas + totalIngresos - totalEgresos;
 
+  // Si la cuenta declara la caja en Reales, esta vista muestra los montos
+  // principales en R$ (equivalente vía cotización) — el dato de fondo
+  // sigue en Gs, esto es solo la presentación, igual que en el ticket.
+  const _cotBRLturno = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const _turnoEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLturno > 0;
+  const gnT = (n) => _turnoEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLturno).toLocaleString('es-PY') : gs(n);
+
   // Por método de pago — desglosa divPagos si existe, o el string compuesto
   const metodos = {};
   const acumMetodo = (m, monto) => {
@@ -618,15 +625,15 @@ async function renderTurno(){
   html += '<div class="turno-section">';
   html += '<div class="turno-section-title">Resumen del turno</div>';
   html += '<div class="turno-row"><span class="turno-row-label">Apertura</span><span class="turno-row-val">' + fmtFecha(turnoData.fechaApertura) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gs(turnoData.efectivoInicial) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gs(totalVentas) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + ' · Ticket promedio: ' + gs(ticketProm) + '</span><span></span></div>';
+  html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnT(turnoData.efectivoInicial) + '</span></div>';
+  html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnT(totalVentas) + '</span></div>';
+  html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + ' · Ticket promedio: ' + gnT(ticketProm) + '</span><span></span></div>';
   if(totalEgresos > 0)
-    html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gs(totalEgresos) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gnT(totalEgresos) + '</span></div>';
   if(totalIngresos > 0)
-    html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gs(totalIngresos) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gnT(totalIngresos) + '</span></div>';
 
-  html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gs(saldoEsperado) + '</span></div>';
+  html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gnT(saldoEsperado) + '</span></div>';
   html += '</div>';
 
   // ── Cobros de fiado del turno (detalle por cliente) ──
@@ -637,9 +644,9 @@ async function renderTurno(){
       var _ing = turnoData.ingresos[_ci];
       var _ingNom = (_ing.desc||'').replace('Cobro fiado — ','') || 'Cliente';
       var _ingMet = _ing.metodo ? (' · ' + _ing.metodo.charAt(0).toUpperCase() + _ing.metodo.slice(1)) : '';
-      html += '<div class="turno-row"><span class="turno-row-label">' + _ingNom + '<span style="font-weight:400;color:#555;font-size:10px;">' + _ingMet + '</span></span><span class="turno-row-val green">+' + gs(_ing.monto) + '</span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label">' + _ingNom + '<span style="font-weight:400;color:#555;font-size:10px;">' + _ingMet + '</span></span><span class="turno-row-val green">+' + gnT(_ing.monto) + '</span></div>';
     }
-    html += '<div class="turno-row" style="border-top:1px solid var(--border2);margin-top:2px;"><span class="turno-row-label" style="font-weight:700;">Total cobrado</span><span class="turno-row-val green" style="font-weight:900;">+' + gs(totalIngresos) + '</span></div>';
+    html += '<div class="turno-row" style="border-top:1px solid var(--border2);margin-top:2px;"><span class="turno-row-label" style="font-weight:700;">Total cobrado</span><span class="turno-row-val green" style="font-weight:900;">+' + gnT(totalIngresos) + '</span></div>';
     html += '</div>';
   }
 
@@ -649,7 +656,7 @@ async function renderTurno(){
     var _totalCred = _ventasCred.reduce(function(s,v){ return s+v.total; }, 0);
     html += '<div class="turno-section" style="border-left:3px solid #ff9800;">';
     html += '<div class="turno-section-title" style="color:#ff9800;">Ventas a credito (fiado)</div>';
-    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">Gs.' + gs(_totalCred) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total fiado este turno</span><span class="turno-row-val" style="color:#ff9800;">' + (_turnoEnBRL ? gnT(_totalCred) : 'Gs.' + gs(_totalCred)) + '</span></div>';
     html += '<div class="turno-row"><span class="turno-row-label sub">' + _ventasCred.length + ' venta' + (_ventasCred.length!==1?'s':'') + '</span><button onclick="abrirCredito()" style="background:transparent;border:1px solid #ff9800;border-radius:4px;color:#ff9800;font-family:\'Barlow\',sans-serif;font-size:11px;font-weight:700;padding:4px 8px;cursor:pointer;">Ver fiado</button></div>';
     html += '</div>';
   }
@@ -663,11 +670,11 @@ async function renderTurno(){
     Object.entries(metodos).forEach(([m, d]) => {
       var _fiadoEnMetodo = _cobFiadoPorMetodo[m] || 0;
       var _subOps = d.ops + ' operación' + (d.ops!==1?'es':'');
-      if (_fiadoEnMetodo > 0) _subOps += ' · incl. +' + gs(_fiadoEnMetodo) + ' cobro fiado';
+      if (_fiadoEnMetodo > 0) _subOps += ' · incl. +' + gnT(_fiadoEnMetodo) + ' cobro fiado';
       html += '<div class="turno-metodo-row">';
       html += '<div class="turno-metodo-icon">' + (metodoIcons[m]||metodoIcons['EFECTIVO']) + '</div>';
       html += '<div class="turno-metodo-info"><div class="turno-metodo-name">' + m + '</div><div class="turno-metodo-ops">' + _subOps + '</div></div>';
-      html += '<div class="turno-metodo-total">' + gs(d.total) + '</div>';
+      html += '<div class="turno-metodo-total">' + gnT(d.total) + '</div>';
       html += '</div>';
     });
   }
@@ -723,12 +730,12 @@ async function renderTurno(){
       if(e.anulada) return; // ocultar anulados
       html += '<div class="turno-egreso-row" style="display:flex;align-items:center;gap:10px;">';
       html += '<div class="turno-egreso-info" style="flex:1;"><div class="turno-egreso-desc">' + e.desc + '</div><div class="turno-egreso-fecha">' + fmtFecha(e.fecha) + '</div></div>';
-      html += '<div class="turno-egreso-monto">−' + gs(e.monto) + '</div>';
+      html += '<div class="turno-egreso-monto">−' + gnT(e.monto) + '</div>';
       html += '<button onclick="anularEgreso('+idx+')" title="Anular egreso" style="background:none;border:none;cursor:pointer;padding:6px;color:#ef5350;display:flex;align-items:center;flex-shrink:0;" >';
       html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></button>';
       html += '</div>';
     });
-    html += '<div class="turno-row"><span class="turno-row-label" style="font-weight:700;">Total egresos</span><span class="turno-row-val red">−' + gs(totalEgresos) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label" style="font-weight:700;">Total egresos</span><span class="turno-row-val red">−' + gnT(totalEgresos) + '</span></div>';
   }
   html += '</div>';
 
@@ -737,8 +744,8 @@ async function renderTurno(){
   html += '<div class="turno-section">';
   html += '<div class="turno-section-title">Datos adicionales</div>';
   html += '<div class="turno-row"><span class="turno-row-label">Ventas con factura</span><span class="turno-row-val">' + turnoData.ventas.filter(v=>v.factura).length + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label">Monto facturado</span><span class="turno-row-val">' + gs(ventasCredito) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label">Total descuentos</span><span class="turno-row-val muted">₲0</span></div>';
+  html += '<div class="turno-row"><span class="turno-row-label">Monto facturado</span><span class="turno-row-val">' + gnT(ventasCredito) + '</span></div>';
+  html += '<div class="turno-row"><span class="turno-row-label">Total descuentos</span><span class="turno-row-val muted">' + (_turnoEnBRL ? 'R$ 0' : '₲0') + '</span></div>';
   html += '</div>';
 
   // ── Botones ──
@@ -1374,16 +1381,20 @@ function renderCierreResumen(){
     }
   });
 
+  const _cotBRLcr = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const _crEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLcr > 0;
+  const gnCR = (n) => _crEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLcr).toLocaleString('es-PY') : gs(n);
+
   let html = '';
   html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Apertura</span><span class="cierre-resumen-val">'+fmt(turnoData.fechaApertura)+'</span></div>';
-  html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Efectivo inicial</span><span class="cierre-resumen-val">'+gs(turnoData.efectivoInicial)+'</span></div>';
-  html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Total ventas ('+cantVentas+')</span><span class="cierre-resumen-val" style="color:var(--green)">'+gs(totalVentas)+'</span></div>';
+  html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Efectivo inicial</span><span class="cierre-resumen-val">'+gnCR(turnoData.efectivoInicial)+'</span></div>';
+  html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Total ventas ('+cantVentas+')</span><span class="cierre-resumen-val" style="color:var(--green)">'+gnCR(totalVentas)+'</span></div>';
   Object.entries(metodos).forEach(([m,d])=>{
-    html += '<div class="cierre-resumen-row" style="padding:6px 14px 6px 24px;"><span class="cierre-resumen-lbl" style="color:var(--muted);">'+m+' ('+d.ops+')</span><span class="cierre-resumen-val" style="color:var(--label);">'+gs(d.total)+'</span></div>';
+    html += '<div class="cierre-resumen-row" style="padding:6px 14px 6px 24px;"><span class="cierre-resumen-lbl" style="color:var(--muted);">'+m+' ('+d.ops+')</span><span class="cierre-resumen-val" style="color:var(--label);">'+gnCR(d.total)+'</span></div>';
   });
   if(totalEgresos>0)
-    html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Total egresos</span><span class="cierre-resumen-val" style="color:#ef5350;">−'+gs(totalEgresos)+'</span></div>';
-  html += '<div class="cierre-resumen-row" style="background:rgba(76,175,80,.06)"><span class="cierre-resumen-lbl" style="font-weight:700;">Saldo esperado</span><span class="cierre-resumen-val" style="color:var(--green);font-size:15px;">'+gs(saldoEsperado)+'</span></div>';
+    html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Total egresos</span><span class="cierre-resumen-val" style="color:#ef5350;">−'+gnCR(totalEgresos)+'</span></div>';
+  html += '<div class="cierre-resumen-row" style="background:rgba(76,175,80,.06)"><span class="cierre-resumen-lbl" style="font-weight:700;">Saldo esperado</span><span class="cierre-resumen-val" style="color:var(--green);font-size:15px;">'+gnCR(saldoEsperado)+'</span></div>';
   document.getElementById('cierreResumen').innerHTML = html;
 }
 
@@ -1394,6 +1405,9 @@ function updCierreDiff(){
   const box = document.getElementById('cierreDiffBox');
   const lbl = document.getElementById('cierreDiffLbl');
   const val = document.getElementById('cierreDiffVal');
+  const _cotBRLdiff = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const _diffEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLdiff > 0;
+  const gnDiff = (n) => _diffEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLdiff).toLocaleString('es-PY') : gs(n);
   box.style.display = 'flex';
   box.className = 'cierre-diff-box';
   lbl.className = 'cierre-diff-lbl';
@@ -1401,15 +1415,15 @@ function updCierreDiff(){
   if(diff === 0){
     box.classList.add('ok'); lbl.classList.add('ok'); val.classList.add('ok');
     lbl.textContent = 'CUADRE EXACTO';
-    val.textContent = gs(0);
+    val.textContent = gnDiff(0);
   } else if(diff > 0){
     box.classList.add('sobrante'); lbl.classList.add('sobrante'); val.classList.add('sobrante');
     lbl.textContent = 'SOBRANTE';
-    val.textContent = '+'+gs(diff);
+    val.textContent = '+'+gnDiff(diff);
   } else {
     box.classList.add('faltante'); lbl.classList.add('faltante'); val.classList.add('faltante');
     lbl.textContent = 'FALTANTE';
-    val.textContent = '−'+gs(Math.abs(diff));
+    val.textContent = '−'+gnDiff(Math.abs(diff));
   }
 }
 
