@@ -488,9 +488,17 @@ function hospRecalcNoches(){
   lbl.textContent = noches > 0 ? noches + ' noche' + (noches!==1?'s':'') : (noches === 0 ? 'Misma fecha' : 'Fecha inválida');
 }
 
+var _hospEditandoReservaId = null;
+
 function cerrarCheckIn(){
   document.getElementById('hospCheckinOv').style.display = 'none';
   _hospHabSel = null;
+  _hospEditandoReservaId = null;
+  // Restaurar los botones normales de check-in (por si quedaron ocultos
+  // de una edición de reserva anterior).
+  document.getElementById('hospCkBtnReservar').style.display = '';
+  document.getElementById('hospCkBtnGuardar').style.display = '';
+  document.getElementById('hospCkBtnEditarGuardar').style.display = 'none';
 }
 
 /**
@@ -571,6 +579,75 @@ function abrirReserva(estadiaId){
 function cerrarReserva(){
   document.getElementById('hospReservaOv').style.display = 'none';
   _hospReservaSel = null;
+}
+
+/**
+ * Editar los datos de una reserva ya guardada (típico: se olvidaron de
+ * poner la fecha de salida al reservar). Reutiliza el mismo formulario
+ * de check-in, prellenado con los datos actuales, con un único botón
+ * "GUARDAR CAMBIOS" en vez de Reservar/Check-in ahora.
+ */
+function abrirEditarReserva(){
+  const res = _hospReservaSel;
+  if(!res) return;
+  const h = hospHabitaciones.find(function(x){ return x.id === res.habitacion_id; });
+  _hospEditandoReservaId = res.id;
+  _hospHabSel = h || null;
+
+  document.getElementById('hospCkNombre').value = res.huesped_nombre || '';
+  document.getElementById('hospCkDoc').value = res.huesped_documento || '';
+  document.getElementById('hospCkTel').value = res.huesped_tel || '';
+  document.getElementById('hospCkNacionalidad').value = res.huesped_nacionalidad || 'Paraguaya';
+  document.getElementById('hospCkHuespedes').value = res.cantidad_huespedes || 1;
+  document.getElementById('hospCkCheckin').value = res.checkin || '';
+  document.getElementById('hospCkCheckout').value = res.checkout_previsto || '';
+  document.getElementById('hospCkTarifa').value = res.tarifa_noche || 0;
+  document.getElementById('hospCkTitulo').textContent = 'Editar reserva — Habitación ' + (h ? h.numero : '?');
+  hospRecalcNoches();
+
+  document.getElementById('hospCkBtnReservar').style.display = 'none';
+  document.getElementById('hospCkBtnGuardar').style.display = 'none';
+  document.getElementById('hospCkBtnEditarGuardar').style.display = '';
+
+  cerrarReserva();
+  document.getElementById('hospCheckinOv').style.display = 'flex';
+}
+
+async function confirmarEditarReserva(){
+  const estadiaId = _hospEditandoReservaId;
+  if(!estadiaId) return;
+  const est = hospEstadias.find(function(e){ return e.id === estadiaId; });
+  if(!est){ toast('No se encontró la reserva'); return; }
+
+  const nombre = document.getElementById('hospCkNombre').value.trim();
+  if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
+  const checkin = document.getElementById('hospCkCheckin').value;
+  if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
+
+  const payload = {
+    huesped_nombre: nombre,
+    huesped_documento: document.getElementById('hospCkDoc').value.trim() || null,
+    huesped_tel: document.getElementById('hospCkTel').value.trim() || null,
+    huesped_nacionalidad: document.getElementById('hospCkNacionalidad').value.trim() || null,
+    cantidad_huespedes: parseInt(document.getElementById('hospCkHuespedes').value) || 1,
+    checkin: checkin,
+    checkout_previsto: document.getElementById('hospCkCheckout').value || null,
+    tarifa_noche: parseInt(document.getElementById('hospCkTarifa').value) || 0,
+  };
+
+  const btn = document.getElementById('hospCkBtnEditarGuardar');
+  const txtOriginal = btn ? btn.textContent : '';
+  if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, payload, true);
+    for(var k in payload){ est[k] = payload[k]; }
+    cerrarCheckIn();
+    _hospRefrescarVista();
+    toast('Reserva actualizada — ' + nombre);
+  }catch(e){
+    toast('Error al guardar: ' + e.message);
+  }
+  if(btn){ btn.disabled = false; btn.textContent = txtOriginal; }
 }
 
 async function hospCancelarReserva(){
@@ -1110,15 +1187,35 @@ function abrirPreciosTipo(){
       + '</div>'
       + '<div style="display:grid;grid-template-columns:1fr 1fr 0.7fr;gap:8px;">'
         + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Precio</label>'
-          + '<input id="hospPT_precio_' + tipo + '" type="number" min="0" value="' + (cat.precio != null ? cat.precio : '') + '" placeholder="' + (esOtro ? 'variable' : '0') + '" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
+          + '<input id="hospPT_precio_' + tipo + '" type="number" min="0" value="' + (cat.precio != null ? cat.precio : '') + '" placeholder="' + (esOtro ? 'variable' : '0') + '" oninput="_hospActualizarEquivBRL(\'' + tipo + '\')" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">'
+          + '<div id="hospPT_precioBRL_' + tipo + '" style="font-size:10.5px;color:#4caf50;margin-top:3px;min-height:13px;"></div></div>'
         + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Precio finde</label>'
-          + '<input id="hospPT_finde_' + tipo + '" type="number" min="0" value="' + (cat.precioFinde != null ? cat.precioFinde : '') + '" placeholder="= normal" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
+          + '<input id="hospPT_finde_' + tipo + '" type="number" min="0" value="' + (cat.precioFinde != null ? cat.precioFinde : '') + '" placeholder="= normal" oninput="_hospActualizarEquivBRL(\'' + tipo + '\')" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">'
+          + '<div id="hospPT_findeBRL_' + tipo + '" style="font-size:10.5px;color:#4caf50;margin-top:3px;min-height:13px;"></div></div>'
         + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Capac.</label>'
           + '<input id="hospPT_capacidad_' + tipo + '" type="number" min="1" value="' + (cat.capacidad != null ? cat.capacidad : '') + '" placeholder="' + (esOtro ? '—' : '1') + '" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
       + '</div>'
     + '</div>';
   }).join('');
+  tipos.forEach(function(tipo){ _hospActualizarEquivBRL(tipo); });
   document.getElementById('hospPreciosTipoOv').style.display = 'flex';
+}
+
+/** Muestra "≈ R$ X" bajo el precio/precio finde de un tipo, usando la
+ * cotización de Reales configurada en Multi-moneda (si hay una cargada). */
+function _hospActualizarEquivBRL(tipo){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const elPrecio = document.getElementById('hospPT_precioBRL_' + tipo);
+  const elFinde = document.getElementById('hospPT_findeBRL_' + tipo);
+  if(!cotBRL){
+    if(elPrecio) elPrecio.textContent = '';
+    if(elFinde) elFinde.textContent = '';
+    return;
+  }
+  const precio = parseInt((document.getElementById('hospPT_precio_' + tipo) || {}).value) || 0;
+  const finde = parseInt((document.getElementById('hospPT_finde_' + tipo) || {}).value) || 0;
+  if(elPrecio) elPrecio.textContent = precio > 0 ? '≈ R$ ' + (precio/cotBRL).toFixed(2) : '';
+  if(elFinde) elFinde.textContent = finde > 0 ? '≈ R$ ' + (finde/cotBRL).toFixed(2) : '';
 }
 
 function cerrarPreciosTipo(){
