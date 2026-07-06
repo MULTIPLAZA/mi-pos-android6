@@ -133,3 +133,18 @@ var printers = {
 
 // ── ÚLTIMO RECIBO ──
 var ultimoReciboData = null;
+
+// ── Banderitas SVG (reemplazan emoji de bandera — Windows no las
+// renderiza como ícono, muestra el código de país en texto plano) ──
+function _flagSvg(code, size){
+  size = size || 20;
+  var h = Math.round(size * 0.7);
+  var common = 'width="'+size+'" height="'+h+'" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;flex-shrink:0;"';
+  var svgs = {
+    PY: '<svg '+common+'><rect width="20" height="14" fill="#fff"/><rect width="20" height="4.67" fill="#d52b1e"/><rect y="9.33" width="20" height="4.67" fill="#0038a8"/></svg>',
+    BR: '<svg '+common+'><rect width="20" height="14" fill="#009c3b"/><polygon points="10,1.5 18.5,7 10,12.5 1.5,7" fill="#ffdf00"/><circle cx="10" cy="7" r="3.2" fill="#002776"/></svg>',
+    AR: '<svg '+common+'><rect width="20" height="14" fill="#fff"/><rect width="20" height="4.67" fill="#74acdf"/><rect y="9.33" width="20" height="4.67" fill="#74acdf"/><circle cx="10" cy="7" r="1.7" fill="#f6b40e"/></svg>',
+    US: '<svg '+common+'><rect width="20" height="14" fill="#fff"/><rect width="20" height="1.08" fill="#B22234"/><rect y="2.15" width="20" height="1.08" fill="#B22234"/><rect y="4.31" width="20" height="1.08" fill="#B22234"/><rect y="6.46" width="20" height="1.08" fill="#B22234"/><rect y="8.62" width="20" height="1.08" fill="#B22234"/><rect y="10.77" width="20" height="1.08" fill="#B22234"/><rect y="12.92" width="20" height="1.08" fill="#B22234"/><rect width="8" height="7.5" fill="#3C3B6E"/></svg>',
+  };
+  return svgs[code] || '';
+}

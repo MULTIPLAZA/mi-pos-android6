@@ -254,6 +254,12 @@ function loadGeneralConfigInputs(){
     if(chkBRL) chkBRL.checked = localStorage.getItem('mm_use_BRL') !== '0';
     if(chkARS) chkARS.checked = localStorage.getItem('mm_use_ARS') !== '0';
     if(chkUSD) chkUSD.checked = localStorage.getItem('mm_use_USD') === '1';
+    // Pix / Mercado Pago — ya se mostraban siempre en Cobrar antes de que
+    // existiera este toggle, así que quedan habilitados por default.
+    var chkPix = document.getElementById('cfgMMUsePix');
+    var chkMP  = document.getElementById('cfgMMUseMP');
+    if(chkPix) chkPix.checked = localStorage.getItem('mm_use_PIX') !== '0';
+    if(chkMP)  chkMP.checked  = localStorage.getItem('mm_use_MP') !== '0';
     var inpBRL = document.getElementById('cfgCotBRL');
     var inpARS = document.getElementById('cfgCotARS');
     var inpUSD = document.getElementById('cfgCotUSD');
@@ -721,6 +727,7 @@ function renderCatPills(){
   const hasDescs = (typeof DESCUENTOS!=='undefined' && DESCUENTOS.filter(d=>d.activo!==false).length) ||
     PRODS.filter(p=>p.cat==='Descuentos'&&p.activo!==false).length;
   if(hasDescs) cats.push('<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Descuentos');
+  if(typeof usaHabitaciones === 'function' && usaHabitaciones()) cats.push('Habitaciones');
   bar.innerHTML = cats.map(function(c){
     const sel = curCat===c ? ' sel' : '';
     return '<button class="cat-pill'+sel+'" onclick="pickCat(this)">'+c+'</button>';
@@ -765,7 +772,11 @@ function openCat(){
 
   if(_numCats > 0){
     CATEGORIAS.forEach(c => { html += catItem(c.nombre, c.color||null); });
-  } else {
+  }
+  if(typeof usaHabitaciones === 'function' && usaHabitaciones()){
+    html += catItem('Habitaciones', '#3b82f6');
+  }
+  if(_numCats <= 0 && (typeof usaHabitaciones !== 'function' || !usaHabitaciones())){
     // Estado vacío con diagnóstico y botón para recargar
     html += '<div style="padding:24px 20px;text-align:center;">'
       + '<div style="color:#999;font-size:13px;margin-bottom:8px;">No hay categorías cargadas.</div>'
@@ -881,6 +892,13 @@ function _filterPInternal(){
   // Categoría especial: Descuentos
   if(curCat==='Descuentos' || curCat==='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Descuentos'){
     renderDescuentosTiles();
+    return;
+  }
+
+  // Categoría especial: Habitaciones (alterna el grid de productos por el
+  // tablero de habitaciones, para poder cargar consumo sin salir de Cobrar)
+  if(curCat==='Habitaciones'){
+    renderHabitacionesEnGrid();
     return;
   }
 
@@ -2268,6 +2286,10 @@ function saveGeneralConfig(){
     if(_cfgUseBRL) localStorage.setItem('mm_use_BRL', _cfgUseBRL.checked ? '1' : '0');
     if(_cfgUseARS) localStorage.setItem('mm_use_ARS', _cfgUseARS.checked ? '1' : '0');
     if(_cfgUseUSD) localStorage.setItem('mm_use_USD', _cfgUseUSD.checked ? '1' : '0');
+    var _cfgUsePix = document.getElementById('cfgMMUsePix');
+    var _cfgUseMP  = document.getElementById('cfgMMUseMP');
+    if(_cfgUsePix) localStorage.setItem('mm_use_PIX', _cfgUsePix.checked ? '1' : '0');
+    if(_cfgUseMP)  localStorage.setItem('mm_use_MP', _cfgUseMP.checked ? '1' : '0');
     var _cfgBRL = document.getElementById('cfgCotBRL');
     var _cfgARS = document.getElementById('cfgCotARS');
     var _cfgUSD = document.getElementById('cfgCotUSD');
@@ -2750,17 +2772,17 @@ async function consultarTipoBCP(){
     document.getElementById('bcpFecha').textContent = 'Fuente: ' + data.fuente + (fecha ? ' — ' + fecha : '');
     document.getElementById('bcpRates').innerHTML =
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
-        +'<span style="font-size:13px;font-weight:600;">🇧🇷 1 Real (BRL)</span>'
+        +'<span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">'+_flagSvg('BR')+' 1 Real (BRL)</span>'
         +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+gn(cotBRL)+'</span>'
         +'<button onclick="usarTipoBCP(\'brl\','+cotBRL+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
       +'</div>'
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
-        +'<span style="font-size:13px;font-weight:600;">🇦🇷 1 Peso (ARS)</span>'
+        +'<span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">'+_flagSvg('AR')+' 1 Peso (ARS)</span>'
         +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+cotARS+'</span>'
         +'<button onclick="usarTipoBCP(\'ars\','+cotARS+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
       +'</div>'
       +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">'
-        +'<span style="font-size:13px;font-weight:600;">🇺🇸 1 Dólar (USD)</span>'
+        +'<span style="font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px;">'+_flagSvg('US')+' 1 Dólar (USD)</span>'
         +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+gn(cotUSD)+'</span>'
         +'<button onclick="usarTipoBCP(\'usd\','+cotUSD+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
       +'</div>';

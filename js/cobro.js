@@ -64,6 +64,12 @@ function _goCobrarSetup() {
   var _btnCredito = document.querySelector('.pay-btn[onclick*="credito"]');
   if (_btnCredito) _btnCredito.style.display = localStorage.getItem('pos_credito') === '1' ? '' : 'none';
 
+  // Ocultar Pix / Mercado Pago si se desactivaron en Configuración > Multi-moneda
+  var _btnPix = document.querySelector('.pay-btn[onclick*="\'pix\'"]');
+  if (_btnPix) _btnPix.style.display = localStorage.getItem('mm_use_PIX') === '0' ? 'none' : '';
+  var _btnMp = document.querySelector('.pay-btn[onclick*="\'mp\'"]');
+  if (_btnMp) _btnMp.style.display = localStorage.getItem('mm_use_MP') === '0' ? 'none' : '';
+
   // Multi-moneda: mostrar panel MM si esta activo, sino panel normal
   var _mmActivoSetup = localStorage.getItem('mm_activo') === '1';
   var _mmSecSetup = document.getElementById('mmSec');

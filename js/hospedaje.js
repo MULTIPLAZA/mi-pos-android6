@@ -138,6 +138,11 @@ function _hospColorEstado(estadoVisual){
   return '#4caf50'; // libre
 }
 
+function _hospLabelTipo(tipo){
+  var labels = { simple:'Simple', doble:'Doble', matrimonial:'Matrimonial', suite:'Suite', otro:'Otro' };
+  return labels[tipo] || '';
+}
+
 function _hospLabelEstado(estadoVisual){
   if(estadoVisual === 'ocupada')       return 'Ocupada';
   if(estadoVisual === 'reservada')     return 'Reserva';
@@ -171,10 +176,57 @@ function renderHabitacionesScreen(){
     } else {
       sub = _hospLabelEstado(estadoVisual);
     }
+    const tipoLabel = _hospLabelTipo(h.tipo);
     return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
       + 'style="background:' + color + ';">'
+      + '<div>'
       + '<div class="hosp-card-num">' + escapeHtml(h.numero) + '</div>'
+      + (tipoLabel ? '<div style="font-size:11px;font-weight:600;opacity:.85;margin-top:1px;">' + tipoLabel + '</div>' : '')
+      + '</div>'
       + '<div class="hosp-card-sub">' + sub + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+/**
+ * Tablero de habitaciones embebido en la grilla de productos de Cobrar
+ * (categoría especial "Habitaciones" en el desplegable). Reutiliza el mismo
+ * diseño de tarjeta y las mismas acciones (onHabitacionTap/hospMenuHabitacion)
+ * que la pantalla completa de Habitaciones — así el cajero puede cargar un
+ * consumo a una habitación sin salir de la pantalla de venta.
+ */
+async function renderHabitacionesEnGrid(){
+  const g = document.getElementById('pgrid');
+  if(!g) return;
+  if(!hospHabitaciones.length){
+    g.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);">Cargando habitaciones…</div>';
+    await hospCargar();
+  }
+  if(!hospHabitaciones.length){
+    g.innerHTML = '<div style="padding:30px;text-align:center;color:var(--muted);">Sin habitaciones — configurá en el módulo Habitaciones</div>';
+    return;
+  }
+  g.innerHTML = hospHabitaciones.map(function(h){
+    const est = hospEstadiaDeHabitacion(h.id);
+    const reserva = !est ? hospReservaProximaDeHabitacion(h.id) : null;
+    const estadoVisual = est ? 'ocupada' : (reserva ? 'reservada' : (h.estado || 'libre'));
+    const color = _hospColorEstado(estadoVisual);
+    const tipoLabel = _hospLabelTipo(h.tipo);
+    let sub;
+    if(est){
+      sub = escapeHtml(est.huesped_nombre);
+    } else if(reserva){
+      sub = escapeHtml(reserva.huesped_nombre) + ' · ' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin));
+    } else {
+      sub = _hospLabelEstado(estadoVisual);
+    }
+    return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
+      + 'style="background:' + color + ';min-height:96px;">'
+      + '<div>'
+      + '<div class="hosp-card-num">' + escapeHtml(h.numero) + '</div>'
+      + (tipoLabel ? '<div style="font-size:11px;font-weight:600;opacity:.85;margin-top:1px;">' + tipoLabel + '</div>' : '')
+      + '</div>'
+      + '<div class="hosp-card-sub" style="font-size:11.5px;">' + sub + '</div>'
       + '</div>';
   }).join('');
 }
@@ -208,16 +260,28 @@ function onHabitacionTap(habId){
   abrirCheckIn(habId);
 }
 
+var _hospMenuHabId = null;
+
 /** Long-press / click derecho: acciones rápidas sobre una habitación libre */
 function hospMenuHabitacion(habId){
   const h = hospHabitaciones.find(function(x){ return x.id === habId; });
   if(!h || hospEstadiaDeHabitacion(habId) || hospReservaProximaDeHabitacion(habId)) return; // no aplica si está ocupada o reservada
-  const opciones = ['Libre', 'Limpieza', 'Mantenimiento', 'Editar habitación'];
-  const idx = prompt('Habitación ' + h.numero + ' — elegí (1-4):\n1. Marcar Libre\n2. Marcar en Limpieza\n3. Marcar en Mantenimiento\n4. Editar habitación', '1');
-  if(idx === '1') hospCambiarEstadoHabitacion(habId, 'libre');
-  else if(idx === '2') hospCambiarEstadoHabitacion(habId, 'limpieza');
-  else if(idx === '3') hospCambiarEstadoHabitacion(habId, 'mantenimiento');
-  else if(idx === '4') abrirFormHabitacion(habId);
+  _hospMenuHabId = habId;
+  document.getElementById('hospMenuHabTitulo').textContent = 'Habitación ' + h.numero;
+  document.getElementById('hospMenuHabOv').style.display = 'flex';
+}
+
+function cerrarMenuHabitacion(){
+  document.getElementById('hospMenuHabOv').style.display = 'none';
+  _hospMenuHabId = null;
+}
+
+function hospMenuHabAccion(accion){
+  const habId = _hospMenuHabId;
+  cerrarMenuHabitacion();
+  if(!habId) return;
+  if(accion === 'editar') abrirFormHabitacion(habId);
+  else hospCambiarEstadoHabitacion(habId, accion);
 }
 
 async function hospCambiarEstadoHabitacion(habId, estado){

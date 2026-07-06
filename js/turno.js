@@ -687,20 +687,20 @@ async function renderTurno(){
     html += '<div class="turno-section">';
     html += '<div class="turno-section-title">Moneda extranjera efectivo</div>';
     if(_totalBRL > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">&#127463;&#127479; Reales</span><span class="turno-row-val">R$ '+_totalBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalBRLGs)+' Gs)</span></span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('BR')+' Reales</span><span class="turno-row-val">R$ '+_totalBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalBRLGs)+' Gs)</span></span></div>';
     if(_totalARS > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">&#127462;&#127479; Pesos Arg.</span><span class="turno-row-val">$ '+_totalARS.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalARSGs)+' Gs)</span></span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('AR')+' Pesos Arg.</span><span class="turno-row-val">$ '+_totalARS.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalARSGs)+' Gs)</span></span></div>';
     if(_totalUSD > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">&#127482;&#127480; Dólares</span><span class="turno-row-val">US$ '+_totalUSD.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalUSDGs)+' Gs)</span></span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('US')+' Dólares</span><span class="turno-row-val">US$ '+_totalUSD.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalUSDGs)+' Gs)</span></span></div>';
     html += '</div>';
   }
   if(_pixBRL > 0 || _mpARS > 0){
     html += '<div class="turno-section">';
     html += '<div class="turno-section-title">Pagos digitales</div>';
     if(_pixBRL > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">Pix &#127463;&#127479;</span><span class="turno-row-val">R$ '+_pixBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_pixBRLGs)+' Gs)</span></span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">Pix '+_flagSvg('BR')+'</span><span class="turno-row-val">R$ '+_pixBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_pixBRLGs)+' Gs)</span></span></div>';
     if(_mpARS > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">Mercado Pago &#127462;&#127479;</span><span class="turno-row-val">$ '+Number(_mpARS).toLocaleString('es-PY')+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_mpARSGs)+' Gs)</span></span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">Mercado Pago '+_flagSvg('AR')+'</span><span class="turno-row-val">$ '+Number(_mpARS).toLocaleString('es-PY')+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_mpARSGs)+' Gs)</span></span></div>';
     html += '</div>';
   }
 
@@ -1413,7 +1413,7 @@ function renderCierreMMArqueo(){
   if(useBRL){
     html += '<div onclick="openNP(\'cierre_arq_BRL\')" style="display:flex;align-items:center;border-bottom:1.5px solid var(--border2);padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
     html += '<div style="flex:1;">';
-    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">&#127463;&#127479; Reales (R$)</div>';
+    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:5px;">'+_flagSvg('BR')+' Reales (R$)</div>';
     html += '<span id="cierreVal_BRL" style="font-size:22px;font-weight:700;color:var(--text);">R$ '+cierreArqueoBRL+'</span>';
     if(cotBRL > 0 && cierreArqueoBRL > 0) html += '<span style="color:var(--muted);font-size:11px;margin-left:8px;">&times; '+gs(cotBRL)+' = '+gs(brlGs)+'</span>';
     html += '</div>';
@@ -1424,7 +1424,7 @@ function renderCierreMMArqueo(){
   if(useARS){
     html += '<div onclick="openNP(\'cierre_arq_ARS\')" style="display:flex;align-items:center;border-bottom:1.5px solid var(--border2);padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
     html += '<div style="flex:1;">';
-    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">&#127462;&#127479; Pesos Arg. ($)</div>';
+    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:5px;">'+_flagSvg('AR')+' Pesos Arg. ($)</div>';
     html += '<span id="cierreVal_ARS" style="font-size:22px;font-weight:700;color:var(--text);">$ '+cierreArqueoARS+'</span>';
     if(cotARS > 0 && cierreArqueoARS > 0) html += '<span style="color:var(--muted);font-size:11px;margin-left:8px;">&times; '+cotARS+' = '+gs(arsGs)+'</span>';
     html += '</div>';
@@ -1435,7 +1435,7 @@ function renderCierreMMArqueo(){
   if(useUSD){
     html += '<div onclick="openNP(\'cierre_arq_USD\')" style="display:flex;align-items:center;border-bottom:1.5px solid var(--border2);padding-bottom:8px;cursor:pointer;margin-bottom:12px;">';
     html += '<div style="flex:1;">';
-    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;">&#127482;&#127480; Dólares (US$)</div>';
+    html += '<div style="font-size:11px;color:var(--muted);margin-bottom:3px;display:flex;align-items:center;gap:5px;">'+_flagSvg('US')+' Dólares (US$)</div>';
     html += '<span id="cierreVal_USD" style="font-size:22px;font-weight:700;color:var(--text);">US$ '+cierreArqueoUSD+'</span>';
     if(cotUSD > 0 && cierreArqueoUSD > 0) html += '<span style="color:var(--muted);font-size:11px;margin-left:8px;">&times; '+gs(cotUSD)+' = '+gs(usdGs)+'</span>';
     html += '</div>';

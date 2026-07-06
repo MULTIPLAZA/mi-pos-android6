@@ -567,7 +567,7 @@
       <div id="cfgMMPanel" style="display:none;">
         <div class="general-field">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
-            <span class="general-field-label" style="margin:0;">🇧🇷 Reales (BRL)</span>
+            <span class="general-field-label" style="margin:0;display:flex;align-items:center;gap:6px;"><svg width="20" height="14" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;flex-shrink:0;"><rect width="20" height="14" fill="#009c3b"/><polygon points="10,1.5 18.5,7 10,12.5 1.5,7" fill="#ffdf00"/><circle cx="10" cy="7" r="3.2" fill="#002776"/></svg> Reales (BRL)</span>
             <label class="toggle-switch" style="flex-shrink:0;transform:scale(.85);">
               <input type="checkbox" id="cfgMMUseBRL" onchange="saveGeneralConfig()">
               <span class="toggle-slider"></span>
@@ -577,7 +577,7 @@
         </div>
         <div class="general-field">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
-            <span class="general-field-label" style="margin:0;">🇦🇷 Pesos Arg. (ARS)</span>
+            <span class="general-field-label" style="margin:0;display:flex;align-items:center;gap:6px;"><svg width="20" height="14" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;flex-shrink:0;"><rect width="20" height="14" fill="#fff"/><rect width="20" height="4.67" fill="#74acdf"/><rect y="9.33" width="20" height="4.67" fill="#74acdf"/><circle cx="10" cy="7" r="1.7" fill="#f6b40e"/></svg> Pesos Arg. (ARS)</span>
             <label class="toggle-switch" style="flex-shrink:0;transform:scale(.85);">
               <input type="checkbox" id="cfgMMUseARS" onchange="saveGeneralConfig()">
               <span class="toggle-slider"></span>
@@ -585,15 +585,32 @@
           </div>
           <input class="general-field-input" id="cfgCotARS" type="number" min="0" step="0.01" placeholder="Cotización — Gs por 1 Peso Arg" oninput="saveGeneralConfig()">
         </div>
-        <div class="general-field" style="border-bottom:none;">
+        <div class="general-field">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
-            <span class="general-field-label" style="margin:0;">🇺🇸 Dólares (USD)</span>
+            <span class="general-field-label" style="margin:0;display:flex;align-items:center;gap:6px;"><svg width="20" height="14" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;flex-shrink:0;"><rect width="20" height="14" fill="#fff"/><rect width="20" height="1.08" fill="#B22234"/><rect y="2.15" width="20" height="1.08" fill="#B22234"/><rect y="4.31" width="20" height="1.08" fill="#B22234"/><rect y="6.46" width="20" height="1.08" fill="#B22234"/><rect y="8.62" width="20" height="1.08" fill="#B22234"/><rect y="10.77" width="20" height="1.08" fill="#B22234"/><rect y="12.92" width="20" height="1.08" fill="#B22234"/><rect width="8" height="7.5" fill="#3C3B6E"/></svg> Dólares (USD)</span>
             <label class="toggle-switch" style="flex-shrink:0;transform:scale(.85);">
               <input type="checkbox" id="cfgMMUseUSD" onchange="saveGeneralConfig()">
               <span class="toggle-slider"></span>
             </label>
           </div>
           <input class="general-field-input" id="cfgCotUSD" type="number" min="0" step="1" placeholder="Cotización — Gs por 1 Dólar" oninput="saveGeneralConfig()">
+        </div>
+        <div class="general-field" style="border-bottom:none;padding-top:4px;">
+          <div style="font-size:10px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;font-weight:700;margin-bottom:8px;">Pagos digitales</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;">
+            <span class="general-field-label" style="margin:0;">◆ Pix (Brasil)</span>
+            <label class="toggle-switch" style="flex-shrink:0;transform:scale(.85);">
+              <input type="checkbox" id="cfgMMUsePix" onchange="saveGeneralConfig()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <span class="general-field-label" style="margin:0;">◐ Mercado Pago</span>
+            <label class="toggle-switch" style="flex-shrink:0;transform:scale(.85);">
+              <input type="checkbox" id="cfgMMUseMP" onchange="saveGeneralConfig()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
         </div>
         <div style="padding:0 14px 12px;">
           <button type="button" onclick="consultarTipoBCP()" id="btnBCP" style="width:100%;background:var(--b2);border:1.5px solid var(--blue);border-radius:7px;color:var(--blue);font-family:'Barlow',sans-serif;font-size:13px;font-weight:700;padding:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">
@@ -1844,6 +1861,21 @@
   </div>
 </div>
 
+<!-- Modal menú rápido de habitación (reemplaza el prompt() nativo) -->
+<div id="hospMenuHabOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarMenuHabitacion()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;" id="hospMenuHabTitulo">Habitación</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button onclick="hospMenuHabAccion('libre')" style="background:#2a2a2a;border:1px solid #4caf50;color:#4caf50;border-radius:8px;font-size:13.5px;font-weight:700;padding:13px;cursor:pointer;text-align:left;">● Marcar Libre</button>
+      <button onclick="hospMenuHabAccion('limpieza')" style="background:#2a2a2a;border:1px solid #ff9800;color:#ff9800;border-radius:8px;font-size:13.5px;font-weight:700;padding:13px;cursor:pointer;text-align:left;">● Marcar en Limpieza</button>
+      <button onclick="hospMenuHabAccion('mantenimiento')" style="background:#2a2a2a;border:1px solid #757575;color:#ccc;border-radius:8px;font-size:13.5px;font-weight:700;padding:13px;cursor:pointer;text-align:left;">● Marcar en Mantenimiento</button>
+      <button onclick="hospMenuHabAccion('editar')" style="background:#2a2a2a;border:1px solid #3b82f6;color:#3b82f6;border-radius:8px;font-size:13.5px;font-weight:700;padding:13px;cursor:pointer;text-align:left;">✎ Editar habitación</button>
+      <button onclick="cerrarMenuHabitacion()" style="background:none;border:none;color:#888;font-size:13px;font-weight:700;padding:12px;cursor:pointer;margin-top:4px;">CANCELAR</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal lista de próximas reservas -->
 <div id="hospReservasListOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarReservasList()">
   <div class="hosp-modal-panel">
@@ -2190,7 +2222,7 @@
       <!-- Fila Guaranies -->
       <div id="mmRowGs" style="margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇵🇾</span>
+          <span style="min-width:36px;text-align:right;line-height:1;"><svg width="24" height="17" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;"><rect width="20" height="14" fill="#fff"/><rect width="20" height="4.67" fill="#d52b1e"/><rect y="9.33" width="20" height="4.67" fill="#0038a8"/></svg></span>
           <div class="efec-row" onclick="openNP('mm_gs')" style="flex:1;margin:0;">
             <span class="efec-val" id="mmGsVal">₲0</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
@@ -2200,7 +2232,7 @@
       <!-- Fila Reales -->
       <div id="mmRowBrl" style="margin-bottom:2px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇧🇷</span>
+          <span style="min-width:36px;text-align:right;line-height:1;"><svg width="24" height="17" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;"><rect width="20" height="14" fill="#009c3b"/><polygon points="10,1.5 18.5,7 10,12.5 1.5,7" fill="#ffdf00"/><circle cx="10" cy="7" r="3.2" fill="#002776"/></svg></span>
           <div class="efec-row" onclick="openNP('mm_brl')" style="flex:1;margin:0;">
             <span class="efec-val" id="mmBrlVal">0</span>
             <span id="mmBrlEq" style="font-size:12px;color:var(--muted);margin-right:6px;white-space:nowrap;">= ₲0</span>
@@ -2212,7 +2244,7 @@
       <!-- Fila Pesos Arg -->
       <div id="mmRowArs" style="margin-bottom:2px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇦🇷</span>
+          <span style="min-width:36px;text-align:right;line-height:1;"><svg width="24" height="17" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;"><rect width="20" height="14" fill="#fff"/><rect width="20" height="4.67" fill="#74acdf"/><rect y="9.33" width="20" height="4.67" fill="#74acdf"/><circle cx="10" cy="7" r="1.7" fill="#f6b40e"/></svg></span>
           <div class="efec-row" onclick="openNP('mm_ars')" style="flex:1;margin:0;">
             <span class="efec-val" id="mmArsVal">0</span>
             <span id="mmArsEq" style="font-size:12px;color:var(--muted);margin-right:6px;white-space:nowrap;">= ₲0</span>
@@ -2224,7 +2256,7 @@
       <!-- Fila Dolares -->
       <div id="mmRowUsd" style="margin-bottom:2px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:22px;min-width:36px;text-align:right;line-height:1;">🇺🇸</span>
+          <span style="min-width:36px;text-align:right;line-height:1;"><svg width="24" height="17" viewBox="0 0 20 14" style="display:inline-block;vertical-align:middle;border-radius:2px;overflow:hidden;"><rect width="20" height="14" fill="#fff"/><rect width="20" height="1.08" fill="#B22234"/><rect y="2.15" width="20" height="1.08" fill="#B22234"/><rect y="4.31" width="20" height="1.08" fill="#B22234"/><rect y="6.46" width="20" height="1.08" fill="#B22234"/><rect y="8.62" width="20" height="1.08" fill="#B22234"/><rect y="10.77" width="20" height="1.08" fill="#B22234"/><rect y="12.92" width="20" height="1.08" fill="#B22234"/><rect width="8" height="7.5" fill="#3C3B6E"/></svg></span>
           <div class="efec-row" onclick="openNP('mm_usd')" style="flex:1;margin:0;">
             <span class="efec-val" id="mmUsdVal">0</span>
             <span id="mmUsdEq" style="font-size:12px;color:var(--muted);margin-right:6px;white-space:nowrap;">= ₲0</span>
