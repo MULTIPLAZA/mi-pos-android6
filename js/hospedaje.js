@@ -1082,6 +1082,32 @@ function cerrarFolio(){
 
 // ── CHECK-OUT: puente estadía → carrito → cobro normal ────
 // No reinventa el cobro: carga los cargos acumulados como líneas del
+/**
+ * Anula una estadía SIN cobrar nada — para corregir un check-in mal
+ * cargado (habitación equivocada, datos mal puestos, etc.) sin tener
+ * que pasar por check-out/cobro. Libera la habitación directo a
+ * "libre" (a diferencia del check-out real, acá nunca hubo huésped de
+ * verdad, no hace falta limpieza) y descarta todos los cargos
+ * acumulados — no genera ninguna venta ni movimiento de caja.
+ */
+async function hospAnularEstadia(){
+  const est = _hospEstadiaSel;
+  if(!est) return;
+  if(!confirm('¿Anular la estadía de ' + est.huesped_nombre + '? Se van a perder todos los cargos registrados (' + gs(est.total||0) + ') sin cobrar nada. Esta acción no se puede deshacer.')) return;
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+est.id, { estado: 'cancelado' }, true);
+    if(est.habitacion_id){
+      await supaPatch('pos_habitaciones', 'id=eq.'+est.habitacion_id, { estado: 'libre' }, true);
+      const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+      if(h) h.estado = 'libre';
+    }
+    hospEstadias = hospEstadias.filter(function(e){ return e.id !== est.id; });
+    cerrarFolio();
+    _hospRefrescarVista();
+    toast('Estadía anulada — habitación liberada');
+  }catch(e){ toast('Error al anular: ' + e.message); }
+}
+
 // carrito y navega a la pantalla de venta de siempre — así la estadía
 // sale con factura, FE y todos los métodos de pago igual que cualquier
 // venta. El registro de la estadía se cierra recién cuando la venta se

@@ -358,7 +358,11 @@ function generarHTMLTicket(data, size){
 
   // Encabezado columnas
   lineas += '<p class="s b"><span>DESCRIPCIÓN</span></p>';
-  lineas += '<p class="s b"><span style="opacity:.6">CANT × P.UNIT</span>'
+  // Clase "row" (no solo "s b"): sin ella, htmlATextoPlano() no sabe que
+  // son 2 columnas a alinear izq/der y pega el texto de ambos spans sin
+  // espacio ("CANT x P.UNITSUBTOTAL") — el float:right solo funciona en
+  // el render HTML real, se pierde por completo al pasar a texto plano.
+  lineas += '<p class="s b row"><span style="opacity:.6">CANT × P.UNIT</span>'
     +'<span style="float:right;font-weight:bold">SUBTOTAL</span></p>';
   lineas += '<p class="hr"></p>';
 
@@ -2372,10 +2376,12 @@ function htmlATextoPlano(htmlContent, cols){
   // Reemplazar acentos para compatibilidad Generic Text Only
   function limpiar(t){
     return t
-      .replace(/[\u00C1\u00E1]/g,'A').replace(/[\u00C9\u00E9]/g,'E')
-      .replace(/[\u00CD\u00ED]/g,'I').replace(/[\u00D3\u00F3]/g,'O')
-      .replace(/[\u00DA\u00FA]/g,'U').replace(/[\u00D1\u00F1]/g,'N')
-      .replace(/\u20B2/g,'Gs').replace(/[\u0080-\uFFFF]/g,'?');
+      .replace(/\u00C1/g,'A').replace(/\u00E1/g,'a').replace(/\u00C9/g,'E').replace(/\u00E9/g,'e')
+      .replace(/\u00CD/g,'I').replace(/\u00ED/g,'i').replace(/\u00D3/g,'O').replace(/\u00F3/g,'o')
+      .replace(/\u00DA/g,'U').replace(/\u00FA/g,'u').replace(/\u00D1/g,'N').replace(/\u00F1/g,'n')
+      .replace(/\u20B2/g,'Gs').replace(/\u00D7/g,'x')
+      .replace(/[\u2013\u2014]/g,'-').replace(/\u00BF/g,'?').replace(/\u00A1/g,'!')
+      .replace(/[\u0080-\uFFFF]/g,'?');
   }
 
   parrafos.forEach(function(p){
