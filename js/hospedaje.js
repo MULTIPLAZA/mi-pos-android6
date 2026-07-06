@@ -1307,6 +1307,20 @@ function hospImprimirCuenta(){
 }
 
 /**
+ * Reimprime el comprobante de check-in/reserva — desde el folio (estadía
+ * en curso) o desde el detalle de una reserva, usa la que esté abierta.
+ * No depende de haber impreso antes: reconstruye el comprobante con los
+ * datos actuales de la estadía, así sirve para el original perdido o
+ * para una copia adicional.
+ */
+function hospReimprimirComprobanteCheckIn(){
+  const est = _hospEstadiaSel || _hospReservaSel;
+  if(!est){ toast('No hay ninguna estadía o reserva abierta'); return; }
+  const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+  if(typeof imprimirComprobanteCheckIn === 'function') imprimirComprobanteCheckIn(est, h);
+}
+
+/**
  * Anula una estadía SIN cobrar nada — para corregir un check-in mal
  * cargado (habitación equivocada, datos mal puestos, etc.) sin tener
  * que pasar por check-out/cobro. Libera la habitación directo a
