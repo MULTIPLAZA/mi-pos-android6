@@ -416,13 +416,14 @@ function generarHTMLTicket(data, size){
   if(data.efectivo && data.efectivo!=='₲0') lineas += '<p class="row s"><span class="l1">EFECTIVO ENTREGADO:</span><span class="l2">'+data.efectivo+'</span></p>';
   if(data.vuelto) lineas += '<p class="row s"><span class="l1">VUELTO:</span><span class="l2">'+data.vuelto+'</span></p>';
   // Desglose multi-moneda en ticket
-  if(data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0)){
+  if(data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0 || data.mmPagos.pagoUSD > 0)){
     var _mpT = data.mmPagos;
     lineas += '<p class="hr"></p>';
     lineas += '<p class="s b">PAGO MULTI-MONEDA:</p>';
     if(_mpT.pagoGS  > 0) lineas += '<p class="row s"><span class="l1">Guaranies:</span><span class="l2">Gs '+gn(_mpT.pagoGS)+'</span></p>';
     if(_mpT.pagoBRL > 0) lineas += '<p class="row s"><span class="l1">Reales '+_mpT.pagoBRL+' R$ x '+_mpT.cotBRL+':</span><span class="l2">Gs '+gn(_mpT.pagoBRLGs)+'</span></p>';
     if(_mpT.pagoARS > 0) lineas += '<p class="row s"><span class="l1">Pesos '+_mpT.pagoARS+' ARS x '+_mpT.cotARS+':</span><span class="l2">Gs '+gn(_mpT.pagoARSGs)+'</span></p>';
+    if(_mpT.pagoUSD > 0) lineas += '<p class="row s"><span class="l1">Dólares '+_mpT.pagoUSD+' US$ x '+_mpT.cotUSD+':</span><span class="l2">Gs '+gn(_mpT.pagoUSDGs)+'</span></p>';
     lineas += '<p class="row s b"><span class="l1">TOTAL RECIBIDO:</span><span class="l2">Gs '+gn(_mpT.totalGs)+'</span></p>';
     if(_mpT.vueltoGS > 0) lineas += '<p class="row s b"><span class="l1">VUELTO (Gs):</span><span class="l2">Gs '+gn(_mpT.vueltoGS)+'</span></p>';
   }
@@ -550,13 +551,14 @@ function generarHTMLFactura(data, size){
   if(data.efectivo && data.efectivo!=='₲0') lineas += '<p class="row s"><span class="l1">EFECTIVO ENTREGADO:</span><span class="l2">'+data.efectivo+'</span></p>';
   if(data.vuelto) lineas += '<p class="row s"><span class="l1">VUELTO:</span><span class="l2">'+data.vuelto+'</span></p>';
   // Desglose multi-moneda en factura
-  if(data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0)){
+  if(data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0 || data.mmPagos.pagoUSD > 0)){
     var _mpF = data.mmPagos;
     lineas += '<p class="hr"></p>';
     lineas += '<p class="s b">PAGO MULTI-MONEDA:</p>';
     if(_mpF.pagoGS  > 0) lineas += '<p class="row s"><span class="l1">Guaranies:</span><span class="l2">Gs '+gn(_mpF.pagoGS)+'</span></p>';
     if(_mpF.pagoBRL > 0) lineas += '<p class="row s"><span class="l1">Reales '+_mpF.pagoBRL+' R$ x '+_mpF.cotBRL+':</span><span class="l2">Gs '+gn(_mpF.pagoBRLGs)+'</span></p>';
     if(_mpF.pagoARS > 0) lineas += '<p class="row s"><span class="l1">Pesos '+_mpF.pagoARS+' ARS x '+_mpF.cotARS+':</span><span class="l2">Gs '+gn(_mpF.pagoARSGs)+'</span></p>';
+    if(_mpF.pagoUSD > 0) lineas += '<p class="row s"><span class="l1">Dólares '+_mpF.pagoUSD+' US$ x '+_mpF.cotUSD+':</span><span class="l2">Gs '+gn(_mpF.pagoUSDGs)+'</span></p>';
     lineas += '<p class="row s b"><span class="l1">TOTAL RECIBIDO:</span><span class="l2">Gs '+gn(_mpF.totalGs)+'</span></p>';
     if(_mpF.vueltoGS > 0) lineas += '<p class="row s b"><span class="l1">VUELTO (Gs):</span><span class="l2">Gs '+gn(_mpF.vueltoGS)+'</span></p>';
   }
@@ -3477,7 +3479,7 @@ var BTPrinter = {
     var _parseMonto = function(v){ return parseInt(String(v||'').replace(/[^0-9]/g,'')) || 0; };
     var _efecNum   = _parseMonto(data.efectivo);
     var _vueltoNum = _parseMonto(data.vuelto);
-    var _hasMM = data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0);
+    var _hasMM = data.mmPagos && (data.mmPagos.pagoBRL > 0 || data.mmPagos.pagoARS > 0 || data.mmPagos.pagoUSD > 0);
     if (_efecNum > 0 && !_hasMM) {
       txt += pad('Entregado', gs(_efecNum) + ' Gs.') + n;
     }
@@ -3492,6 +3494,10 @@ var BTPrinter = {
       if(_mm.pagoARS > 0){
         txt += pad('Pesos Arg.:', gs(_mm.pagoARSGs) + ' Gs.') + n;
         txt += '  (' + gs(_mm.pagoARS) + ' $ x Gs. ' + _mm.cotARS + ')' + n;
+      }
+      if(_mm.pagoUSD > 0){
+        txt += pad('Dólares:', gs(_mm.pagoUSDGs) + ' Gs.') + n;
+        txt += '  (' + gs(_mm.pagoUSD) + ' US$ x Gs. ' + gs(_mm.cotUSD) + ')' + n;
       }
     }
     if (_vueltoNum > 0) {

@@ -245,10 +245,21 @@ function loadGeneralConfigInputs(){
     chkMM.checked = mmAct;
     var mmPanel = document.getElementById('cfgMMPanel');
     if(mmPanel) mmPanel.style.display = mmAct ? 'block' : 'none';
+    // Toggles por moneda — BRL/ARS habilitadas por default (compatibilidad
+    // con cuentas configuradas antes de que existiera esta selección);
+    // USD es opt-in (nunca estuvo antes, no hay nada que preservar).
+    var chkBRL = document.getElementById('cfgMMUseBRL');
+    var chkARS = document.getElementById('cfgMMUseARS');
+    var chkUSD = document.getElementById('cfgMMUseUSD');
+    if(chkBRL) chkBRL.checked = localStorage.getItem('mm_use_BRL') !== '0';
+    if(chkARS) chkARS.checked = localStorage.getItem('mm_use_ARS') !== '0';
+    if(chkUSD) chkUSD.checked = localStorage.getItem('mm_use_USD') === '1';
     var inpBRL = document.getElementById('cfgCotBRL');
     var inpARS = document.getElementById('cfgCotARS');
+    var inpUSD = document.getElementById('cfgCotUSD');
     if(inpBRL) inpBRL.value = localStorage.getItem('mm_cotBRL') || '';
     if(inpARS) inpARS.value = localStorage.getItem('mm_cotARS') || '';
+    if(inpUSD) inpUSD.value = localStorage.getItem('mm_cotUSD') || '';
     var ultAct = document.getElementById('cfgMMUltAct');
     if(ultAct){
       var ts = localStorage.getItem('mm_updAt');
@@ -1662,9 +1673,13 @@ function buildCierreTicket(size){
   var _mmActCierre = localStorage.getItem('mm_activo') === '1';
   var totalContado = _mmActCierre ? cierreTotal : Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
   // Acumular moneda extranjera del turno
-  var _shiftBRL = 0, _shiftBRLGs = 0, _shiftARS = 0, _shiftARSGs = 0;
+  var _shiftBRL = 0, _shiftBRLGs = 0, _shiftARS = 0, _shiftARSGs = 0, _shiftUSD = 0, _shiftUSDGs = 0;
   turnoData.ventas.forEach(function(v){
-    if(v.mmPagos){ _shiftBRL += v.mmPagos.pagoBRL||0; _shiftBRLGs += v.mmPagos.pagoBRLGs||0; _shiftARS += v.mmPagos.pagoARS||0; _shiftARSGs += v.mmPagos.pagoARSGs||0; }
+    if(v.mmPagos){
+      _shiftBRL += v.mmPagos.pagoBRL||0; _shiftBRLGs += v.mmPagos.pagoBRLGs||0;
+      _shiftARS += v.mmPagos.pagoARS||0; _shiftARSGs += v.mmPagos.pagoARSGs||0;
+      _shiftUSD += v.mmPagos.pagoUSD||0; _shiftUSDGs += v.mmPagos.pagoUSDGs||0;
+    }
   });
   var diff = totalContado > 0 ? totalContado - saldoEsperado : null;
   var ahora = new Date();
@@ -1790,11 +1805,12 @@ function buildCierreTicket(size){
   }
   lines += sep();
   // Moneda extranjera del turno
-  if(_shiftBRL > 0 || _shiftARS > 0){
+  if(_shiftBRL > 0 || _shiftARS > 0 || _shiftUSD > 0){
     lines += rowLabel('MONEDA EXTRANJERA EN TURNO');
     lines += sep();
     if(_shiftBRL > 0){ lines += row('Reales recibidos:', gn2(_shiftBRL)+' R$'); lines += row('  Equiv. Gs:', gn2(_shiftBRLGs)); }
     if(_shiftARS > 0){ lines += row('Pesos Arg. recibidos:', gn2(_shiftARS)+' $'); lines += row('  Equiv. Gs:', gn2(_shiftARSGs)); }
+    if(_shiftUSD > 0){ lines += row('Dólares recibidos:', gn2(_shiftUSD)+' US$'); lines += row('  Equiv. Gs:', gn2(_shiftUSDGs)); }
     lines += sep();
   }
   // Conteo si existe
@@ -1870,10 +1886,14 @@ async function confirmarCierre(){
   var saldoEsperado = calcSaldoEsperado();
   var diferencia = totalContado > 0 ? totalContado - saldoEsperado : 0;
   // Acumular moneda extranjera del turno para pasar al cierre impreso
-  var _mmShiftBRL = 0, _mmShiftBRLGs = 0, _mmShiftARS = 0, _mmShiftARSGs = 0;
+  var _mmShiftBRL = 0, _mmShiftBRLGs = 0, _mmShiftARS = 0, _mmShiftARSGs = 0, _mmShiftUSD = 0, _mmShiftUSDGs = 0;
   var _pixShiftBRL = 0, _pixShiftBRLGs = 0, _mpShiftARS = 0, _mpShiftARSGs = 0;
   turnoData.ventas.forEach(function(v){
-    if(v.mmPagos){ _mmShiftBRL+=v.mmPagos.pagoBRL||0; _mmShiftBRLGs+=v.mmPagos.pagoBRLGs||0; _mmShiftARS+=v.mmPagos.pagoARS||0; _mmShiftARSGs+=v.mmPagos.pagoARSGs||0; }
+    if(v.mmPagos){
+      _mmShiftBRL+=v.mmPagos.pagoBRL||0; _mmShiftBRLGs+=v.mmPagos.pagoBRLGs||0;
+      _mmShiftARS+=v.mmPagos.pagoARS||0; _mmShiftARSGs+=v.mmPagos.pagoARSGs||0;
+      _mmShiftUSD+=v.mmPagos.pagoUSD||0; _mmShiftUSDGs+=v.mmPagos.pagoUSDGs||0;
+    }
     if(v.pixMpPagos){
       if(v.pixMpPagos.tipo==='pix'){ _pixShiftBRL+=v.pixMpPagos.monedaAmt||0; _pixShiftBRLGs+=v.pixMpPagos.monedaGs||0; }
       if(v.pixMpPagos.tipo==='mp') { _mpShiftARS +=v.pixMpPagos.monedaAmt||0; _mpShiftARSGs+=v.pixMpPagos.monedaGs||0; }
@@ -1982,12 +2002,16 @@ async function confirmarCierre(){
     arqueoGS:      cierreArqueoGS,
     arqueoBRL:     cierreArqueoBRL,
     arqueoARS:     cierreArqueoARS,
+    arqueoUSD:     cierreArqueoUSD,
     cotBRL:        parseFloat(localStorage.getItem('mm_cotBRL')) || 0,
     cotARS:        parseFloat(localStorage.getItem('mm_cotARS')) || 0,
+    cotUSD:        parseFloat(localStorage.getItem('mm_cotUSD')) || 0,
     mmShiftBRL:    _mmShiftBRL,
     mmShiftBRLGs:  _mmShiftBRLGs,
     mmShiftARS:    _mmShiftARS,
     mmShiftARSGs:  _mmShiftARSGs,
+    mmShiftUSD:    _mmShiftUSD,
+    mmShiftUSDGs:  _mmShiftUSDGs,
     pixShiftBRL:        _pixShiftBRL,
     pixShiftBRLGs:      _pixShiftBRLGs,
     mpShiftARS:         _mpShiftARS,
@@ -2238,8 +2262,15 @@ function saveGeneralConfig(){
     localStorage.setItem('mm_activo', _mmActNuevo ? '1' : '0');
     var _mmPanelEl = document.getElementById('cfgMMPanel');
     if(_mmPanelEl) _mmPanelEl.style.display = _mmActNuevo ? 'block' : 'none';
+    var _cfgUseBRL = document.getElementById('cfgMMUseBRL');
+    var _cfgUseARS = document.getElementById('cfgMMUseARS');
+    var _cfgUseUSD = document.getElementById('cfgMMUseUSD');
+    if(_cfgUseBRL) localStorage.setItem('mm_use_BRL', _cfgUseBRL.checked ? '1' : '0');
+    if(_cfgUseARS) localStorage.setItem('mm_use_ARS', _cfgUseARS.checked ? '1' : '0');
+    if(_cfgUseUSD) localStorage.setItem('mm_use_USD', _cfgUseUSD.checked ? '1' : '0');
     var _cfgBRL = document.getElementById('cfgCotBRL');
     var _cfgARS = document.getElementById('cfgCotARS');
+    var _cfgUSD = document.getElementById('cfgCotUSD');
     var _mmHuboActualizacion = false;
     if(_cfgBRL && _cfgBRL.value !== '') {
       localStorage.setItem('mm_cotBRL', _cfgBRL.value);
@@ -2247,6 +2278,10 @@ function saveGeneralConfig(){
     }
     if(_cfgARS && _cfgARS.value !== '') {
       localStorage.setItem('mm_cotARS', _cfgARS.value);
+      _mmHuboActualizacion = true;
+    }
+    if(_cfgUSD && _cfgUSD.value !== '') {
+      localStorage.setItem('mm_cotUSD', _cfgUSD.value);
       _mmHuboActualizacion = true;
     }
     if(_mmHuboActualizacion){
@@ -2709,6 +2744,7 @@ async function consultarTipoBCP(){
 
     var cotBRL = data.cotBRL;
     var cotARS = data.cotARS;
+    var cotUSD = data.cotUSD;
     var fecha  = data.fecha || '';
 
     document.getElementById('bcpFecha').textContent = 'Fuente: ' + data.fuente + (fecha ? ' — ' + fecha : '');
@@ -2718,10 +2754,15 @@ async function consultarTipoBCP(){
         +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+gn(cotBRL)+'</span>'
         +'<button onclick="usarTipoBCP(\'brl\','+cotBRL+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
       +'</div>'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">'
         +'<span style="font-size:13px;font-weight:600;">🇦🇷 1 Peso (ARS)</span>'
         +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+cotARS+'</span>'
         +'<button onclick="usarTipoBCP(\'ars\','+cotARS+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
+      +'</div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;">'
+        +'<span style="font-size:13px;font-weight:600;">🇺🇸 1 Dólar (USD)</span>'
+        +'<span style="font-size:14px;font-weight:800;color:var(--green);">₲ '+gn(cotUSD)+'</span>'
+        +'<button onclick="usarTipoBCP(\'usd\','+cotUSD+')" style="background:var(--green);border:none;border-radius:6px;color:#fff;font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 10px;cursor:pointer;">Usar</button>'
       +'</div>';
 
     if(res) res.style.display = 'block';
@@ -2734,12 +2775,8 @@ async function consultarTipoBCP(){
 }
 
 function usarTipoBCP(moneda, valor){
-  if(moneda === 'brl'){
-    var el = document.getElementById('cfgCotBRL');
-    if(el){ el.value = valor; saveGeneralConfig(); }
-  } else {
-    var el2 = document.getElementById('cfgCotARS');
-    if(el2){ el2.value = valor; saveGeneralConfig(); }
-  }
+  var idPorMoneda = { brl:'cfgCotBRL', ars:'cfgCotARS', usd:'cfgCotUSD' };
+  var el = document.getElementById(idPorMoneda[moneda] || 'cfgCotBRL');
+  if(el){ el.value = valor; saveGeneralConfig(); }
   toast('Cotización actualizada');
 }

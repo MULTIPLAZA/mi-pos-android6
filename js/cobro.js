@@ -71,20 +71,39 @@ function _goCobrarSetup() {
     document.getElementById('efecSec').style.display = 'none';
     _mmSecSetup.style.display = 'block';
     // Reset valores MM al abrir la pantalla de cobro
-    _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0;
+    _mmVals.gs = 0; _mmVals.brl = 0; _mmVals.ars = 0; _mmVals.usd = 0;
+    // Mostrar solo las filas de las monedas habilitadas en Configuración
+    // (BRL/ARS quedan habilitadas por default para no romper cuentas ya
+    // configuradas antes de que existiera esta selección; USD es opt-in).
+    var _rowBrl = document.getElementById('mmRowBrl'), _sugBrl = document.getElementById('mmBrlSug');
+    var _rowArs = document.getElementById('mmRowArs'), _sugArs = document.getElementById('mmArsSug');
+    var _rowUsd = document.getElementById('mmRowUsd'), _sugUsd = document.getElementById('mmUsdSug');
+    var _useBrl = localStorage.getItem('mm_use_BRL') !== '0';
+    var _useArs = localStorage.getItem('mm_use_ARS') !== '0';
+    var _useUsd = localStorage.getItem('mm_use_USD') === '1';
+    if (_rowBrl) _rowBrl.style.display = _useBrl ? '' : 'none';
+    if (_sugBrl) _sugBrl.style.display = _useBrl ? '' : 'none';
+    if (_rowArs) _rowArs.style.display = _useArs ? '' : 'none';
+    if (_sugArs) _sugArs.style.display = _useArs ? '' : 'none';
+    if (_rowUsd) _rowUsd.style.display = _useUsd ? '' : 'none';
+    if (_sugUsd) _sugUsd.style.display = _useUsd ? '' : 'none';
     var _sgEl = document.getElementById('mmGsVal');
     var _sbEl = document.getElementById('mmBrlVal');
     var _saEl = document.getElementById('mmArsVal');
+    var _suEl = document.getElementById('mmUsdVal');
     var _sbeEl = document.getElementById('mmBrlEq');
     var _saeEl = document.getElementById('mmArsEq');
+    var _sueEl = document.getElementById('mmUsdEq');
     var _stEl = document.getElementById('mmTotalRec');
     var _svEl = document.getElementById('mmVueltoAmt');
     var _svrEl = document.getElementById('mmVueltoRow');
     if (_sgEl) _sgEl.textContent = gs(0);
     if (_sbEl) _sbEl.textContent = '0';
     if (_saEl) _saEl.textContent = '0';
+    if (_suEl) _suEl.textContent = '0';
     if (_sbeEl) _sbeEl.textContent = '= ' + gs(0);
     if (_saeEl) _saeEl.textContent = '= ' + gs(0);
+    if (_sueEl) _sueEl.textContent = '= ' + gs(0);
     if (_stEl) _stEl.textContent = gs(0);
     if (_svEl) _svEl.textContent = gs(0);
     if (_svrEl) _svrEl.classList.remove('show');
@@ -247,8 +266,10 @@ function openNP(ctx) {
     mm_gs:          'Guaranies recibidos',
     mm_brl:         'Reales (R$)',
     mm_ars:         'Pesos Arg. ($)',
+    mm_usd:         'Dólares (US$)',
     cierre_arq_BRL: 'Reales (R$) en caja',
     cierre_arq_ARS: 'Pesos Arg. ($) en caja',
+    cierre_arq_USD: 'Dólares (US$) en caja',
   };
 
   if (!ctx.startsWith('cierre_')) {
@@ -264,8 +285,10 @@ function openNP(ctx) {
   if (ctx === 'mm_gs'  && _mmVals.gs  > 0) setNpVal(String(_mmVals.gs));
   if (ctx === 'mm_brl' && _mmVals.brl > 0) setNpVal(String(_mmVals.brl));
   if (ctx === 'mm_ars' && _mmVals.ars > 0) setNpVal(String(_mmVals.ars));
+  if (ctx === 'mm_usd' && _mmVals.usd > 0) setNpVal(String(_mmVals.usd));
   if (ctx === 'cierre_arq_BRL' && cierreArqueoBRL > 0) setNpVal(String(cierreArqueoBRL));
   if (ctx === 'cierre_arq_ARS' && cierreArqueoARS > 0) setNpVal(String(cierreArqueoARS));
+  if (ctx === 'cierre_arq_USD' && cierreArqueoUSD > 0) setNpVal(String(cierreArqueoUSD));
 
   if (ctx === 'cierreTotal') {
     setNpVal(cierreTotal > 0 ? String(cierreTotal) : '');
@@ -323,6 +346,8 @@ function npP(d) {
       document.getElementById('npDisp').textContent = 'R$ ' + _pV;
     } else if (npCtx === 'mm_ars' || npCtx === 'cierre_arq_ARS') {
       document.getElementById('npDisp').textContent = '$ ' + _pV;
+    } else if (npCtx === 'mm_usd' || npCtx === 'cierre_arq_USD') {
+      document.getElementById('npDisp').textContent = 'US$ ' + _pV;
     } else {
       document.getElementById('npDisp').textContent = gs(_pV);
     }
@@ -341,6 +366,8 @@ function npD() {
       document.getElementById('npDisp').textContent = 'R$ ' + _dV;
     } else if (npCtx === 'mm_ars' || npCtx === 'cierre_arq_ARS') {
       document.getElementById('npDisp').textContent = '$ ' + _dV;
+    } else if (npCtx === 'mm_usd' || npCtx === 'cierre_arq_USD') {
+      document.getElementById('npDisp').textContent = 'US$ ' + _dV;
     } else {
       document.getElementById('npDisp').textContent = gs(_dV);
     }
@@ -379,6 +406,12 @@ function npOK() {
 
   } else if (npCtx === 'cierre_arq_ARS') {
     cierreArqueoARS = v;
+    if(typeof updCierreMMTotal === 'function') updCierreMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
+  } else if (npCtx === 'cierre_arq_USD') {
+    cierreArqueoUSD = v;
     if(typeof updCierreMMTotal === 'function') updCierreMMTotal();
     document.getElementById('npOverlay').classList.remove('open');
     return;
@@ -485,6 +518,14 @@ function npOK() {
     document.getElementById('npOverlay').classList.remove('open');
     return;
 
+  } else if (npCtx === 'mm_usd') {
+    _mmVals.usd = v;
+    var _mmUsdDisp = document.getElementById('mmUsdVal');
+    if (_mmUsdDisp) _mmUsdDisp.textContent = String(v);
+    updMMTotal();
+    document.getElementById('npOverlay').classList.remove('open');
+    return;
+
   } else {
     // ctx === 'cobrar' → monto efectivo
     document.getElementById('efecVal').textContent = gs(v);
@@ -575,7 +616,7 @@ var _vueltoVozTimer = null;
 var _vueltoUltimo = 0;
 
 // Estado de valores multi-moneda ingresados en el panel MM
-var _mmVals = { gs: 0, brl: 0, ars: 0 };
+var _mmVals = { gs: 0, brl: 0, ars: 0, usd: 0 };
 var _pixMpMode = null; // 'pix' | 'mp' | null
 function updVuelto(entregado) {
   const total  = calcTotal();
@@ -605,19 +646,23 @@ function updMMTotal() {
   var total    = calcTotal();
   var cotBRL   = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
   var cotARS   = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+  var cotUSD   = parseFloat(localStorage.getItem('mm_cotUSD')) || 0;
   var brlEnGs  = Math.round(_mmVals.brl * cotBRL);
   var arsEnGs  = Math.round(_mmVals.ars * cotARS);
-  var totalRec = _mmVals.gs + brlEnGs + arsEnGs;
+  var usdEnGs  = Math.round(_mmVals.usd * cotUSD);
+  var totalRec = _mmVals.gs + brlEnGs + arsEnGs + usdEnGs;
   var vuelto   = Math.max(0, totalRec - total);
 
   var elBrlEq = document.getElementById('mmBrlEq');
   var elArsEq = document.getElementById('mmArsEq');
+  var elUsdEq = document.getElementById('mmUsdEq');
   var elTot   = document.getElementById('mmTotalRec');
   var elVue   = document.getElementById('mmVueltoAmt');
   var elVRow  = document.getElementById('mmVueltoRow');
 
   if (elBrlEq) elBrlEq.textContent = '= ' + gs(brlEnGs);
   if (elArsEq) elArsEq.textContent = '= ' + gs(arsEnGs);
+  if (elUsdEq) elUsdEq.textContent = '= ' + gs(usdEnGs);
   if (elTot)   elTot.textContent   = gs(totalRec);
   if (elVue)   elVue.textContent   = gs(vuelto);
   if (elVRow)  elVRow.classList.toggle('show', vuelto > 0);
@@ -625,16 +670,23 @@ function updMMTotal() {
   // Sugerido: cuánto en moneda extranjera cubre lo que falta pagar
   var elBrlSug = document.getElementById('mmBrlSug');
   var elArsSug = document.getElementById('mmArsSug');
+  var elUsdSug = document.getElementById('mmUsdSug');
   if (elBrlSug) {
-    var remBrl = Math.max(0, total - _mmVals.gs - arsEnGs);
+    var remBrl = Math.max(0, total - _mmVals.gs - arsEnGs - usdEnGs);
     elBrlSug.textContent = (cotBRL > 0 && remBrl > 0)
       ? 'sugerido para saldar: ' + Math.ceil(remBrl / cotBRL) + ' R$'
       : '';
   }
   if (elArsSug) {
-    var remArs = Math.max(0, total - _mmVals.gs - brlEnGs);
+    var remArs = Math.max(0, total - _mmVals.gs - brlEnGs - usdEnGs);
     elArsSug.textContent = (cotARS > 0 && remArs > 0)
       ? 'sugerido para saldar: ' + Math.ceil(remArs / cotARS) + ' $AR'
+      : '';
+  }
+  if (elUsdSug) {
+    var remUsd = Math.max(0, total - _mmVals.gs - brlEnGs - arsEnGs);
+    elUsdSug.textContent = (cotUSD > 0 && remUsd > 0)
+      ? 'sugerido para saldar: ' + (Math.ceil((remUsd / cotUSD) * 100) / 100) + ' US$'
       : '';
   }
 
@@ -1098,17 +1150,21 @@ async function confirmarPago() {
   var _mmActivoPago = localStorage.getItem('mm_activo') === '1';
   var _mmCotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
   var _mmCotARS = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
+  var _mmCotUSD = parseFloat(localStorage.getItem('mm_cotUSD')) || 0;
   var _mmPagosConf = null;
-  if (_mmActivoPago && (_mmVals.gs > 0 || _mmVals.brl > 0 || _mmVals.ars > 0)) {
+  if (_mmActivoPago && (_mmVals.gs > 0 || _mmVals.brl > 0 || _mmVals.ars > 0 || _mmVals.usd > 0)) {
     var _mmBrlGs = Math.round(_mmVals.brl * _mmCotBRL);
     var _mmArsGs = Math.round(_mmVals.ars * _mmCotARS);
-    var _mmTotalRec = _mmVals.gs + _mmBrlGs + _mmArsGs;
+    var _mmUsdGs = Math.round(_mmVals.usd * _mmCotUSD);
+    var _mmTotalRec = _mmVals.gs + _mmBrlGs + _mmArsGs + _mmUsdGs;
     _mmPagosConf = {
       pagoGS:    _mmVals.gs,
       pagoBRL:   _mmVals.brl,   pagoBRLGs: _mmBrlGs,
       pagoARS:   _mmVals.ars,   pagoARSGs: _mmArsGs,
+      pagoUSD:   _mmVals.usd,   pagoUSDGs: _mmUsdGs,
       cotBRL:    _mmCotBRL,
       cotARS:    _mmCotARS,
+      cotUSD:    _mmCotUSD,
       totalGs:   _mmTotalRec,
       vueltoGS:  Math.max(0, _mmTotalRec - totalVenta),
     };
