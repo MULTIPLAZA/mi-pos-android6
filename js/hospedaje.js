@@ -762,10 +762,12 @@ function abrirReserva(estadiaId){
   _hospReservaSel = res;
   const h = hospHabitaciones.find(function(x){ return x.id === res.habitacion_id; });
   document.getElementById('hospResTitulo').textContent = 'Habitación ' + (h ? h.numero : '?') + ' — ' + res.huesped_nombre;
+  const pagado = _hospTotalPagado(res);
   document.getElementById('hospResSub').textContent =
     'Llega: ' + fmtFechaCorta(res.checkin) + (res.checkout_previsto ? ' · Salida prevista: ' + fmtFechaCorta(res.checkout_previsto) : '')
     + ' · Tarifa: ' + gs(res.tarifa_noche || 0) + '/noche'
-    + (res.huesped_tel ? ' · Tel: ' + res.huesped_tel : '');
+    + (res.huesped_tel ? ' · Tel: ' + res.huesped_tel : '')
+    + (pagado > 0 ? ' · Ya pagó: ' + gs(pagado) : '');
   document.getElementById('hospReservaOv').style.display = 'flex';
 }
 
@@ -1276,14 +1278,39 @@ async function checkOutFolio(){
 // (ej: 3 noches, pagan 1 por día). El abono es una venta REAL como
 // cualquier otra (aparece en caja/cierre, se puede facturar) — solo que
 // en vez de liquidar la estadía, se resta del saldo pendiente.
+/**
+ * Total de referencia para calcular el saldo pendiente de un abono. Una
+ * estadía en curso ya tiene est.total (cargos reales acumulados). Una
+ * RESERVA todavía no tiene ningún cargo (recién se generan al check-in
+ * real) — se estima con tarifa × noches previstas si hay fecha de
+ * salida cargada; si no hay fecha, es un depósito libre sin tope
+ * conocido (se devuelve null).
+ */
+function _hospTotalReferenciaAbono(est){
+  if(est.estado !== 'reservado') return est.total || 0;
+  if(est.checkout_previsto && est.checkin){
+    const noches = Math.round((new Date(est.checkout_previsto+'T00:00:00') - new Date(est.checkin+'T00:00:00')) / 86400000);
+    return Math.max(noches, 1) * (est.tarifa_noche || 0);
+  }
+  return null;
+}
+
+/** Abrir el abono desde una RESERVA (antes del check-in real) — mismo modal, mismo flujo. */
+function hospAbrirAbonoReserva(){
+  if(!_hospReservaSel) return;
+  _hospEstadiaSel = _hospReservaSel;
+  hospAbrirAbono();
+}
+
 function hospAbrirAbono(){
   if(!_hospEstadiaSel) return;
   const est = _hospEstadiaSel;
   const pagado = _hospTotalPagado(est);
-  const saldo = Math.max(0, (est.total||0) - pagado);
-  if(saldo <= 0){ toast('Esta estadía ya está totalmente paga'); return; }
-  document.getElementById('hospAbonoSaldo').textContent = gs(saldo);
-  document.getElementById('hospAbonoMonto').value = saldo;
+  const totalRef = _hospTotalReferenciaAbono(est);
+  const saldo = totalRef != null ? Math.max(0, totalRef - pagado) : null;
+  if(saldo !== null && saldo <= 0){ toast('Esta estadía ya está totalmente paga'); return; }
+  document.getElementById('hospAbonoSaldo').textContent = saldo != null ? gs(saldo) : 'Depósito (reserva sin fecha de salida)';
+  document.getElementById('hospAbonoMonto').value = saldo != null ? saldo : (est.tarifa_noche || '');
   document.getElementById('hospAbonoOv').style.display = 'flex';
   hospAbonoRecalcEquivBRL();
 }
@@ -1299,7 +1326,8 @@ function hospAbonoRecalcEquivBRL(){
     return;
   }
   const est = _hospEstadiaSel;
-  const saldo = est ? Math.max(0, (est.total||0) - _hospTotalPagado(est)) : 0;
+  const totalRef = est ? _hospTotalReferenciaAbono(est) : 0;
+  const saldo = (est && totalRef != null) ? Math.max(0, totalRef - _hospTotalPagado(est)) : 0;
   const monto = parseInt(document.getElementById('hospAbonoMonto').value) || 0;
   if(elSaldo) elSaldo.textContent = saldo > 0 ? '(≈ R$ ' + (saldo/cotBRL).toFixed(2) + ')' : '';
   if(elMonto) elMonto.textContent = monto > 0 ? '≈ R$ ' + (monto/cotBRL).toFixed(2) : '';
@@ -1315,8 +1343,9 @@ function hospConfirmarAbonoMonto(){
   const monto = parseInt(document.getElementById('hospAbonoMonto').value) || 0;
   if(monto <= 0){ toast('Ingresá un monto válido'); return; }
   const pagado = _hospTotalPagado(est);
-  const saldo = Math.max(0, (est.total||0) - pagado);
-  if(monto > saldo){ toast('El monto no puede superar el saldo pendiente (' + gs(saldo) + ')'); return; }
+  const totalRef = _hospTotalReferenciaAbono(est);
+  const saldo = totalRef != null ? Math.max(0, totalRef - pagado) : null;
+  if(saldo !== null && monto > saldo){ toast('El monto no puede superar el saldo pendiente (' + gs(saldo) + ')'); return; }
   if(cart.length > 0 && !confirm('Hay productos en el ticket actual — se van a reemplazar por el abono. ¿Continuar?')) return;
 
   const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
