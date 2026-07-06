@@ -11,6 +11,7 @@
 
 var hospHabitaciones = [];   // [{id, numero, tipo, piso, capacidad, precio_noche, estado, ...}]
 var hospEstadias     = [];   // estadías con estado='en_estadia' o 'reservado' (filtrado local por estado)
+var hospHuespedes    = [];   // registro de huéspedes ya alojados antes (autocompletar check-in)
 var _hospHabSel      = null; // habitación tocada (para abrir check-in o folio)
 var _hospEstadiaSel  = null; // estadía abierta en el modal de folio
 var _hospReservaSel  = null; // reserva abierta en el modal de reserva
@@ -43,8 +44,10 @@ async function hospCargar(){
       try{
         const habRow = await db.mesas_cache.get('hosp_habitaciones');
         const estRow = await db.mesas_cache.get('hosp_estadias');
+        const husRow = await db.mesas_cache.get('hosp_huespedes');
         if(habRow) hospHabitaciones = JSON.parse(habRow.valor);
         if(estRow) hospEstadias     = JSON.parse(estRow.valor);
+        if(husRow) hospHuespedes    = JSON.parse(husRow.valor);
       }catch(e){ console.warn('[Hospedaje] Error cache offline:', e.message); }
     }
     _hospCargarPreciosTipoCache();
@@ -58,10 +61,13 @@ async function hospCargar(){
     // separan localmente, no hace falta otra consulta.
     hospEstadias = await supaGet('pos_estadias',
       'licencia_email=ilike.'+encodeURIComponent(email)+'&estado=in.(en_estadia,reservado)&select=*');
+    hospHuespedes = await supaGet('pos_huespedes',
+      'licencia_email=ilike.'+encodeURIComponent(email)+'&order=nombre.asc');
     if(db){
       try{
         await db.mesas_cache.put({ clave:'hosp_habitaciones', valor: JSON.stringify(hospHabitaciones) });
         await db.mesas_cache.put({ clave:'hosp_estadias',     valor: JSON.stringify(hospEstadias) });
+        await db.mesas_cache.put({ clave:'hosp_huespedes',    valor: JSON.stringify(hospHuespedes) });
       }catch(e){ console.warn('[Hospedaje] Error cacheando:', e.message); }
     }
     await hospCargarPreciosTipo();
@@ -522,8 +528,99 @@ function abrirCheckIn(habId){
   _hospCkSetTarifaDesdeGs(h.precio_noche || 0);
   document.getElementById('hospCkTitulo').textContent = 'Check-in — Habitación ' + h.numero;
   document.getElementById('hospNochesLbl').textContent = '';
+  hospCkOcultarSugerencias();
   document.getElementById('hospCheckinOv').style.display = 'flex';
   setTimeout(function(){ document.getElementById('hospCkNombre').focus(); }, 200);
+}
+
+// ── Registro de huéspedes: autocompletar check-in por nombre o documento ──
+// No hace falta ir a buscar a nadie — se guarda solo apenas se confirma un
+// check-in, y la próxima vez que ese huésped vuelva alcanza con empezar a
+// tipear su nombre o documento para que el resto se autocomplete.
+function _hospBuscarHuespedes(q){
+  q = (q||'').trim().toLowerCase();
+  if(q.length < 2) return [];
+  return hospHuespedes.filter(function(hu){
+    return (hu.nombre && hu.nombre.toLowerCase().indexOf(q) !== -1)
+        || (hu.documento && hu.documento.toLowerCase().indexOf(q) !== -1);
+  }).slice(0, 6);
+}
+
+function _hospRenderSugerencias(lista){
+  const cont = document.getElementById('hospCkSugerencias');
+  if(!cont) return;
+  if(!lista.length){ cont.style.display = 'none'; cont.innerHTML = ''; return; }
+  cont.innerHTML = lista.map(function(hu){
+    const sub = [hu.documento, hu.telefono].filter(Boolean).join(' · ');
+    return '<div onclick="hospCkSeleccionarHuesped(' + hu.id + ')" style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #2a2a2a;">'
+      + '<div style="font-size:13px;font-weight:700;color:#fff;">' + escapeHtml(hu.nombre) + '</div>'
+      + (sub ? '<div style="font-size:11px;color:#888;">' + escapeHtml(sub) + '</div>' : '')
+      + '</div>';
+  }).join('');
+  cont.style.display = 'block';
+}
+
+function hospCkBuscarPorNombre(){
+  _hospRenderSugerencias(_hospBuscarHuespedes(document.getElementById('hospCkNombre').value));
+}
+
+function hospCkBuscarPorDoc(){
+  _hospRenderSugerencias(_hospBuscarHuespedes(document.getElementById('hospCkDoc').value));
+}
+
+function hospCkOcultarSugerencias(){
+  // Delay corto para que el click en una sugerencia registre ANTES de
+  // que el blur del input la oculte (si no, el onclick nunca dispara).
+  setTimeout(function(){
+    const cont = document.getElementById('hospCkSugerencias');
+    if(cont) cont.style.display = 'none';
+  }, 200);
+}
+
+function hospCkSeleccionarHuesped(huespedId){
+  const hu = hospHuespedes.find(function(x){ return x.id === huespedId; });
+  if(!hu) return;
+  document.getElementById('hospCkNombre').value = hu.nombre || '';
+  document.getElementById('hospCkDoc').value = hu.documento || '';
+  document.getElementById('hospCkTel').value = hu.telefono || '';
+  document.getElementById('hospCkNacionalidad').value = hu.nacionalidad || 'Paraguaya';
+  hospCkOcultarSugerencias();
+}
+
+/**
+ * Guarda (o actualiza) el huésped en el registro tras un check-in
+ * confirmado — silencioso, si falla no interrumpe el check-in en sí.
+ * Empareja por documento si hay, si no por nombre exacto.
+ */
+async function hospGuardarHuespedDesdeCheckin(datos){
+  const email = localStorage.getItem('lic_email');
+  if(!email || !datos.nombre) return;
+  try{
+    const existente = hospHuespedes.find(function(hu){
+      return datos.documento
+        ? (hu.documento && hu.documento === datos.documento)
+        : (hu.nombre && hu.nombre.trim().toLowerCase() === datos.nombre.trim().toLowerCase());
+    });
+    if(existente){
+      const cambios = {
+        nombre: datos.nombre, documento: datos.documento || existente.documento || null,
+        telefono: datos.telefono || existente.telefono || null,
+        nacionalidad: datos.nacionalidad || existente.nacionalidad || null,
+        updated_at: new Date().toISOString(),
+      };
+      await supaPatch('pos_huespedes', 'id=eq.'+existente.id, cambios, true);
+      Object.assign(existente, cambios);
+    } else {
+      const payload = {
+        licencia_email: email, nombre: datos.nombre,
+        documento: datos.documento || null, telefono: datos.telefono || null,
+        nacionalidad: datos.nacionalidad || null,
+      };
+      const result = await supaPost('pos_huespedes', payload, null, false);
+      const saved = Array.isArray(result) ? result[0] : result;
+      if(saved && saved.id) hospHuespedes.push(saved);
+    }
+  }catch(e){ console.warn('[Hospedaje] Error guardando huésped en registro:', e.message); }
 }
 
 /**
@@ -636,6 +733,12 @@ async function confirmarCheckIn(modo){
     const saved = Array.isArray(result) ? result[0] : result;
     if(!saved || !saved.id) throw new Error('Sin ID de estadía');
     hospEstadias.push(saved);
+    // Guardar/actualizar el huésped en el registro — silencioso, no bloquea
+    // ni puede hacer fallar el check-in en sí (ver hospGuardarHuespedDesdeCheckin).
+    hospGuardarHuespedDesdeCheckin({
+      nombre: payload.huesped_nombre, documento: payload.huesped_documento,
+      telefono: payload.huesped_tel, nacionalidad: payload.huesped_nacionalidad,
+    }).catch(function(e){ console.warn('[Hospedaje] Error registro huésped:', e.message); });
     // Check-in retroactivo (fecha en el pasado): completar YA las noches
     // que ya corresponden hasta hoy — si no, quedan en 1 sola noche hasta
     // que algo más dispare el audit automático (que solo corre al recargar

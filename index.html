@@ -1795,14 +1795,15 @@
   <div class="hosp-modal-panel">
     <div class="hosp-modal-handle"></div>
     <div style="font-size:17px;font-weight:800;margin-bottom:16px;color:#fff;" id="hospCkTitulo">Check-in</div>
-    <div style="margin-bottom:10px;">
+    <div style="margin-bottom:10px;position:relative;">
       <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Nombre del huésped *</label>
-      <input id="hospCkNombre" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      <input id="hospCkNombre" type="text" autocomplete="off" oninput="hospCkBuscarPorNombre()" onblur="hospCkOcultarSugerencias()" onfocus="hospCkBuscarPorNombre()" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+      <div id="hospCkSugerencias" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:20;background:#1a1a1a;border:1px solid #333;border-top:none;border-radius:0 0 8px 8px;max-height:180px;overflow-y:auto;"></div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <div>
         <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Documento</label>
-        <input id="hospCkDoc" type="text" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+        <input id="hospCkDoc" type="text" autocomplete="off" oninput="hospCkBuscarPorDoc()" onblur="hospCkOcultarSugerencias()" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
       </div>
       <div>
         <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Teléfono</label>
@@ -2637,7 +2638,18 @@ if('serviceWorker' in navigator){
   var _hadController = !!navigator.serviceWorker.controller;
 
   function _ventaEnCurso(){
-    try { return (typeof cart !== 'undefined' && cart && cart.length > 0); }
+    try {
+      if(typeof cart !== 'undefined' && cart && cart.length > 0) return true;
+      // Cualquier modal de hospedaje abierto tiene datos sin guardar (check-in,
+      // editar reserva, alta/edición de habitación, abono) — recargar ahí
+      // perdía todo lo tipeado sin avisar. Mismo criterio que el carrito: no
+      // recargar mientras haya algo a medio cargar en pantalla.
+      var modales = document.querySelectorAll('.hosp-modal-ov');
+      for(var i=0;i<modales.length;i++){
+        if(modales[i].style.display === 'flex') return true;
+      }
+      return false;
+    }
     catch(e){ return false; }
   }
   function _swAplicarSiSeguro(){
