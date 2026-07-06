@@ -1,8 +1,8 @@
 @echo off
-title Crear acceso directo POS (impresion silenciosa)
+title Crear acceso directo Ampersand POS (impresion silenciosa)
 
 echo ============================================================
-echo  Crear acceso directo del POS con impresion directa
+echo  Crear acceso directo Ampersand POS con impresion directa
 echo ============================================================
 echo.
 
@@ -23,7 +23,7 @@ echo  Chrome encontrado en:
 echo    %CHROME%
 echo.
 
-echo  [1/2] Configurando politica de Chrome para desactivar
+echo  [1/3] Configurando politica de Chrome para desactivar
 echo        la vista previa de impresion...
 reg add "HKCU\Software\Policies\Google\Chrome" /v PrintPreviewDisabled /t REG_DWORD /d 1 /f >NUL
 if %ERRORLEVEL%==0 (
@@ -33,23 +33,42 @@ if %ERRORLEVEL%==0 (
 )
 echo.
 
-set "DESKTOP=%USERPROFILE%\Desktop"
-set "LNK=%DESKTOP%\POS (imprime directo).lnk"
+set "APPDIR=%LOCALAPPDATA%\AmpersandPOS"
+if not exist "%APPDIR%" mkdir "%APPDIR%"
+set "ICO=%APPDIR%\pos-icon.ico"
 
-echo  [2/2] Creando acceso directo...
+echo  [2/3] Descargando icono...
 powershell -NoProfile -Command ^
-  "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%');" ^
-  "$s.TargetPath='%CHROME%';" ^
-  "$s.Arguments='--kiosk-printing --app=https://mi-pos-android6.pages.dev';" ^
-  "$s.Description='POS - imprime directo sin dialogo, requiere impresora predeterminada configurada';" ^
-  "$s.Save()"
+  "try { Invoke-WebRequest -Uri 'https://mi-pos-android6.pages.dev/downloads/pos-icon.ico' -OutFile '%ICO%' -UseBasicParsing; Write-Host '       OK - icono descargado.' } catch { Write-Host '       ATENCION: no se pudo descargar el icono, se usara el de Chrome.' }"
+echo.
+
+set "DESKTOP=%USERPROFILE%\Desktop"
+set "LNK=%DESKTOP%\Ampersand POS.lnk"
+
+echo  [3/3] Creando acceso directo...
+if exist "%ICO%" (
+  powershell -NoProfile -Command ^
+    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%');" ^
+    "$s.TargetPath='%CHROME%';" ^
+    "$s.Arguments='--kiosk-printing --app=https://mi-pos-android6.pages.dev';" ^
+    "$s.IconLocation='%ICO%';" ^
+    "$s.Description='Ampersand POS - imprime directo sin dialogo';" ^
+    "$s.Save()"
+) else (
+  powershell -NoProfile -Command ^
+    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%');" ^
+    "$s.TargetPath='%CHROME%';" ^
+    "$s.Arguments='--kiosk-printing --app=https://mi-pos-android6.pages.dev';" ^
+    "$s.Description='Ampersand POS - imprime directo sin dialogo';" ^
+    "$s.Save()"
+)
 
 if exist "%LNK%" (
   echo ============================================================
   echo  LISTO
   echo ============================================================
   echo.
-  echo  Se creo el icono "POS (imprime directo)" en el Escritorio y se
+  echo  Se creo el icono "Ampersand POS" en el Escritorio y se
   echo  desactivo la vista previa de impresion de Chrome ^(afecta a
   echo  Chrome en general en esta cuenta de Windows, no solo al POS^).
   echo.
@@ -61,8 +80,10 @@ if exist "%LNK%" (
   echo    2. CERRA TODAS las ventanas de Chrome que esten abiertas
   echo       ahora mismo ^(la politica nueva no aplica a ventanas ya
   echo       abiertas^).
-  echo    3. De ahora en mas, abri el POS SIEMPRE con el icono
-  echo       "POS (imprime directo)" ^(no con un Chrome normal^).
+  echo    3. De ahora en mas, abri el POS SIEMPRE con el icono nuevo
+  echo       "Ampersand POS" ^(no con un Chrome normal^). Podes borrar
+  echo       o dejar de usar cualquier otro acceso directo/marcador
+  echo       viejo del POS para no confundirte.
   echo.
 ) else (
   echo  ERROR: no se pudo crear el acceso directo.

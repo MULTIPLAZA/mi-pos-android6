@@ -197,12 +197,19 @@ function abrirVentanaImpresion(html, size){
     const win  = window.open(url, '_blank');
     if(win){
       let _printed = false;
+      // onafterprint dispara apenas termina el diálogo/envío a la impresora
+      // (incluso con impresión silenciosa vía kiosk-printing) — cerramos la
+      // ventana ahí para no dejarla colgada en pantalla. Fallback por si
+      // no dispara en algún navegador/config.
+      const cerrarVentana = function(){ try{ win.close(); }catch(e){ /* la ventana ya puede estar cerrada */ } };
       win.onload = function(){
         setTimeout(function(){
           if(_printed) return;
           _printed = true;
           win.focus();
+          try{ win.onafterprint = cerrarVentana; }catch(e){}
           win.print();
+          setTimeout(cerrarVentana, 2000);
           setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
         }, 400);
       };
@@ -210,7 +217,8 @@ function abrirVentanaImpresion(html, size){
       setTimeout(function(){
         if(_printed) return;
         _printed = true;
-        try{ win.focus(); win.print(); }catch(e){ /* safe: fallback print attempt, may fail on some browsers */ }
+        try{ win.focus(); win.onafterprint = cerrarVentana; win.print(); }catch(e){ /* safe: fallback print attempt, may fail on some browsers */ }
+        setTimeout(cerrarVentana, 2000);
         setTimeout(function(){ URL.revokeObjectURL(url); }, 3000);
       }, 1500);
       return;
