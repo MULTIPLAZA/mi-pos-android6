@@ -1578,7 +1578,8 @@ function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
 
   lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
   if(estadia.checkout_previsto) lineas += '<p class="row s"><span class="l1">Salida prevista:</span><span class="l2">'+fmtFechaCorta(estadia.checkout_previsto)+'</span></p>';
-  lineas += '<p class="row s"><span class="l1">Tarifa/noche:</span><span class="l2">'+gn(estadia.tarifa_noche||0)+' Gs.</span></p>';
+  const equivTarifa = typeof _hospEquivBRL === 'function' ? _hospEquivBRL(estadia.tarifa_noche||0) : '';
+  lineas += '<p class="row s"><span class="l1">Tarifa/noche:</span><span class="l2">'+gn(estadia.tarifa_noche||0)+' Gs.'+equivTarifa+'</span></p>';
   lineas += '<p class="hr"></p>';
 
   lineas += '<p style="margin:0;line-height:2.4;">&nbsp;</p>';
@@ -2592,7 +2593,7 @@ function abrirDialogoImpresionTexto(htmlContent, cols, size){
     'pre{'+
       'font-family:"Courier New",Courier,monospace;'+
       'font-size:'+fontSize+';'+
-      'font-weight:900;'+ /* Bold extra para mejor marca en termica */
+      'font-weight:400;'+ /* normal — 900 hacía que TODO saliera en negrita */
       'line-height:1.2;'+
       'margin:0;'+
       'padding:1mm 2mm;'+
