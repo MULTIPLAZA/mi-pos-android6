@@ -120,11 +120,21 @@ function _hospAplicarCatDefaultSiCorresponde(){
   if(typeof filterP === 'function') filterP();
 }
 
+// Cache del último tipo_negocio confirmado por el servidor (ver
+// rubroCargarDesdeSupabase). _rubroGuardarSupabase() lo usa para NUNCA
+// reenviar un tipo_negocio local stale — el tipo de negocio lo define el
+// panel de súper-admin, el POS solo debe tocarlo si el usuario lo cambia
+// explícitamente acá mismo (rubroSetTipo), nunca como side-effect de
+// guardar un flag cualquiera de configuración.
+var _rubroTipoDesdeServidor = null;
+var _rubroTipoCambiadoLocal = false;
+
 // ── Setear tipo de negocio ────────────────────────────────
 // Al cambiar el tipo se limpian los overrides para que los defaults entren.
 // Si se quiere conservar overrides explícitos pasar keepOverrides=true.
 function rubroSetTipo(tipo, keepOverrides){
   localStorage.setItem('pos_tipo_negocio', tipo);
+  _rubroTipoCambiadoLocal = true;
   if(!keepOverrides){
     localStorage.removeItem('pos_flag_mesas');
     localStorage.removeItem('pos_flag_cocina');
@@ -299,7 +309,10 @@ async function rubroCargarDesdeSupabase(){
     if(rows && rows[0]){
       var cfg = JSON.parse(rows[0].valor || '{}');
       // tipo_negocio: servidor siempre gana (limpia stale de localStorage)
-      if(cfg.tipo_negocio) localStorage.setItem('pos_tipo_negocio', cfg.tipo_negocio);
+      if(cfg.tipo_negocio){
+        localStorage.setItem('pos_tipo_negocio', cfg.tipo_negocio);
+        _rubroTipoDesdeServidor = cfg.tipo_negocio; // cache: ver _rubroGuardarSupabase()
+      }
       // flags: solo si el usuario no tiene override local explícito y el
       // servidor mandó un valor concreto (no null). Cubre todo el catálogo.
       RUBRO_CAPACIDADES.forEach(function(f){
@@ -340,7 +353,13 @@ async function _rubroGuardarSupabase(){
   try {
     // Persistir tipo + solo los flags con override explícito (null = usar
     // default del tipo). Cubre todas las capacidades del catálogo.
-    var cfg = { tipo_negocio: rubroGetTipo() };
+    // tipo_negocio: si el usuario NO lo cambió acá mismo esta sesión, se
+    // reenvía el último valor confirmado por el servidor (no el de
+    // localStorage) — así un flag cualquiera guardado en un dispositivo
+    // con datos viejos nunca pisa un cambio de rubro hecho desde
+    // súper-admin mientras ese dispositivo seguía abierto.
+    var tipoAEnviar = _rubroTipoCambiadoLocal ? rubroGetTipo() : (_rubroTipoDesdeServidor || rubroGetTipo());
+    var cfg = { tipo_negocio: tipoAEnviar };
     RUBRO_CAPACIDADES.forEach(function(cap){
       cfg['flag_' + cap] = (localStorage.getItem('pos_flag_' + cap) !== null) ? rubroFlag(cap) : null;
     });
