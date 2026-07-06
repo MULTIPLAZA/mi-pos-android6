@@ -2441,8 +2441,9 @@ function abrirDialogoImpresionTexto(htmlContent, cols, size){
   if(!size) size = (cols <= 36) ? '58' : '80';
   var pageW = size === '58' ? '58mm' : '80mm';
   var bodyW = size === '58' ? '54mm' : '76mm';
-  // Sizes ajustados para que 32 chars entren en 54mm util
-  var fontSize = size === '58' ? '11pt' : '12pt';
+  // Misma fuente/tamaño en 58mm y 80mm — un tamaño distinto en 80mm se
+  // veía "diferente" para el usuario aunque la familia fuera la misma.
+  var fontSize = '11pt';
 
   var fullHtml = '<!DOCTYPE html><html><head>'+
     '<meta charset="UTF-8">'+
