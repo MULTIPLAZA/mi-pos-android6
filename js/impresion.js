@@ -2021,6 +2021,10 @@ function abrirModalDescargarAgente(tipo){
         '<button onclick="document.getElementById(\'modalUsbAgente\').remove();usarImpresoraUSBLocal(\''+tipo+'\')" style="flex:1;min-width:120px;background:var(--card2);border:1px solid var(--border);border-radius:8px;color:var(--text);font:700 13px Barlow,sans-serif;padding:13px;cursor:pointer">Probar de nuevo</button>'+
       '</div>'+
       '<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px">\u00bfPara qu\u00e9 sirve? Permite que el POS imprima directo a la impresora t\u00e9rmica USB sin pasar por el di\u00e1logo de Windows \u2014 funciona con cualquier driver, incluso Generic / Text Only.</div>'+
+      '<div style="border-top:1px solid var(--border);padding-top:14px;margin-bottom:10px">'+
+        '<div style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:8px">\u00bfEste agente no anda en esta PC (Chrome bloquea la conexi\u00f3n)? Alternativa m\u00e1s simple: un \u00edcono especial que imprime directo sin di\u00e1logo, sin agente.</div>'+
+        '<a href="/downloads/crear-acceso-directo-pos.bat" download style="display:block;text-align:center;font-size:12px;color:var(--green);font-weight:700;text-decoration:none;padding:8px">\u2b07 Descargar crear-acceso-directo-pos.bat</a>'+
+      '</div>'+
       '<button onclick="document.getElementById(\'modalUsbAgente\').remove()" style="width:100%;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font:600 12px Barlow,sans-serif;padding:10px;cursor:pointer">Cancelar</button>'+
     '</div>';
   document.body.appendChild(ov);

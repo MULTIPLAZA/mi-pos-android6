@@ -1,0 +1,57 @@
+@echo off
+title Crear acceso directo POS (impresion silenciosa)
+
+echo ============================================================
+echo  Crear acceso directo del POS con impresion directa
+echo ============================================================
+echo.
+
+set "CHROME="
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" set "CHROME=%ProgramFiles%\Google\Chrome\Application\chrome.exe"
+if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" set "CHROME=%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"
+if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" set "CHROME=%LocalAppData%\Google\Chrome\Application\chrome.exe"
+
+if "%CHROME%"=="" (
+  echo  ERROR: no se encontro Chrome instalado en esta PC.
+  echo  Instala Google Chrome primero y volve a correr este archivo.
+  echo.
+  pause
+  exit /b 1
+)
+
+echo  Chrome encontrado en:
+echo    %CHROME%
+echo.
+
+set "DESKTOP=%USERPROFILE%\Desktop"
+set "LNK=%DESKTOP%\POS (imprime directo).lnk"
+
+powershell -NoProfile -Command ^
+  "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%');" ^
+  "$s.TargetPath='%CHROME%';" ^
+  "$s.Arguments='--kiosk-printing --app=https://mi-pos-android6.pages.dev';" ^
+  "$s.Description='POS - imprime directo sin dialogo, requiere impresora predeterminada configurada';" ^
+  "$s.Save()"
+
+if exist "%LNK%" (
+  echo ============================================================
+  echo  LISTO
+  echo ============================================================
+  echo.
+  echo  Se creo el icono "POS (imprime directo)" en el Escritorio.
+  echo.
+  echo  IMPORTANTE antes de usarlo:
+  echo    1. La impresora termica tiene que estar configurada como
+  echo       PREDETERMINADA en Windows ^(Configuracion - Dispositivos -
+  echo       Impresoras y escaneres - click en la termica -
+  echo       "Establecer como predeterminada"^).
+  echo    2. De ahora en mas, abri el POS SIEMPRE con ese icono nuevo
+  echo       ^(no con un Chrome normal ya abierto^).
+  echo.
+) else (
+  echo  ERROR: no se pudo crear el acceso directo.
+  echo.
+)
+
+echo Presione cualquier tecla para cerrar...
+pause 1>NUL
