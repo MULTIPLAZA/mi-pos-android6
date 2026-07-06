@@ -204,6 +204,11 @@ async function hospAutoCargarNochesVencidas(){
     const cargadas = (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length;
     const faltantes = esperadas - cargadas;
     if(faltantes <= 0) continue;
+    // Si ya llegó (o pasó) la fecha de una reserva de OTRO huésped para
+    // esta misma habitación, frenar el cobro automático de más noches —
+    // el conflicto de agenda hay que resolverlo a mano (cambiar de
+    // habitación a este huésped) en vez de seguir sumando noches solas.
+    if(_hospConflictoReservaHoy(est)) continue;
     const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
     const tarifa = est.tarifa_noche || (h && h.precio_noche) || 0;
     const hoyIso = _hospFechaISO(new Date());
@@ -238,6 +243,20 @@ function hospReservaProximaDeHabitacion(habId){
   if(!reservas.length) return null;
   reservas.sort(function(a,b){ return a.checkin < b.checkin ? -1 : (a.checkin > b.checkin ? 1 : 0); });
   return reservas[0];
+}
+
+/**
+ * ¿Esta estadía en curso choca con una reserva de OTRO huésped para la
+ * misma habitación cuya fecha de llegada ya llegó (o ya pasó)? Devuelve
+ * la reserva en conflicto, o null si no hay choque. Se usa para frenar
+ * que se sigan sumando noches (a mano o por el audit automático) al
+ * huésped actual cuando ya le corresponde la habitación a otra persona.
+ */
+function _hospConflictoReservaHoy(est){
+  const reserva = hospReservaProximaDeHabitacion(est.habitacion_id);
+  if(!reserva) return null;
+  const llegada = new Date(reserva.checkin+'T00:00:00');
+  return llegada <= _hospDiaHotelActual() ? reserva : null;
 }
 
 function _hospEsHoy(fechaIso){
@@ -310,9 +329,11 @@ function renderHabitacionesScreen(){
     // distinta a "hoy", o se agregan noches extra a mano (bug real: la
     // tarjeta decía "1 noche" con 3 cargos de noche ya en el folio).
     const noches = est ? (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length : 0;
+    const conflicto = est ? _hospConflictoReservaHoy(est) : null;
     let sub;
     if(est){
-      sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + _hospEquivBRL(est.total||0) + '</span>';
+      sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + _hospEquivBRL(est.total||0) + '</span>'
+        + (conflicto ? '<br><span style="font-size:10.5px;font-weight:800;background:#000;padding:1px 5px;border-radius:3px;">⚠ CAMBIAR DE HAB. — reserva de ' + escapeHtml(conflicto.huesped_nombre) + '</span>' : '');
     } else if(reserva){
       sub = escapeHtml(reserva.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin)) + '</span>';
     } else {
@@ -320,7 +341,7 @@ function renderHabitacionesScreen(){
     }
     const tipoLabel = _hospLabelTipo(h.tipo);
     return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
-      + 'style="background:' + color + ';">'
+      + 'style="background:' + color + ';' + (conflicto ? 'outline:2px dashed #ff9800;outline-offset:-2px;' : '') + '">'
       + '<div>'
       + '<div class="hosp-card-num">' + escapeHtml(h.numero) + '</div>'
       + (tipoLabel ? '<div style="font-size:11px;font-weight:600;opacity:.85;margin-top:1px;">' + tipoLabel + '</div>' : '')
@@ -368,17 +389,19 @@ async function renderHabitacionesEnGrid(){
     const estadoVisual = est ? 'ocupada' : (reserva ? 'reservada' : (h.estado || 'libre'));
     const color = _hospColorEstado(estadoVisual);
     const tipoLabel = _hospLabelTipo(h.tipo);
+    const conflicto = est ? _hospConflictoReservaHoy(est) : null;
     let sub;
     if(est){
       const noches = (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length;
-      sub = escapeHtml(est.huesped_nombre) + ' · ' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total || 0) + _hospEquivBRL(est.total||0);
+      sub = escapeHtml(est.huesped_nombre) + ' · ' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total || 0) + _hospEquivBRL(est.total||0)
+        + (conflicto ? '<br><span style="font-size:10px;font-weight:800;background:#000;padding:1px 5px;border-radius:3px;">⚠ CAMBIAR DE HAB.</span>' : '');
     } else if(reserva){
       sub = escapeHtml(reserva.huesped_nombre) + ' · ' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin));
     } else {
       sub = _hospLabelEstado(estadoVisual);
     }
     return '<div class="hosp-card" onclick="onHabitacionTap(' + h.id + ')" oncontextmenu="event.preventDefault();hospMenuHabitacion(' + h.id + ');return false;" '
-      + 'style="background:' + color + ';min-height:96px;">'
+      + 'style="background:' + color + ';min-height:96px;' + (conflicto ? 'outline:2px dashed #ff9800;outline-offset:-2px;' : '') + '">'
       + '<div>'
       + '<div class="hosp-card-num">' + escapeHtml(h.numero) + '</div>'
       + (tipoLabel ? '<div style="font-size:11px;font-weight:600;opacity:.85;margin-top:1px;">' + tipoLabel + '</div>' : '')
@@ -1183,6 +1206,11 @@ async function hospConfirmarConsumoDesdeCart(){
 /** Atajo directo: agregar una noche más con la tarifa configurada */
 function hospAgregarNoche(){
   if(!_hospEstadiaSel) return;
+  const conflicto = _hospConflictoReservaHoy(_hospEstadiaSel);
+  if(conflicto){
+    alert('No se puede agregar otra noche: esta habitación tiene una reserva de ' + conflicto.huesped_nombre + ' para el ' + fmtFechaCorta(conflicto.checkin) + ', que ya llegó. Cambiá a ' + _hospEstadiaSel.huesped_nombre + ' de habitación antes de seguir cobrándole noches acá.');
+    return;
+  }
   const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
   const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
