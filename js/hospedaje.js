@@ -437,6 +437,66 @@ async function hospCambiarEstadoHabitacion(habId, estado){
 }
 
 // ── CHECK-IN ──────────────────────────────────────────────
+// ── Tarifa/noche en ₲ o R$ ─────────────────────────────────────────
+// El monto SIEMPRE se guarda en guaraníes — este toggle solo cambia en
+// qué moneda se muestra/tipea el campo (muchos hoteles de frontera
+// cobran la mayoría de sus tarifas en Reales). Queda "pegajoso" entre
+// una apertura y otra del formulario a propósito, para no tener que
+// tocarlo en cada check-in si el hotel cobra casi siempre en la misma moneda.
+var _hospCkMonedaTarifa = 'gs';
+
+function hospCkSetMonedaTarifa(moneda){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  if(moneda !== _hospCkMonedaTarifa && cotBRL > 0){
+    const inp = document.getElementById('hospCkTarifa');
+    const actual = parseFloat(inp.value) || 0;
+    if(actual > 0) inp.value = moneda === 'brl' ? (actual / cotBRL).toFixed(2) : Math.round(actual * cotBRL);
+  }
+  _hospCkMonedaTarifa = moneda;
+  _hospCkPintarBotonesMoneda();
+  hospCkRecalcEquivTarifa();
+}
+
+function _hospCkPintarBotonesMoneda(){
+  const btnGs = document.getElementById('hospCkMonGsBtn'), btnBrl = document.getElementById('hospCkMonBrlBtn');
+  if(!btnGs || !btnBrl) return;
+  const esGs = _hospCkMonedaTarifa === 'gs';
+  btnGs.style.background = esGs ? '#4caf50' : '#2a2a2a';
+  btnGs.style.color = esGs ? '#fff' : '#888';
+  btnGs.style.border = esGs ? 'none' : '1px solid #444';
+  btnBrl.style.background = !esGs ? '#4caf50' : '#2a2a2a';
+  btnBrl.style.color = !esGs ? '#fff' : '#888';
+  btnBrl.style.border = !esGs ? 'none' : '1px solid #444';
+}
+
+function hospCkRecalcEquivTarifa(){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const el = document.getElementById('hospCkTarifaEquiv');
+  if(!el) return;
+  const val = parseFloat(document.getElementById('hospCkTarifa').value) || 0;
+  if(!cotBRL || !val){ el.textContent = ''; return; }
+  el.textContent = _hospCkMonedaTarifa === 'brl' ? '≈ ' + gs(Math.round(val * cotBRL)) : '≈ R$ ' + (val / cotBRL).toFixed(2);
+}
+
+/** El monto de Tarifa/noche SIEMPRE en guaraníes, sin importar en qué moneda esté mostrado el input. */
+function hospCkTarifaEnGs(){
+  const val = parseFloat(document.getElementById('hospCkTarifa').value) || 0;
+  if(_hospCkMonedaTarifa === 'brl'){
+    const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+    return Math.round(val * cotBRL);
+  }
+  return Math.round(val);
+}
+
+/** Prellena Tarifa/noche a partir de un monto en Gs, respetando la moneda seleccionada actualmente. */
+function _hospCkSetTarifaDesdeGs(montoGs){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const inp = document.getElementById('hospCkTarifa');
+  inp.value = (_hospCkMonedaTarifa === 'brl' && cotBRL > 0) ? (montoGs / cotBRL).toFixed(2) : (montoGs || 0);
+  _hospCkPintarBotonesMoneda();
+  hospCkRecalcEquivTarifa();
+}
+
 function abrirCheckIn(habId){
   const h = hospHabitaciones.find(function(x){ return x.id === habId; });
   if(!h) return;
@@ -452,7 +512,7 @@ function abrirCheckIn(habId){
   document.getElementById('hospCkHuespedes').value = '1';
   document.getElementById('hospCkCheckin').value = hoyStr;
   document.getElementById('hospCkCheckout').value = '';
-  document.getElementById('hospCkTarifa').value = h.precio_noche || 0;
+  _hospCkSetTarifaDesdeGs(h.precio_noche || 0);
   document.getElementById('hospCkTitulo').textContent = 'Check-in — Habitación ' + h.numero;
   document.getElementById('hospNochesLbl').textContent = '';
   document.getElementById('hospCheckinOv').style.display = 'flex';
@@ -483,9 +543,27 @@ function hospRecalcNoches(){
   const lbl = document.getElementById('hospNochesLbl');
   const ci = document.getElementById('hospCkCheckin').value;
   const co = document.getElementById('hospCkCheckout').value;
-  if(!ci || !co){ lbl.textContent = ''; return; }
-  const noches = Math.round((new Date(co+'T00:00:00') - new Date(ci+'T00:00:00')) / 86400000);
-  lbl.textContent = noches > 0 ? noches + ' noche' + (noches!==1?'s':'') : (noches === 0 ? 'Misma fecha' : 'Fecha inválida');
+  const partes = [];
+
+  // Si el check-in cargado ya es de días anteriores (carga retroactiva —
+  // el huésped ya está alojado hace rato y recién ahora se registra),
+  // avisar cuántas noches ya transcurrieron hasta hoy. Usa la misma
+  // cuenta que el audit automático (_hospNochesEsperadas) para que no
+  // sorprenda cuando se autocomplete solo más tarde.
+  if(ci){
+    const ciDate = new Date(ci+'T00:00:00');
+    if(ciDate < _hospDiaHotelActual()){
+      const transcurridas = _hospNochesEsperadas(ci);
+      partes.push('Ya pasaron ' + transcurridas + ' noche' + (transcurridas!==1?'s':'') + ' desde el check-in');
+    }
+  }
+
+  if(ci && co){
+    const noches = Math.round((new Date(co+'T00:00:00') - new Date(ci+'T00:00:00')) / 86400000);
+    partes.push(noches > 0 ? noches + ' noche' + (noches!==1?'s':'') + ' previstas' : (noches === 0 ? 'Misma fecha' : 'Fecha inválida'));
+  }
+
+  lbl.textContent = partes.join(' · ');
 }
 
 var _hospEditandoReservaId = null;
@@ -512,7 +590,7 @@ async function confirmarCheckIn(modo){
   if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
   const checkin = document.getElementById('hospCkCheckin').value;
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
-  const tarifa = parseInt(document.getElementById('hospCkTarifa').value) || 0;
+  const tarifa = hospCkTarifaEnGs();
   const esReserva = modo === 'reservado';
   const tarifaPrimeraNoche = esReserva ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
 
@@ -601,7 +679,7 @@ function abrirEditarReserva(){
   document.getElementById('hospCkHuespedes').value = res.cantidad_huespedes || 1;
   document.getElementById('hospCkCheckin').value = res.checkin || '';
   document.getElementById('hospCkCheckout').value = res.checkout_previsto || '';
-  document.getElementById('hospCkTarifa').value = res.tarifa_noche || 0;
+  _hospCkSetTarifaDesdeGs(res.tarifa_noche || 0);
   document.getElementById('hospCkTitulo').textContent = 'Editar reserva — Habitación ' + (h ? h.numero : '?');
   hospRecalcNoches();
 
@@ -632,7 +710,7 @@ async function confirmarEditarReserva(){
     cantidad_huespedes: parseInt(document.getElementById('hospCkHuespedes').value) || 1,
     checkin: checkin,
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
-    tarifa_noche: parseInt(document.getElementById('hospCkTarifa').value) || 0,
+    tarifa_noche: hospCkTarifaEnGs(),
   };
 
   const btn = document.getElementById('hospCkBtnEditarGuardar');
