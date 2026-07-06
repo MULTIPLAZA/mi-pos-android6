@@ -629,6 +629,11 @@ async function confirmarCheckIn(modo){
     const saved = Array.isArray(result) ? result[0] : result;
     if(!saved || !saved.id) throw new Error('Sin ID de estadía');
     hospEstadias.push(saved);
+    // Check-in retroactivo (fecha en el pasado): completar YA las noches
+    // que ya corresponden hasta hoy — si no, quedan en 1 sola noche hasta
+    // que algo más dispare el audit automático (que solo corre al recargar
+    // la pantalla de Habitaciones), y el total se ve mal mientras tanto.
+    if(!esReserva) await hospAutoCargarNochesVencidas();
     cerrarCheckIn();
     _hospRefrescarVista();
     toast(esReserva
