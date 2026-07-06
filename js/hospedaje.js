@@ -506,6 +506,7 @@ function cerrarReservasList(){
 // por eso el empujoncito de chips de duración en el check-in: cuantas
 // más estadías tengan fecha de salida, más útil es esta vista).
 var _hospCalWeekStart = null;
+var _hospCalOrigen = 'scHabitaciones';
 
 function _hospLunesDeSemana(d){
   var dia = d.getDay(); // 0=domingo..6=sábado
@@ -515,9 +516,19 @@ function _hospLunesDeSemana(d){
 }
 
 function abrirCalendarioOcupacion(){
+  // Recordar desde qué pantalla se abrió (Habitaciones completa o Cobrar)
+  // para que "atrás" vuelva ahí y no siempre a Habitaciones.
+  const activa = document.querySelector('.screen.active');
+  _hospCalOrigen = (activa && activa.id === 'scSale') ? 'scSale' : 'scHabitaciones';
   _hospCalWeekStart = _hospLunesDeSemana(new Date());
   goTo('scHospCalendario');
   renderCalendarioOcupacion();
+}
+
+function cerrarCalendarioOcupacion(){
+  goTo(_hospCalOrigen);
+  if(_hospCalOrigen === 'scHabitaciones' && typeof _hospRefrescarVista === 'function') _hospRefrescarVista();
+  if(_hospCalOrigen === 'scSale' && curCat === 'Habitaciones' && typeof renderHabitacionesEnGrid === 'function') renderHabitacionesEnGrid();
 }
 
 function hospCalMoverSemana(delta){

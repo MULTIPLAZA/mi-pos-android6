@@ -740,6 +740,7 @@ function closeCat(e){ if(e.target===document.getElementById('catOv'))document.ge
 function pickCat(el){
   const cat = typeof el === 'string' ? el : el.textContent.trim();
   curCat = cat;
+  if(typeof _userEligioCategoria !== 'undefined') _userEligioCategoria = true;
   const lbl = document.getElementById('catLbl');
   if(lbl) lbl.textContent = cat;
   document.getElementById('catOv').classList.remove('open');

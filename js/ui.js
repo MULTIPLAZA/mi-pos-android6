@@ -69,6 +69,7 @@ function goTo(id) {
   if (id === 'scConfigGeneral') setTimeout(() => window.renderGeneralInfo?.(),  50);
   if (id === 'scDescuentos')    setTimeout(() => window.renderDescList?.(),     50);
   if (id === 'scArticulosList') setTimeout(() => window.renderArtList?.(),      50);
+  if (id === 'scSale')          setTimeout(() => window._hospAplicarCatDefaultSiCorresponde?.(), 50);
 }
 
 // Manejar botón atrás del navegador/Android

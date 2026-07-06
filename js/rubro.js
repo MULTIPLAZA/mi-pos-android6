@@ -98,6 +98,28 @@ function _catDefaultInicial(){
   return usaHabitaciones() ? 'Habitaciones' : 'Todos los artículos';
 }
 
+// Aplica el default de arriba cada vez que se entra a Cobrar, MIENTRAS el
+// usuario no haya elegido otra categoría a mano (ver _userEligioCategoria,
+// seteada en pickCat()). Hace falta re-chequear en cada entrada (no solo
+// una vez al bootear) porque el rubro se termina de confirmar contra
+// Supabase (rubroCargarDesdeSupabase) de forma asíncrona — puede resolver
+// DESPUÉS de que el primer render de Cobrar ya ocurrió (ej: restauración
+// de sesión con turno abierto), y en ese primer intento curCat todavía
+// no reflejaría el rubro real. Reintentar en cada goTo('scSale') hace que
+// se autocorrija apenas el dato esté disponible, sin pisar nunca una
+// elección explícita del usuario.
+var _userEligioCategoria = false;
+function _hospAplicarCatDefaultSiCorresponde(){
+  if(_userEligioCategoria) return;
+  if(typeof curCat === 'undefined' || curCat !== 'Todos los artículos') return;
+  if(!usaHabitaciones()) return;
+  curCat = 'Habitaciones';
+  var lbl = document.getElementById('catLbl');
+  if(lbl) lbl.textContent = 'Habitaciones';
+  if(typeof renderCatPills === 'function') renderCatPills();
+  if(typeof filterP === 'function') filterP();
+}
+
 // ── Setear tipo de negocio ────────────────────────────────
 // Al cambiar el tipo se limpian los overrides para que los defaults entren.
 // Si se quiere conservar overrides explícitos pasar keepOverrides=true.
