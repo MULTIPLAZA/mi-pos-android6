@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-pos-v1.15.71-20260706';
+const CACHE = 'ampersand-pos-v1.15.72-20260706';
 
 const ASSETS = [
   '/',
@@ -62,6 +62,14 @@ self.addEventListener('fetch', e => {
   if (url.hostname.includes('jsdelivr.net')) return;
   if (url.hostname.includes('googleapis.com')) return;
   if (url.hostname.includes('cdnjs.cloudflare.com')) return;
+  // Agente local de impresión (USB Print Server / BT Print Server) — NUNCA
+  // interceptar. Si esto pasa por el manejador de abajo y la conexión a
+  // 127.0.0.1 falla (CSP, Private Network Access de Chrome, agente
+  // apagado), el .catch() cae a caches.match('/') y devuelve el HTML de
+  // la app misma — USBPrinter.status()/listarImpresoras() reciben una
+  // respuesta "ok" que en realidad es la SPA, nunca el JSON del agente,
+  // y el flujo de selección de impresora queda en silencio para siempre.
+  if (url.hostname === '127.0.0.1' || url.hostname === 'localhost') return;
 
   // Network First — {cache:'no-store'} fuerza al SW a ir SIEMPRE al servidor
   // (ignora la caché HTTP del navegador). Así nunca sirve una versión vieja
