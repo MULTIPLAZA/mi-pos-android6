@@ -192,7 +192,7 @@ function abrirVentanaImpresion(html, size){
 
   // Método 1: Blob URL — funciona en PWA Android, Chrome, cualquier contexto
   try{
-    const blob = new Blob([html], {type:'text/html'});
+    const blob = new Blob([html], {type:'text/html;charset=utf-8'});
     const url  = URL.createObjectURL(blob);
     const win  = window.open(url, '_blank');
     if(win){
@@ -1589,7 +1589,12 @@ function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
 
-  return '<html><head><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
+  // Override sobre getCSSTermico() (compartido con la comanda, que SI
+  // necesita 900 para leerse bien en cocina) — este comprobante no es
+  // una comanda, "todo en negrita" se veía feo/menos prolijo que el
+  // ticket normal, así que se vuelve a peso normal acá solamente.
+  const cssNormal = 'body,p,span,.b,.s,.l,.row,.row .l1,.row .l2,.it-nom,.it-det,.it-det .qty,.it-det .pu,.it-det .sub{font-weight:400 !important;}';
+  return '<html><head><meta charset="UTF-8"><style>'+getCSSTermico(size)+cssNormal+'</style></head><body>'+lineas+'</body></html>';
 }
 
 function imprimirComprobanteCheckIn(estadia, habitacion){
@@ -1660,7 +1665,8 @@ function generarHTMLComprobanteCuenta(estadia, habitacion, size){
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
 
-  return '<html><head><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
+  const cssNormal = 'body,p,span,.b,.s,.l,.row,.row .l1,.row .l2,.it-nom,.it-det,.it-det .qty,.it-det .pu,.it-det .sub{font-weight:400 !important;}';
+  return '<html><head><meta charset="UTF-8"><style>'+getCSSTermico(size)+cssNormal+'</style></head><body>'+lineas+'</body></html>';
 }
 
 function imprimirComprobanteCuenta(estadia, habitacion){
