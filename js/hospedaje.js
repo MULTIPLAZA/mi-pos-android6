@@ -839,7 +839,7 @@ async function confirmarCheckIn(modo){
     toast(esReserva
       ? 'Reserva OK — Habitación ' + numeroHab + ' · ' + nombre
       : 'Check-in OK — Habitación ' + numeroHab + ' · ' + nombre);
-    if(typeof imprimirComprobanteCheckIn === 'function') imprimirComprobanteCheckIn(saved, habSelObj);
+    if(typeof imprimirComprobanteCheckIn === 'function' && localStorage.getItem('hosp_imprimir_checkin') !== '0') imprimirComprobanteCheckIn(saved, habSelObj);
   }catch(e){
     toast('Error al guardar: ' + e.message);
   }

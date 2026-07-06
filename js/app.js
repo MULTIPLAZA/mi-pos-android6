@@ -176,6 +176,16 @@ function renderGeneralInfo(){
 }
 
 function loadGeneralConfigInputs(){
+  // Hospedaje: sección + toggle de impresión de comprobante al check-in
+  // (solo visible/relevante para cuentas con rubro hospedaje).
+  const secHosp = document.getElementById('cfgHospedajeSection');
+  if(secHosp){
+    const usaHosp = typeof usaHabitaciones === 'function' && usaHabitaciones();
+    secHosp.style.display = usaHosp ? 'block' : 'none';
+    const chkImp = document.getElementById('cfgHospImprimirCheckin');
+    if(chkImp) chkImp.checked = localStorage.getItem('hosp_imprimir_checkin') !== '0';
+  }
+
   const set = (id, val) => { const el = document.getElementById(id); if(el!=null) el.value = val || ''; };
   set('cfgNegocio',   configData.negocio   || localStorage.getItem('an') || '');
   set('cfgDireccion', configData.direccion  || localStorage.getItem('ad') || '');
@@ -2243,6 +2253,11 @@ function goToConfig(){
   document.getElementById('cfgRuc').value       = configData.ruc;
   document.getElementById('configEmail').textContent = configData.email;
   goTo('scConfig');
+}
+
+function hospGuardarImprimirCheckin(){
+  const chk = document.getElementById('cfgHospImprimirCheckin');
+  if(chk) localStorage.setItem('hosp_imprimir_checkin', chk.checked ? '1' : '0');
 }
 
 function saveGeneralConfig(){

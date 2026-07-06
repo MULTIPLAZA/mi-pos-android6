@@ -549,6 +549,25 @@
       </div>
     </div>
 
+    <!-- HOSPEDAJE (solo se muestra si el rubro usa habitaciones) -->
+    <div id="cfgHospedajeSection" style="display:none;">
+      <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:700;padding:4px 0 8px;">Hospedaje</div>
+      <div style="background:var(--bg-card);border-radius:8px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;">
+        <div class="general-field" style="border-bottom:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+              <div style="font-size:14px;font-weight:600;color:var(--text);">Imprimir comprobante al hacer check-in</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">Se imprime solo al confirmar un check-in o una reserva. Desactivalo si no lo usás.</div>
+            </div>
+            <label class="toggle-switch" style="flex-shrink:0;">
+              <input type="checkbox" id="cfgHospImprimirCheckin" onchange="hospGuardarImprimirCheckin()">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- MULTI-MONEDA -->
     <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:700;padding:4px 0 8px;">Multi-moneda</div>
     <div style="background:var(--bg-card);border-radius:8px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;">
