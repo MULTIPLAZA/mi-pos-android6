@@ -54,10 +54,10 @@ async function hospCargar(){
 }
 
 // ── NIGHT AUDIT: cargo automático de noches vencidas ──────────────────
-// Regla del hotel: el "día" cierra a las HOSP_CUTOFF_HORA (10:00 por
+// Regla del hotel: el "día" cierra a las HOSP_CUTOFF_HORA (11:00 por
 // default). Un huésped que sigue en_estadia después de ese horario ya
 // consumió una noche más, se haya acordado el personal de cargarla o no.
-var HOSP_CUTOFF_HORA = 10;
+var HOSP_CUTOFF_HORA = 11;
 
 /** "Hoy" en términos de día de hotel — antes del corte, seguimos en el día de ayer. */
 function _hospDiaHotelActual(){
