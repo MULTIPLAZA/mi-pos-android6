@@ -1269,6 +1269,15 @@
     width:52px; height:100%; display:flex; align-items:center; justify-content:center; cursor:pointer;
   }
   .fsearch:active { background:rgba(0,0,0,.06); }
+  /* Botón de reservas/calendario (categoría Habitaciones) — clase propia
+     para que NO lo alcance la regla que oculta .fsearch en desktop, ya
+     que a diferencia del buscador este botón sigue haciendo falta con
+     el buscador siempre visible. */
+  .fhabcal {
+    background:none; border:none; border-left:1px solid var(--border); color:var(--muted);
+    width:52px; height:100%; display:flex; align-items:center; justify-content:center; cursor:pointer;
+  }
+  .fhabcal:active { background:rgba(0,0,0,.06); }
   .search-bar {
     background:var(--bg); padding:6px 6px 6px 10px;
     display:none; flex-shrink:0; border-bottom:1px solid var(--border);

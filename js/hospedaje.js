@@ -228,7 +228,8 @@ async function renderHabitacionesEnGrid(){
     const tipoLabel = _hospLabelTipo(h.tipo);
     let sub;
     if(est){
-      sub = escapeHtml(est.huesped_nombre);
+      const noches = (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length;
+      sub = escapeHtml(est.huesped_nombre) + ' · ' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total || 0);
     } else if(reserva){
       sub = escapeHtml(reserva.huesped_nombre) + ' · ' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin));
     } else {
