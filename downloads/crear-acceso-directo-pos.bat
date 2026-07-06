@@ -36,32 +36,29 @@ echo.
 set "APPDIR=%LOCALAPPDATA%\AmpersandPOS"
 if not exist "%APPDIR%" mkdir "%APPDIR%"
 set "ICO=%APPDIR%\pos-icon.ico"
-
-echo  [2/3] Descargando icono...
-powershell -NoProfile -Command ^
-  "try { Invoke-WebRequest -Uri 'https://mi-pos-android6.pages.dev/downloads/pos-icon.ico' -OutFile '%ICO%' -UseBasicParsing; Write-Host '       OK - icono descargado.' } catch { Write-Host '       ATENCION: no se pudo descargar el icono, se usara el de Chrome.' }"
-echo.
-
+set "PS1=%APPDIR%\crear-acceso-directo.ps1"
 set "DESKTOP=%USERPROFILE%\Desktop"
 set "LNK=%DESKTOP%\Ampersand POS.lnk"
 
-echo  [3/3] Creando acceso directo...
+echo  [2/3] Descargando icono...
+powershell -NoProfile -Command "try { Invoke-WebRequest -Uri 'https://mi-pos-android6.pages.dev/downloads/pos-icon.ico' -OutFile '%ICO%' -UseBasicParsing } catch { }"
 if exist "%ICO%" (
-  powershell -NoProfile -Command ^
-    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%');" ^
-    "$s.TargetPath='%CHROME%';" ^
-    "$s.Arguments='--kiosk-printing --app=https://mi-pos-android6.pages.dev';" ^
-    "$s.IconLocation='%ICO%';" ^
-    "$s.Description='Ampersand POS - imprime directo sin dialogo';" ^
-    "$s.Save()"
+  echo        OK - icono descargado.
 ) else (
-  powershell -NoProfile -Command ^
-    "$s=(New-Object -ComObject WScript.Shell).CreateShortcut('%LNK%');" ^
-    "$s.TargetPath='%CHROME%';" ^
-    "$s.Arguments='--kiosk-printing --app=https://mi-pos-android6.pages.dev';" ^
-    "$s.Description='Ampersand POS - imprime directo sin dialogo';" ^
-    "$s.Save()"
+  echo        ATENCION: no se pudo descargar el icono, se usara el de Chrome.
 )
+echo.
+
+echo  [3/3] Creando acceso directo...
+REM El .ps1 evita problemas de parentesis/comillas anidadas del batch
+> "%PS1%" echo $s = (New-Object -ComObject WScript.Shell).CreateShortcut("%LNK%")
+>> "%PS1%" echo $s.TargetPath = "%CHROME%"
+>> "%PS1%" echo $s.Arguments = "--kiosk-printing --app=https://mi-pos-android6.pages.dev"
+>> "%PS1%" echo $s.Description = "Ampersand POS - imprime directo sin dialogo"
+>> "%PS1%" echo if (Test-Path "%ICO%") { $s.IconLocation = "%ICO%" }
+>> "%PS1%" echo $s.Save()
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "%PS1%"
 
 if exist "%LNK%" (
   echo ============================================================
