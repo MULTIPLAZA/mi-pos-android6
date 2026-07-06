@@ -185,6 +185,8 @@ function loadGeneralConfigInputs(){
     const chkImp = document.getElementById('cfgHospImprimirCheckin');
     if(chkImp) chkImp.checked = localStorage.getItem('hosp_imprimir_checkin') !== '0';
   }
+  const chkCajaBRL = document.getElementById('cfgCajaMonedaBRL');
+  if(chkCajaBRL) chkCajaBRL.checked = _cajaMonedaBRL();
 
   const set = (id, val) => { const el = document.getElementById(id); if(el!=null) el.value = val || ''; };
   set('cfgNegocio',   configData.negocio   || localStorage.getItem('an') || '');
@@ -594,10 +596,6 @@ function renderTkt(){
   ).join('') + _pieVenta;
 }
 
-
-  const v = parseInt(document.getElementById('shiftDisp').textContent.replace(/[₲.,]/g,''))||0;
-
-  // Verificar licencia antes de abrir turno (si hay internet)
 function updBtnGuardar(){
   const n=pendientes.length, tieneProductos=calcTotal()>0;
   const badge=document.getElementById('pendingBadge'), txt=document.getElementById('btnGuardarTxt'), icon=document.getElementById('btnGuardarIcon');
@@ -618,8 +616,16 @@ function updBtnGuardar(){
   }
 }
 
+/** Lee el efectivo inicial declarado en #shiftDisp, siempre en Gs (aunque se haya
+ * ingresado en R$ con "Declarar caja en Reales" activo — ver npOK() en cobro.js). */
+function _leerEfectivoInicialGs(){
+  const el = document.getElementById('shiftDisp');
+  if(_cajaMonedaBRL() && el.dataset.gsValue) return parseInt(el.dataset.gsValue) || 0;
+  return parseInt(el.textContent.replace(/[₲.,]/g,''))||0;
+}
+
 async function doOpenShift(){
-  const v   = parseInt(document.getElementById('shiftDisp').textContent.replace(/[₲.,]/g,''))||0;
+  const v   = _leerEfectivoInicialGs();
   const btn = document.querySelector('#scClosed .btn-abrir-outline') || document.querySelector('[onclick*="doOpenShift"]');
 
   if(navigator.onLine){
@@ -1800,16 +1806,21 @@ function buildCierreTicket(size){
   lines += row('Local:', terminal);
   lines += row('Cierre:', fmtDT(ahora));
   lines += sep();
-  // RESUMEN
+  // RESUMEN — en cuentas con "Declarar caja en Reales" activo, mostrar acá
+  // en R$ (el dato de fondo sigue siendo Gs, esto es solo la presentación).
+  var _cotBRLresumen = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  var _resumenEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLresumen > 0;
+  var gnResumen = function(n){
+    return _resumenEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLresumen).toLocaleString('es-PY') : gn2(n);
+  };
   lines += rowLabel('RESUMEN');
   lines += sep();
-  lines += row('Importe Inicial', gn2(turnoData.efectivoInicial));
-  lines += row('Total Entrada', gn2(totalVentas));
-  lines += row('', gn2(totalVentas));
-  lines += row('Total Salida', gn2(totalEgresos));
-  lines += row('Saldo En Caja', gn2(saldoCaja), true);
-  lines += row('Rendicion', gn2(rendicion));
-  lines += row('Diferencia', (diferencia>0?'+':'')+gn2(diferencia));
+  lines += row('Importe Inicial', gnResumen(turnoData.efectivoInicial));
+  lines += row('Total Entrada', gnResumen(totalVentas));
+  lines += row('Total Salida', gnResumen(totalEgresos));
+  lines += row('Saldo En Caja', gnResumen(saldoCaja), true);
+  lines += row('Rendicion', gnResumen(rendicion));
+  lines += row('Diferencia', (diferencia>0?'+':'')+gnResumen(diferencia));
   lines += sep();
   // FORMAS DE PAGO
   lines += rowLabel('FORMAS DE PAGO');
@@ -1817,23 +1828,23 @@ function buildCierreTicket(size){
   Object.entries(metodos).sort(function(a,b){return b[1].total-a[1].total;}).forEach(function(e){
     var label = e[0];
     var ops   = e[1].ops;
-    var monto = gn2(e[1].total);
+    var monto = gnResumen(e[1].total);
     // label + ops (alineado) + monto
     var mid   = String(ops);
     var sp    = Math.max(1, cols - label.length - mid.length - monto.length - 2);
     lines += '<p style="margin:0;white-space:pre;">'+label+' '.repeat(sp)+mid+'  '+monto+'</p>';
   });
-  lines += row('TOTAL:', gn2(totalVentas), true);
+  lines += row('TOTAL:', gnResumen(totalVentas), true);
   lines += sep();
   // MOVIMIENTOS DE CAJA
   lines += rowLabel('MOVIMIENTOS DE CAJA');
   lines += sep();
   var totalEntMovs = (turnoData.ingresos||[]).reduce(function(s,i){return s+i.monto;},0);
-  lines += row('Total Entrada:', gn2(totalEntMovs));
-  lines += row('Total Salida :', gn2(totalEgresos));
+  lines += row('Total Entrada:', gnResumen(totalEntMovs));
+  lines += row('Total Salida :', gnResumen(totalEgresos));
   if(turnoData.egresos && turnoData.egresos.length){
     turnoData.egresos.filter(function(e){return !e.anulada;}).forEach(function(e){
-      lines += row('  '+e.desc.substring(0,cols-14), gn2(e.monto));
+      lines += row('  '+e.desc.substring(0,cols-14), gnResumen(e.monto));
     });
   }
   lines += sep();
@@ -1892,15 +1903,15 @@ function buildCierreTicket(size){
   var wa = '*CIERRE DE CAJA - '+negocio+'*\n';
   wa += 'Apertura: '+fmtDT(turnoData.fechaApertura)+'\nCierre: '+fmtDT(ahora)+'\n';
   wa += '\n*RESUMEN*\n';
-  wa += 'Ef. Inicial: '+gn2(turnoData.efectivoInicial)+'\n';
-  wa += 'Total Entrada: '+gn2(totalVentas)+'\n';
-  wa += 'Total Salida: '+gn2(totalEgresos)+'\n';
-  wa += 'Saldo en Caja: '+gn2(saldoCaja)+'\n';
-  wa += 'Diferencia: '+gn2(diferencia)+'\n';
+  wa += 'Ef. Inicial: '+gnResumen(turnoData.efectivoInicial)+'\n';
+  wa += 'Total Entrada: '+gnResumen(totalVentas)+'\n';
+  wa += 'Total Salida: '+gnResumen(totalEgresos)+'\n';
+  wa += 'Saldo en Caja: '+gnResumen(saldoCaja)+'\n';
+  wa += 'Diferencia: '+gnResumen(diferencia)+'\n';
   wa += '\n*FORMAS DE PAGO*\n';
-  Object.entries(metodos).forEach(function(e){ wa += e[0]+' ('+e[1].ops+'): '+gn2(e[1].total)+'\n'; });
-  wa += 'TOTAL: '+gn2(totalVentas)+'\n';
-  if(totalContado>0){ wa += '\n*CONTEO*\nTotal contado: '+gn2(totalContado)+'\nSaldo esperado: '+gn2(saldoEsperado)+'\n'; }
+  Object.entries(metodos).forEach(function(e){ wa += e[0]+' ('+e[1].ops+'): '+gnResumen(e[1].total)+'\n'; });
+  wa += 'TOTAL: '+gnResumen(totalVentas)+'\n';
+  if(totalContado>0){ wa += '\n*CONTEO*\nTotal contado: '+gnResumen(totalContado)+'\nSaldo esperado: '+gnResumen(saldoEsperado)+'\n'; }
   if(diff!==null){
     if(diff===0) wa += '\nCUADRE EXACTO';
     else if(diff>0) wa += '\nSOBRANTE: +'+gn2(diff);
@@ -2258,6 +2269,16 @@ function goToConfig(){
 function hospGuardarImprimirCheckin(){
   const chk = document.getElementById('cfgHospImprimirCheckin');
   if(chk) localStorage.setItem('hosp_imprimir_checkin', chk.checked ? '1' : '0');
+}
+
+/** true si esta cuenta declara la caja (apertura/cierre) en Reales en vez de Guaraníes. */
+function _cajaMonedaBRL(){
+  return localStorage.getItem('caja_moneda_principal') === 'BRL';
+}
+
+function hospGuardarCajaMonedaBRL(){
+  const chk = document.getElementById('cfgCajaMonedaBRL');
+  if(chk) localStorage.setItem('caja_moneda_principal', chk.checked ? 'BRL' : 'GS');
 }
 
 function saveGeneralConfig(){

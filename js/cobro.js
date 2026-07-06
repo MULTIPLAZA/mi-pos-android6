@@ -279,7 +279,9 @@ function openNP(ctx) {
   };
 
   if (!ctx.startsWith('cierre_')) {
-    document.getElementById('npLbl').textContent = labels[ctx] || 'Cantidad';
+    var _lbl = labels[ctx] || 'Cantidad';
+    if (ctx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) _lbl += ' (R$)';
+    document.getElementById('npLbl').textContent = _lbl;
   }
 
   if (ctx === 'comprobante') {
@@ -295,6 +297,10 @@ function openNP(ctx) {
   if (ctx === 'cierre_arq_BRL' && cierreArqueoBRL > 0) setNpVal(String(cierreArqueoBRL));
   if (ctx === 'cierre_arq_ARS' && cierreArqueoARS > 0) setNpVal(String(cierreArqueoARS));
   if (ctx === 'cierre_arq_USD' && cierreArqueoUSD > 0) setNpVal(String(cierreArqueoUSD));
+  if (ctx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+    var _shiftBRLPrev = parseFloat(document.getElementById('shiftDisp').dataset.brl || '');
+    if (_shiftBRLPrev > 0) setNpVal(String(_shiftBRLPrev));
+  }
 
   if (ctx === 'cierreTotal') {
     setNpVal(cierreTotal > 0 ? String(cierreTotal) : '');
@@ -319,6 +325,8 @@ function openNP(ctx) {
     document.getElementById('npDisp').textContent = npVal ? '$ ' + _npInitV : '$ 0';
   } else if (ctx === 'comprobante') {
     document.getElementById('npDisp').textContent = npVal || '—';
+  } else if (ctx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+    document.getElementById('npDisp').textContent = npVal ? 'R$ ' + _npInitV : 'R$ 0';
   } else {
     document.getElementById('npDisp').textContent = npVal ? gs(_npInitV) : '₲0';
   }
@@ -354,6 +362,8 @@ function npP(d) {
       document.getElementById('npDisp').textContent = '$ ' + _pV;
     } else if (npCtx === 'mm_usd' || npCtx === 'cierre_arq_USD') {
       document.getElementById('npDisp').textContent = 'US$ ' + _pV;
+    } else if (npCtx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+      document.getElementById('npDisp').textContent = 'R$ ' + _pV;
     } else {
       document.getElementById('npDisp').textContent = gs(_pV);
     }
@@ -374,6 +384,8 @@ function npD() {
       document.getElementById('npDisp').textContent = '$ ' + _dV;
     } else if (npCtx === 'mm_usd' || npCtx === 'cierre_arq_USD') {
       document.getElementById('npDisp').textContent = 'US$ ' + _dV;
+    } else if (npCtx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+      document.getElementById('npDisp').textContent = 'R$ ' + _dV;
     } else {
       document.getElementById('npDisp').textContent = gs(_dV);
     }
@@ -385,7 +397,18 @@ function npOK() {
   const v = parseInt(npVal) || 0;
 
   if (npCtx === 'shift') {
-    document.getElementById('shiftDisp').textContent = gs(v);
+    const shiftEl = document.getElementById('shiftDisp');
+    if (typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+      const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+      const gsEquiv = Math.round(v * cotBRL);
+      shiftEl.textContent = 'R$ ' + v.toLocaleString('es-PY') + (cotBRL > 0 ? ' (≈ ' + gs(gsEquiv) + ')' : '');
+      shiftEl.dataset.brl = String(v);
+      shiftEl.dataset.gsValue = String(gsEquiv);
+    } else {
+      shiftEl.textContent = gs(v);
+      delete shiftEl.dataset.brl;
+      delete shiftEl.dataset.gsValue;
+    }
 
   } else if (npCtx === 'div') {
     divPagos[divNpIdx].monto = v;

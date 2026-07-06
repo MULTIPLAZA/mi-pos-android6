@@ -645,6 +645,23 @@
       </div>
     </div>
 
+    <!-- CAJA: moneda principal (para negocios que operan mayormente en R$) -->
+    <div style="font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;font-weight:700;padding:4px 0 8px;">Caja</div>
+    <div style="background:var(--bg-card);border-radius:8px;border:1px solid var(--border);overflow:hidden;margin-bottom:14px;">
+      <div class="general-field" style="border-bottom:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Declarar caja en Reales (R$)</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">El efectivo inicial de apertura y el resumen del cierre de caja se piden/muestran en R$ en vez de Gs. Requiere cotización configurada arriba en Multi-moneda. Todo se sigue guardando en Gs por dentro, esto solo cambia cómo se pide/muestra.</div>
+          </div>
+          <label class="toggle-switch" style="flex-shrink:0;">
+            <input type="checkbox" id="cfgCajaMonedaBRL" onchange="hospGuardarCajaMonedaBRL()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -695,7 +712,7 @@
         <input class="art-form-input" id="egresoDesc" type="text" placeholder="Ej: Compra de insumos, Pago proveedor...">
       </div>
       <div class="art-form-field" style="margin-top:16px;">
-        <span class="art-form-label">Monto *</span>
+        <span class="art-form-label" id="egresoMontoLabel">Monto *</span>
         <input class="art-form-input" id="egresoMonto" type="number" placeholder="0" min="0">
       </div>
       <div style="display:flex;gap:10px;margin-top:20px;">

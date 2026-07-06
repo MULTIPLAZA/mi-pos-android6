@@ -753,6 +753,9 @@ async function renderTurno(){
 function openEgresoModal(){
   document.getElementById('egresoDesc').value = '';
   document.getElementById('egresoMonto').value = '';
+  const enBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL();
+  const lbl = document.getElementById('egresoMontoLabel');
+  if(lbl) lbl.textContent = enBRL ? 'Monto (R$) *' : 'Monto *';
   document.getElementById('egresoModal').classList.add('open');
   setTimeout(()=>document.getElementById('egresoDesc').focus(), 200);
 }
@@ -764,9 +767,15 @@ function closeEgresoModal(e){
 
 function guardarEgreso(){
   const desc = document.getElementById('egresoDesc').value.trim();
-  const monto = parseInt(document.getElementById('egresoMonto').value)||0;
+  let monto = parseInt(document.getElementById('egresoMonto').value)||0;
   if(!desc){ toast('Ingresá la descripción'); return; }
   if(!monto){ toast('Ingresá el monto'); return; }
+  // Egreso siempre se guarda en Gs (mismo criterio que el resto de la caja) —
+  // si la cuenta declara en R$, convertir lo que tipeó el cajero.
+  if(typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()){
+    const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+    if(cotBRL > 0) monto = Math.round(monto * cotBRL);
+  }
   const egreso = { desc, monto, fecha: new Date() };
   turnoData.egresos.push(egreso);
   turnoGuardar();
