@@ -1394,6 +1394,7 @@ function abrirFormHabitacion(habId){
   document.getElementById('hospFormCapacidad').value = h ? (h.capacidad || 2) : (tipoDefault.capacidad || 2);
   document.getElementById('hospFormPrecio').value = h ? (h.precio_noche || 0) : (tipoDefault.precio || 0);
   document.getElementById('hospFormOv').style.display = 'flex';
+  hospFormRecalcEquivBRL();
 }
 
 /** Al elegir un tipo en el form, autocompletar su precio y capacidad de catálogo. */
@@ -1403,6 +1404,16 @@ function hospFormTipoCambio(){
   if(!cat) return;
   if(cat.precio != null) document.getElementById('hospFormPrecio').value = cat.precio;
   if(cat.capacidad != null) document.getElementById('hospFormCapacidad').value = cat.capacidad;
+  hospFormRecalcEquivBRL();
+}
+
+/** Equivalente en Reales de la tarifa/noche tipeada en el form de habitación, en vivo. */
+function hospFormRecalcEquivBRL(){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const el = document.getElementById('hospFormPrecioBRL');
+  if(!el) return;
+  const monto = parseInt(document.getElementById('hospFormPrecio').value) || 0;
+  el.textContent = (cotBRL && monto > 0) ? '≈ R$ ' + (monto/cotBRL).toFixed(2) : '';
 }
 
 function cerrarFormHabitacion(){

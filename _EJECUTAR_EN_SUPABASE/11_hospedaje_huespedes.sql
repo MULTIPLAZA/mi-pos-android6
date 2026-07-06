@@ -21,4 +21,12 @@ CREATE TABLE IF NOT EXISTS pos_huespedes (
 CREATE INDEX IF NOT EXISTS idx_pos_huespedes_licencia ON pos_huespedes(licencia_email);
 CREATE INDEX IF NOT EXISTS idx_pos_huespedes_documento ON pos_huespedes(licencia_email, documento);
 
+-- Las tablas nuevas creadas por SQL quedan con RLS activado por Postgres
+-- sin ninguna policy — eso bloquea TODO acceso, incluso con la clave
+-- pública. El resto de la base hoy no tiene RLS forzado (ver
+-- 99_SEGURIDAD_rls_hardening — está planificado migrar esto en una
+-- sesión coordinada, no tabla por tabla), así que se desactiva acá para
+-- que quede consistente con las demás tablas de hospedaje.
+ALTER TABLE pos_huespedes DISABLE ROW LEVEL SECURITY;
+
 NOTIFY pgrst, 'reload schema';

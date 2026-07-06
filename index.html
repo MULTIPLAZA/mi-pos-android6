@@ -1987,7 +1987,8 @@
       </div>
       <div>
         <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Tarifa/noche (₲)</label>
-        <input id="hospFormPrecio" type="number" min="0" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+        <input id="hospFormPrecio" type="number" min="0" oninput="hospFormRecalcEquivBRL()" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:14px;padding:10px 12px;outline:none;box-sizing:border-box;">
+        <div id="hospFormPrecioBRL" style="font-size:10.5px;color:#4caf50;margin-top:3px;min-height:13px;"></div>
       </div>
     </div>
     <div style="display:flex;gap:10px;">
