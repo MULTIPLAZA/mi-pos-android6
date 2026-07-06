@@ -116,7 +116,7 @@ function imprimirComandaActual(){
 function getPaperSize(tipo){ return (printers[tipo] && printers[tipo].size) || localStorage.getItem('printerSize_'+tipo) || '58'; }
 
 // CSS base para impresión térmica
-function getCSSTermico(size){
+function getCSSTermico(size, negritaExtra){
   const w  = size==='58' ? '58mm' : '80mm';
   const pw = size==='58' ? '48mm' : '72mm';
   // Sizes en PX (no pt) — más predecibles. Iguales a los que usa la comanda
@@ -124,6 +124,12 @@ function getCSSTermico(size){
   const fs = size==='58' ? '13px' : '15px';
   const ss = size==='58' ? '12px' : '13px';
   const ls = size==='58' ? '17px' : '19px';
+  // negritaExtra=true: SOLO la comanda de cocina lo pide — necesita leerse
+  // rápido y grueso en un ambiente de cocina. Todo lo demás (ticket,
+  // factura, cierre de caja, comprobantes) usa peso normal por default;
+  // forzar 900 en TODO se veía "feo"/menos prolijo para esos casos.
+  const peso = negritaExtra ? 900 : 400;
+  const sombra = negritaExtra ? 'text-shadow: 0 0 0 #000;' : '';
   return `
     @page { size: ${w} auto !important; margin: 0 !important; }
     @media print {
@@ -142,12 +148,10 @@ function getCSSTermico(size){
     body {
       font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
       font-size: ${fs};
-      /* font-weight 900 (Black) por default. La comanda usa 900 inline en
-         cada <p> y se imprime bien — replicamos eso a nivel CSS. */
-      font-weight: 900;
-      /* Truco viejo pero efectivo: text-shadow 0,0,0 simula stroke extra
-         de 1px sin cambiar la fuente. Engordamos cada letra ~1px. */
-      text-shadow: 0 0 0 #000;
+      font-weight: ${peso};
+      /* Truco viejo pero efectivo para la comanda: text-shadow 0,0,0 simula
+         stroke extra de 1px sin cambiar la fuente. Solo con negritaExtra. */
+      ${sombra}
       letter-spacing: 0.2px;
       width: ${pw};
       max-width: ${pw};
@@ -159,29 +163,29 @@ function getCSSTermico(size){
       -moz-osx-font-smoothing: grayscale;
       text-rendering: geometricPrecision;
     }
-    p  { margin:0; padding:0; line-height:1.3; font-weight:900; }
-    span { font-weight:900; }
+    p  { margin:0; padding:0; line-height:1.3; font-weight:${peso}; }
+    span { font-weight:${peso}; }
     .c { text-align:center; }
     .r { text-align:right; }
-    .b { font-weight:900; }
-    .s { font-size:${ss}; font-weight:900; }
-    .l { font-size:${ls}; font-weight:900; }
+    .b { font-weight:${negritaExtra ? 900 : 700}; }
+    .s { font-size:${ss}; font-weight:${peso}; }
+    .l { font-size:${ls}; font-weight:${peso}; }
     .hr{ border:none; border-top:2px solid #000; margin:1mm 0; display:block; }
     /* fila dos columnas: izq flexible, der fijo */
-    .row { display:flex; justify-content:space-between; align-items:baseline; font-weight:900; }
-    .row .l1 { flex:1; padding-right:4px; word-break:break-word; font-weight:900; }
-    .row .l2 { text-align:right; white-space:nowrap; min-width:0; font-weight:900; }
+    .row { display:flex; justify-content:space-between; align-items:baseline; font-weight:${peso}; }
+    .row .l1 { flex:1; padding-right:4px; word-break:break-word; font-weight:${peso}; }
+    .row .l2 { text-align:right; white-space:nowrap; min-width:0; font-weight:${peso}; }
     /* fila de item: nombre arriba, nums abajo */
-    .it-nom { font-size:${ss}; font-weight:900; word-break:break-word; }
-    .it-det { display:flex; justify-content:space-between; font-size:${ss}; padding-left:2px; font-weight:900; }
-    .it-det .qty { white-space:nowrap; font-weight:900; }
-    .it-det .pu  { flex:1; text-align:center; white-space:nowrap; font-weight:900; }
-    .it-det .sub { white-space:nowrap; font-weight:900; }
-    .obs { font-size:${ss}; padding-left:8px; color:#000; font-weight:900; }
+    .it-nom { font-size:${ss}; font-weight:${peso}; word-break:break-word; }
+    .it-det { display:flex; justify-content:space-between; font-size:${ss}; padding-left:2px; font-weight:${peso}; }
+    .it-det .qty { white-space:nowrap; font-weight:${peso}; }
+    .it-det .pu  { flex:1; text-align:center; white-space:nowrap; font-weight:${peso}; }
+    .it-det .sub { white-space:nowrap; font-weight:${peso}; }
+    .obs { font-size:${ss}; padding-left:8px; color:#000; font-weight:${peso}; }
     /* item factura: nombre + datos en dos líneas */
-    .if-nom { font-size:${ss}; font-weight:900; word-break:break-word; }
-    .if-det { display:flex; justify-content:space-between; font-size:${ss}; padding-left:2px; font-weight:900; }
-    .if-det span { white-space:nowrap; font-weight:900; }
+    .if-nom { font-size:${ss}; font-weight:${peso}; word-break:break-word; }
+    .if-det { display:flex; justify-content:space-between; font-size:${ss}; padding-left:2px; font-weight:${peso}; }
+    .if-det span { white-space:nowrap; font-weight:${peso}; }
   `;
 }
 
@@ -987,7 +991,8 @@ function generarHTMLComanda(data, size){
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
 
-  return '<html><head><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
+  // negritaExtra=true: la comanda de cocina SI necesita leerse grueso/rápido.
+  return '<html><head><style>'+getCSSTermico(size, true)+'</style></head><body>'+lineas+'</body></html>';
 }
 
 // ── CIERRE DE TURNO (HTML térmico) ──────────────────────────
@@ -1597,12 +1602,7 @@ function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
 
-  // Override sobre getCSSTermico() (compartido con la comanda, que SI
-  // necesita 900 para leerse bien en cocina) — este comprobante no es
-  // una comanda, "todo en negrita" se veía feo/menos prolijo que el
-  // ticket normal, así que se vuelve a peso normal acá solamente.
-  const cssNormal = 'body,p,span,.b,.s,.l,.row,.row .l1,.row .l2,.it-nom,.it-det,.it-det .qty,.it-det .pu,.it-det .sub{font-weight:400 !important;}';
-  return '<html><head><meta charset="UTF-8"><style>'+getCSSTermico(size)+cssNormal+'</style></head><body>'+lineas+'</body></html>';
+  return '<html><head><meta charset="UTF-8"><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
 }
 
 function imprimirComprobanteCheckIn(estadia, habitacion){
@@ -1673,8 +1673,7 @@ function generarHTMLComprobanteCuenta(estadia, habitacion, size){
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
   lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
 
-  const cssNormal = 'body,p,span,.b,.s,.l,.row,.row .l1,.row .l2,.it-nom,.it-det,.it-det .qty,.it-det .pu,.it-det .sub{font-weight:400 !important;}';
-  return '<html><head><meta charset="UTF-8"><style>'+getCSSTermico(size)+cssNormal+'</style></head><body>'+lineas+'</body></html>';
+  return '<html><head><meta charset="UTF-8"><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
 }
 
 function imprimirComprobanteCuenta(estadia, habitacion){
