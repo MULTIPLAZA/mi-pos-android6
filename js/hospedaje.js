@@ -529,8 +529,31 @@ function abrirCheckIn(habId){
   document.getElementById('hospCkTitulo').textContent = 'Check-in — Habitación ' + h.numero;
   document.getElementById('hospNochesLbl').textContent = '';
   hospCkOcultarSugerencias();
+
+  // Aviso si esta habitación tiene una reserva futura pendiente — por
+  // ejemplo, ocuparla hoy con un huésped distinto al que va a llegar
+  // más adelante (ver hospCheckInOtroHuesped). La reserva sigue en pie,
+  // pero conviene que quien hace el check-in lo tenga presente.
+  const aviso = document.getElementById('hospCkAvisoReserva');
+  const reservaFutura = hospReservaProximaDeHabitacion(habId);
+  if(reservaFutura){
+    aviso.textContent = '⚠ Esta habitación tiene una reserva pendiente para el ' + fmtFechaCorta(reservaFutura.checkin) + ' (' + reservaFutura.huesped_nombre + '). Asegurate de liberarla antes de esa fecha.';
+    aviso.style.display = 'block';
+  } else {
+    aviso.style.display = 'none';
+  }
+
   document.getElementById('hospCheckinOv').style.display = 'flex';
   setTimeout(function(){ document.getElementById('hospCkNombre').focus(); }, 200);
+}
+
+/** Ocupar la habitación HOY con un huésped distinto al de la reserva pendiente, sin tocarla. */
+function hospCheckInOtroHuesped(){
+  const res = _hospReservaSel;
+  if(!res) return;
+  const habId = res.habitacion_id;
+  cerrarReserva();
+  abrirCheckIn(habId);
 }
 
 // ── Registro de huéspedes: autocompletar check-in por nombre o documento ──
