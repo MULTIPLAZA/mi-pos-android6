@@ -15,6 +15,23 @@ var _hospHabSel      = null; // habitación tocada (para abrir check-in o folio)
 var _hospEstadiaSel  = null; // estadía abierta en el modal de folio
 var _hospReservaSel  = null; // reserva abierta en el modal de reserva
 
+// ── Catálogo de precios por tipo de habitación ────────────────────────
+// Cada tipo define un precio fijo (aplicado a TODAS las habitaciones de
+// ese tipo al guardar — ver hospGuardarPreciosTipo), un precio de fin de
+// semana opcional (viernes/sábado, ver _hospTarifaParaNoche) y la
+// capacidad por defecto que se autocompleta al elegir el tipo en el
+// formulario de habitación. "Otro" queda sin precio fijo (variable,
+// se carga a mano por habitación).
+var HOSP_PRECIOS_TIPO_DEFAULT = {
+  individual:  { precio:200000, precioFinde:null, capacidad:1 },
+  matrimonial: { precio:350000, precioFinde:null, capacidad:2 },
+  triplo:      { precio:350000, precioFinde:null, capacidad:3 },
+  quadruplo:   { precio:450000, precioFinde:null, capacidad:4 },
+  quintuplo:   { precio:500000, precioFinde:null, capacidad:5 },
+  otro:        { precio:null,   precioFinde:null, capacidad:null },
+};
+var hospPreciosTipo = {}; // se llena en hospCargarPreciosTipo()
+
 // ── Carga (con cache offline en IndexedDB, mismo patrón que mesas_cache) ──
 async function hospCargar(){
   const licId = parseInt(localStorage.getItem('ali')) || null;
@@ -30,6 +47,7 @@ async function hospCargar(){
         if(estRow) hospEstadias     = JSON.parse(estRow.valor);
       }catch(e){ console.warn('[Hospedaje] Error cache offline:', e.message); }
     }
+    _hospCargarPreciosTipoCache();
     return;
   }
 
@@ -46,11 +64,110 @@ async function hospCargar(){
         await db.mesas_cache.put({ clave:'hosp_estadias',     valor: JSON.stringify(hospEstadias) });
       }catch(e){ console.warn('[Hospedaje] Error cacheando:', e.message); }
     }
+    await hospCargarPreciosTipo();
     // "Night audit": después del horario de corte, cualquier huésped que
     // siga alojado ya le corresponde una noche más — se carga sola, sin
     // que nadie tenga que acordarse de tocar "+ NOCHE" cada día.
     await hospAutoCargarNochesVencidas();
   }catch(e){ console.warn('[Hospedaje] Error cargando:', e.message); toast('Error al cargar habitaciones'); }
+}
+
+// ── Catálogo de precios por tipo: carga/guarda/cascada ────────────────
+function _hospPreciosTipoConDefaults(parcial){
+  var out = {};
+  for(var tipo in HOSP_PRECIOS_TIPO_DEFAULT){
+    var base = HOSP_PRECIOS_TIPO_DEFAULT[tipo];
+    var pers = (parcial && parcial[tipo]) || {};
+    out[tipo] = {
+      precio:      pers.precio      !== undefined ? pers.precio      : base.precio,
+      precioFinde: pers.precioFinde !== undefined ? pers.precioFinde : base.precioFinde,
+      capacidad:   pers.capacidad   !== undefined ? pers.capacidad   : base.capacidad,
+    };
+  }
+  return out;
+}
+
+function _hospCargarPreciosTipoCache(){
+  try{
+    var raw = localStorage.getItem('hosp_precios_tipo');
+    hospPreciosTipo = _hospPreciosTipoConDefaults(raw ? JSON.parse(raw) : null);
+  }catch(e){ hospPreciosTipo = _hospPreciosTipoConDefaults(null); }
+}
+
+async function hospCargarPreciosTipo(){
+  const email = localStorage.getItem('lic_email');
+  if(!email){ _hospCargarPreciosTipoCache(); return; }
+  try{
+    const rows = await supaGet('pos_config',
+      'licencia_email=eq.'+encodeURIComponent(email)+'&clave=eq.hosp_precios_tipo&select=valor&limit=1');
+    const cfg = (rows && rows[0]) ? JSON.parse(rows[0].valor || '{}') : null;
+    hospPreciosTipo = _hospPreciosTipoConDefaults(cfg);
+    localStorage.setItem('hosp_precios_tipo', JSON.stringify(hospPreciosTipo));
+  }catch(e){
+    console.warn('[Hospedaje] Error cargando precios por tipo (uso cache):', e.message);
+    _hospCargarPreciosTipoCache();
+  }
+}
+
+/**
+ * Guarda el catálogo de precios por tipo y CASCADEA el precio (no la
+ * capacidad — esa solo se usa como default al elegir el tipo en el form)
+ * a todas las habitaciones activas de cada tipo modificado.
+ */
+async function hospGuardarPreciosTipo(nuevoCatalogo){
+  const email = localStorage.getItem('lic_email');
+  hospPreciosTipo = _hospPreciosTipoConDefaults(nuevoCatalogo);
+  localStorage.setItem('hosp_precios_tipo', JSON.stringify(hospPreciosTipo));
+  if(!email) return;
+  try{
+    await supaPost('pos_config',
+      { licencia_email: email, clave: 'hosp_precios_tipo', valor: JSON.stringify(hospPreciosTipo) },
+      'licencia_email,clave', true);
+  }catch(e){ console.warn('[Hospedaje] Error guardando precios por tipo:', e.message); }
+
+  // Cascada: toda habitación cuyo tipo tenga un precio fijo configurado
+  // pasa a usar ESE precio, sin importar el que tuviera antes.
+  const afectadas = hospHabitaciones.filter(function(h){
+    var cat = hospPreciosTipo[h.tipo];
+    return cat && cat.precio != null && h.precio_noche !== cat.precio;
+  });
+  for(const h of afectadas){
+    h.precio_noche = hospPreciosTipo[h.tipo].precio; // optimista
+  }
+  if(afectadas.length){
+    try{
+      await Promise.all(Object.keys(hospPreciosTipo).map(function(tipo){
+        var cat = hospPreciosTipo[tipo];
+        if(cat.precio == null) return Promise.resolve();
+        var hayAlguna = hospHabitaciones.some(function(h){ return h.tipo === tipo; });
+        if(!hayAlguna) return Promise.resolve();
+        return supaPatch('pos_habitaciones', 'licencia_email=eq.'+encodeURIComponent(email)+'&tipo=eq.'+encodeURIComponent(tipo), { precio_noche: cat.precio }, true);
+      }));
+    }catch(e){ console.warn('[Hospedaje] Error en cascada de precios:', e.message); }
+  }
+  _hospRefrescarVista();
+}
+
+/** ¿La fecha (YYYY-MM-DD) cae en viernes o sábado? */
+function _hospEsFinde(fechaStr){
+  if(!fechaStr) return false;
+  const d = new Date(fechaStr+'T00:00:00');
+  const dow = d.getDay(); // 0=domingo..6=sábado
+  return dow === 5 || dow === 6;
+}
+
+/**
+ * Precio a cobrar por LA NOCHE de una fecha puntual: si cae en fin de
+ * semana y el tipo de esa habitación tiene precioFinde configurado, se
+ * usa ese; si no, se usa la tarifa base (la acordada/frozen en el check-in).
+ */
+function _hospTarifaParaNoche(habId, fechaStr, tarifaBase){
+  if(_hospEsFinde(fechaStr)){
+    const h = hospHabitaciones.find(function(x){ return x.id === habId; });
+    const cat = h && hospPreciosTipo[h.tipo];
+    if(cat && cat.precioFinde != null && cat.precioFinde > 0) return cat.precioFinde;
+  }
+  return tarifaBase;
 }
 
 // ── NIGHT AUDIT: cargo automático de noches vencidas ──────────────────
@@ -84,10 +201,16 @@ async function hospAutoCargarNochesVencidas(){
     const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
     const tarifa = est.tarifa_noche || (h && h.precio_noche) || 0;
     const hoyIso = _hospFechaISO(new Date());
+    const checkinDate = new Date(est.checkin+'T00:00:00');
     for(let i=0;i<faltantes;i++){
+      // Fecha real de esta noche faltante (checkin + su posición en la
+      // estadía) — necesaria para saber si cae en fin de semana, aunque
+      // el registro del cargo se siga fechando "hoy" (día en que se auditó).
+      const nocheFecha = _hospFechaISO(new Date(checkinDate.getTime() + (cargadas+i)*86400000));
+      const tarifaNoche = _hospTarifaParaNoche(est.habitacion_id, nocheFecha, tarifa);
       est.cargos.push({
         fecha: hoyIso, descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
-        cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+        cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
       });
     }
     est.total = est.cargos.reduce(function(s,c){ return s + (c.monto || 0); }, 0);
@@ -383,6 +506,7 @@ async function confirmarCheckIn(modo){
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
   const tarifa = parseInt(document.getElementById('hospCkTarifa').value) || 0;
   const esReserva = modo === 'reservado';
+  const tarifaPrimeraNoche = esReserva ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
 
   const email = localStorage.getItem('lic_email');
   const licId = parseInt(localStorage.getItem('ali')) || null;
@@ -403,9 +527,9 @@ async function confirmarCheckIn(modo){
     // Check-in ahora: la primera noche se carga de una, es lo mínimo que corresponde cobrar.
     cargos: esReserva ? [] : [{
       fecha: checkin, descripcion: 'Noche — Hab. ' + _hospHabSel.numero,
-      cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+      cantidad: 1, precio_unitario: tarifaPrimeraNoche, monto: tarifaPrimeraNoche, iva: '10',
     }],
-    total: esReserva ? 0 : tarifa,
+    total: esReserva ? 0 : tarifaPrimeraNoche,
     estado: modo,
   };
 
@@ -467,14 +591,16 @@ async function hospConvertirReservaEnCheckin(){
   const res = _hospReservaSel;
   if(!res) return;
   const tarifa = res.tarifa_noche || 0;
+  const fechaHoy = new Date().toISOString().substring(0,10);
+  const tarifaNoche = _hospTarifaParaNoche(res.habitacion_id, fechaHoy, tarifa);
   const cargos = [{
-    fecha: new Date().toISOString().substring(0,10),
+    fecha: fechaHoy,
     descripcion: 'Noche — Hab. ' + (hospHabitaciones.find(function(h){ return h.id === res.habitacion_id; })||{}).numero,
-    cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+    cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
   }];
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'en_estadia', cargos: cargos, total: tarifa }, true);
-    res.estado = 'en_estadia'; res.cargos = cargos; res.total = tarifa;
+    await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'en_estadia', cargos: cargos, total: tarifaNoche }, true);
+    res.estado = 'en_estadia'; res.cargos = cargos; res.total = tarifaNoche;
     cerrarReserva();
     _hospRefrescarVista();
     toast('Check-in confirmado — ' + res.huesped_nombre);
@@ -743,10 +869,12 @@ function hospAgregarNoche(){
   if(!_hospEstadiaSel) return;
   const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
   const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
+  const fechaHoy = new Date().toISOString().substring(0,10);
+  const tarifaNoche = _hospTarifaParaNoche(_hospEstadiaSel.habitacion_id, fechaHoy, tarifa);
   hospAgregarCargo({
-    fecha: new Date().toISOString().substring(0,10),
+    fecha: fechaHoy,
     descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
-    cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
+    cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
   });
 }
 
@@ -833,18 +961,77 @@ async function hospedajeLiquidarEstadiaTrasVenta(estadiaId, comprobante){
 // o el botón + cuando no hay ninguna todavía).
 function abrirFormHabitacion(habId){
   const h = habId ? hospHabitaciones.find(function(x){ return x.id === habId; }) : null;
+  const tipoDefault = hospPreciosTipo['individual'] || HOSP_PRECIOS_TIPO_DEFAULT.individual;
   document.getElementById('hospFormTitulo').textContent = h ? 'Editar habitación' : 'Nueva habitación';
   document.getElementById('hospFormId').value = h ? h.id : '';
   document.getElementById('hospFormNumero').value = h ? h.numero : '';
   document.getElementById('hospFormTipo').value = h ? (h.tipo || 'individual') : 'individual';
   document.getElementById('hospFormPiso').value = h ? (h.piso || '') : '';
-  document.getElementById('hospFormCapacidad').value = h ? (h.capacidad || 2) : 2;
-  document.getElementById('hospFormPrecio').value = h ? (h.precio_noche || 0) : 0;
+  document.getElementById('hospFormCapacidad').value = h ? (h.capacidad || 2) : (tipoDefault.capacidad || 2);
+  document.getElementById('hospFormPrecio').value = h ? (h.precio_noche || 0) : (tipoDefault.precio || 0);
   document.getElementById('hospFormOv').style.display = 'flex';
+}
+
+/** Al elegir un tipo en el form, autocompletar su precio y capacidad de catálogo. */
+function hospFormTipoCambio(){
+  const tipo = document.getElementById('hospFormTipo').value;
+  const cat = hospPreciosTipo[tipo];
+  if(!cat) return;
+  if(cat.precio != null) document.getElementById('hospFormPrecio').value = cat.precio;
+  if(cat.capacidad != null) document.getElementById('hospFormCapacidad').value = cat.capacidad;
 }
 
 function cerrarFormHabitacion(){
   document.getElementById('hospFormOv').style.display = 'none';
+}
+
+// ── Modal: precios por tipo de habitación ─────────────────────────────
+function abrirPreciosTipo(){
+  const cont = document.getElementById('hospPreciosTipoRows');
+  const tipos = ['individual','matrimonial','triplo','quadruplo','quintuplo','otro'];
+  cont.innerHTML = tipos.map(function(tipo){
+    const cat = hospPreciosTipo[tipo] || HOSP_PRECIOS_TIPO_DEFAULT[tipo];
+    const cantHabs = hospHabitaciones.filter(function(h){ return h.tipo === tipo; }).length;
+    const esOtro = tipo === 'otro';
+    return '<div style="border-bottom:1px solid #2a2a2a;padding-bottom:12px;">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">'
+        + '<span style="font-size:14px;font-weight:700;color:#fff;">' + _hospLabelTipo(tipo) + '</span>'
+        + '<span style="font-size:11px;color:#666;">' + cantHabs + ' habitación' + (cantHabs!==1?'es':'') + '</span>'
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr 0.7fr;gap:8px;">'
+        + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Precio</label>'
+          + '<input id="hospPT_precio_' + tipo + '" type="number" min="0" value="' + (cat.precio != null ? cat.precio : '') + '" placeholder="' + (esOtro ? 'variable' : '0') + '" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
+        + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Precio finde</label>'
+          + '<input id="hospPT_finde_' + tipo + '" type="number" min="0" value="' + (cat.precioFinde != null ? cat.precioFinde : '') + '" placeholder="= normal" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
+        + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Capac.</label>'
+          + '<input id="hospPT_capacidad_' + tipo + '" type="number" min="1" value="' + (cat.capacidad != null ? cat.capacidad : '') + '" placeholder="' + (esOtro ? '—' : '1') + '" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
+      + '</div>'
+    + '</div>';
+  }).join('');
+  document.getElementById('hospPreciosTipoOv').style.display = 'flex';
+}
+
+function cerrarPreciosTipo(){
+  document.getElementById('hospPreciosTipoOv').style.display = 'none';
+}
+
+async function guardarPreciosTipoDesdeForm(){
+  const tipos = ['individual','matrimonial','triplo','quadruplo','quintuplo','otro'];
+  const nuevo = {};
+  tipos.forEach(function(tipo){
+    const pEl = document.getElementById('hospPT_precio_' + tipo);
+    const fEl = document.getElementById('hospPT_finde_' + tipo);
+    const cEl = document.getElementById('hospPT_capacidad_' + tipo);
+    nuevo[tipo] = {
+      precio:      pEl.value !== '' ? parseInt(pEl.value) || 0 : null,
+      precioFinde: fEl.value !== '' ? parseInt(fEl.value) || 0 : null,
+      capacidad:   cEl.value !== '' ? parseInt(cEl.value) || null : null,
+    };
+  });
+  cerrarPreciosTipo();
+  toast('Guardando precios...');
+  await hospGuardarPreciosTipo(nuevo);
+  toast('Precios actualizados');
 }
 
 async function guardarHabitacion(){
