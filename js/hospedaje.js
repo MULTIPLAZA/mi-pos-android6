@@ -272,6 +272,13 @@ function _hospLabelTipo(tipo){
   return labels[tipo] || '';
 }
 
+/** "(≈ R$ X)" para un monto en Gs, o cadena vacía si no hay cotización de Reales configurada. */
+function _hospEquivBRL(montoGs){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  if(!cotBRL || !montoGs) return '';
+  return ' (≈ R$ ' + (montoGs/cotBRL).toFixed(2) + ')';
+}
+
 function _hospLabelEstado(estadoVisual){
   if(estadoVisual === 'ocupada')       return 'Ocupada';
   if(estadoVisual === 'reservada')     return 'Reserva';
@@ -299,7 +306,7 @@ function renderHabitacionesScreen(){
     const noches = est ? (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length : 0;
     let sub;
     if(est){
-      sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + '</span>';
+      sub = escapeHtml(est.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total||0) + _hospEquivBRL(est.total||0) + '</span>';
     } else if(reserva){
       sub = escapeHtml(reserva.huesped_nombre) + '<br><span style="font-size:11px;opacity:.9;">' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin)) + '</span>';
     } else {
@@ -358,7 +365,7 @@ async function renderHabitacionesEnGrid(){
     let sub;
     if(est){
       const noches = (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length;
-      sub = escapeHtml(est.huesped_nombre) + ' · ' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total || 0);
+      sub = escapeHtml(est.huesped_nombre) + ' · ' + noches + ' noche' + (noches!==1?'s':'') + ' · ' + gs(est.total || 0) + _hospEquivBRL(est.total||0);
     } else if(reserva){
       sub = escapeHtml(reserva.huesped_nombre) + ' · ' + (_hospEsHoy(reserva.checkin) ? 'Llega HOY' : 'Llega ' + fmtFechaCorta(reserva.checkin));
     } else {
@@ -1175,6 +1182,24 @@ function hospAbrirAbono(){
   document.getElementById('hospAbonoSaldo').textContent = gs(saldo);
   document.getElementById('hospAbonoMonto').value = saldo;
   document.getElementById('hospAbonoOv').style.display = 'flex';
+  hospAbonoRecalcEquivBRL();
+}
+
+/** Equivalente en Reales del saldo pendiente y del monto tipeado, en vivo. */
+function hospAbonoRecalcEquivBRL(){
+  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const elSaldo = document.getElementById('hospAbonoSaldoBRL');
+  const elMonto = document.getElementById('hospAbonoMontoBRL');
+  if(!cotBRL){
+    if(elSaldo) elSaldo.textContent = '';
+    if(elMonto) elMonto.textContent = '';
+    return;
+  }
+  const est = _hospEstadiaSel;
+  const saldo = est ? Math.max(0, (est.total||0) - _hospTotalPagado(est)) : 0;
+  const monto = parseInt(document.getElementById('hospAbonoMonto').value) || 0;
+  if(elSaldo) elSaldo.textContent = saldo > 0 ? '(≈ R$ ' + (saldo/cotBRL).toFixed(2) + ')' : '';
+  if(elMonto) elMonto.textContent = monto > 0 ? '≈ R$ ' + (monto/cotBRL).toFixed(2) : '';
 }
 
 function cerrarAbono(){

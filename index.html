@@ -1941,9 +1941,10 @@
   <div class="hosp-modal-panel">
     <div class="hosp-modal-handle"></div>
     <div style="font-size:17px;font-weight:800;margin-bottom:4px;color:#fff;">Registrar abono</div>
-    <div style="font-size:12.5px;color:#888;margin-bottom:16px;">Saldo pendiente: <span id="hospAbonoSaldo" style="color:#ff9800;font-weight:700;">₲0</span></div>
+    <div style="font-size:12.5px;color:#888;margin-bottom:4px;">Saldo pendiente: <span id="hospAbonoSaldo" style="color:#ff9800;font-weight:700;">₲0</span> <span id="hospAbonoSaldoBRL" style="color:#4caf50;font-weight:600;"></span></div>
     <label style="font-size:11px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:4px;">Monto a cobrar ahora</label>
-    <input id="hospAbonoMonto" type="number" min="1" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:16px;padding:12px;outline:none;box-sizing:border-box;margin-bottom:18px;">
+    <input id="hospAbonoMonto" type="number" min="1" oninput="hospAbonoRecalcEquivBRL()" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:16px;padding:12px;outline:none;box-sizing:border-box;">
+    <div id="hospAbonoMontoBRL" style="font-size:11px;color:#4caf50;margin:4px 0 14px;min-height:14px;"></div>
     <div style="display:flex;gap:10px;">
       <button onclick="cerrarAbono()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CANCELAR</button>
       <button onclick="hospConfirmarAbonoMonto()" style="flex:2;background:#4caf50;border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:800;padding:13px;cursor:pointer;">COBRAR ABONO</button>
