@@ -742,6 +742,11 @@ function fmtFechaCorta(iso){
   return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
 }
 
+/** Suma de abonos (pagos parciales) ya cobrados durante la estadía. */
+function _hospTotalPagado(est){
+  return (est.abonos || []).reduce(function(s,a){ return s + (a.monto || 0); }, 0);
+}
+
 function renderFolioCargos(){
   const est = _hospEstadiaSel;
   const cont = document.getElementById('hospFolioCargos');
@@ -756,6 +761,22 @@ function renderFolioCargos(){
       }).join('')
     : '<div style="text-align:center;color:#888;padding:14px;">Sin cargos todavía</div>';
   document.getElementById('hospFolioTotal').textContent = gs(est.total || 0);
+
+  // Pagado/Saldo: solo se muestran si hay algún abono registrado —
+  // una estadía sin pagos parciales sigue viéndose igual que siempre.
+  const pagado = _hospTotalPagado(est);
+  const pagadoRow = document.getElementById('hospFolioPagadoRow');
+  const saldoRow  = document.getElementById('hospFolioSaldoRow');
+  if(pagado > 0){
+    const saldo = Math.max(0, (est.total||0) - pagado);
+    document.getElementById('hospFolioPagado').textContent = gs(pagado);
+    document.getElementById('hospFolioSaldo').textContent = gs(saldo);
+    pagadoRow.style.display = 'flex';
+    saldoRow.style.display = 'flex';
+  } else {
+    pagadoRow.style.display = 'none';
+    saldoRow.style.display = 'none';
+  }
 }
 
 // ── "+ CONSUMO": reusa la pantalla NORMAL de venta (categorías, buscador,
@@ -906,10 +927,24 @@ function cerrarFolio(){
 // venta. El registro de la estadía se cierra recién cuando la venta se
 // confirma de verdad (ver hospedajeLiquidarEstadiaTrasVenta, enganchado
 // desde turno.js).
-function checkOutFolio(){
+async function checkOutFolio(){
   const est = _hospEstadiaSel;
   if(!est) return;
   if(!est.cargos || !est.cargos.length){ toast('Esta estadía no tiene cargos para cobrar'); return; }
+
+  const pagado = _hospTotalPagado(est);
+  const saldo = Math.max(0, (est.total||0) - pagado);
+
+  // Ya está totalmente paga por abonos — no hay nada más que cobrar,
+  // solo cerrar la estadía y liberar la habitación.
+  if(pagado > 0 && saldo <= 0){
+    if(!confirm('Esta estadía ya está totalmente paga por abonos. ¿Confirmar check-out y liberar la habitación?')) return;
+    cerrarFolio();
+    await hospedajeLiquidarEstadiaTrasVenta(est.id, null);
+    toast('Check-out confirmado — ' + est.huesped_nombre);
+    return;
+  }
+
   if(cart.length > 0 && !confirm('Hay productos en el ticket actual — se van a reemplazar por la cuenta de esta habitación. ¿Continuar?')) return;
 
   const nuevoCart = est.cargos.map(function(c){
@@ -920,6 +955,17 @@ function checkOutFolio(){
       obs: '', enviado: false, iva: c.iva || '10', color: '#4caf50', cat: 'Hospedaje',
     };
   });
+  // Si hubo abonos, se descuentan del total a cobrar ahora — el ticket
+  // sigue mostrando el detalle completo de noches/consumo (transparencia
+  // para el huésped), pero el monto a pagar es solo el saldo pendiente.
+  if(pagado > 0){
+    nuevoCart.push({
+      lineId: Date.now()*1000 + Math.floor(Math.random()*1000),
+      id: 'hosp-abono-desc-' + est.id,
+      name: 'Abonos ya pagados', price: -pagado, qty: 1,
+      obs: '', color: '#3b82f6', esDescuento: true, montoDesc: pagado, iva: 'exento', enviado: true,
+    });
+  }
   setCart(nuevoCart);
   setClienteNombre(est.huesped_nombre);
   window._hospedajeEstadiaCheckout = est.id; // hook leído por turno.js al confirmar la venta
@@ -927,6 +973,70 @@ function checkOutFolio(){
   goTo('scSale');
   updUI(); updBtnGuardar();
   toast('Cuenta de ' + est.huesped_nombre + ' cargada — elegí forma de pago y COBRAR');
+}
+
+// ── ABONO / PAGO PARCIAL: cobra parte del saldo sin cerrar la estadía ──
+// Muchos huéspedes van pagando día a día en vez de todo junto al check-out
+// (ej: 3 noches, pagan 1 por día). El abono es una venta REAL como
+// cualquier otra (aparece en caja/cierre, se puede facturar) — solo que
+// en vez de liquidar la estadía, se resta del saldo pendiente.
+function hospAbrirAbono(){
+  if(!_hospEstadiaSel) return;
+  const est = _hospEstadiaSel;
+  const pagado = _hospTotalPagado(est);
+  const saldo = Math.max(0, (est.total||0) - pagado);
+  if(saldo <= 0){ toast('Esta estadía ya está totalmente paga'); return; }
+  document.getElementById('hospAbonoSaldo').textContent = gs(saldo);
+  document.getElementById('hospAbonoMonto').value = saldo;
+  document.getElementById('hospAbonoOv').style.display = 'flex';
+}
+
+function cerrarAbono(){
+  document.getElementById('hospAbonoOv').style.display = 'none';
+}
+
+function hospConfirmarAbonoMonto(){
+  const est = _hospEstadiaSel;
+  if(!est) return;
+  const monto = parseInt(document.getElementById('hospAbonoMonto').value) || 0;
+  if(monto <= 0){ toast('Ingresá un monto válido'); return; }
+  const pagado = _hospTotalPagado(est);
+  const saldo = Math.max(0, (est.total||0) - pagado);
+  if(monto > saldo){ toast('El monto no puede superar el saldo pendiente (' + gs(saldo) + ')'); return; }
+  if(cart.length > 0 && !confirm('Hay productos en el ticket actual — se van a reemplazar por el abono. ¿Continuar?')) return;
+
+  const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+  const nuevoCart = [{
+    lineId: Date.now()*1000 + Math.floor(Math.random()*1000),
+    id: 'hosp-abono-' + est.id + '-' + Math.random().toString(36).slice(2,7),
+    name: 'Abono — Hab. ' + (h ? h.numero : '') + ' (' + est.huesped_nombre + ')',
+    price: monto, qty: 1, obs: '', enviado: false, iva: '10', color: '#3b82f6', cat: 'Hospedaje',
+  }];
+  setCart(nuevoCart);
+  setClienteNombre(est.huesped_nombre);
+  window._hospedajeEstadiaAbono = { estadiaId: est.id, monto: monto }; // hook leído por turno.js
+  cerrarAbono();
+  cerrarFolio();
+  goTo('scSale');
+  updUI(); updBtnGuardar();
+  toast('Abono cargado — elegí forma de pago y COBRAR');
+}
+
+/**
+ * Se llama desde turno.js DESPUÉS de que la venta del abono se guardó con
+ * éxito. Registra el pago parcial en la estadía — NO la cierra ni libera
+ * la habitación, el huésped sigue alojado.
+ */
+async function hospedajeRegistrarAbonoTrasVenta(estadiaId, monto, comprobante){
+  const est = hospEstadias.find(function(e){ return e.id === estadiaId; });
+  if(!est) return;
+  est.abonos = est.abonos || [];
+  est.abonos.push({ fecha: new Date().toISOString().substring(0,10), monto: monto, comprobante: comprobante || null });
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, { abonos: est.abonos }, true);
+    _log('[Hospedaje] Abono registrado:', estadiaId, monto);
+  }catch(e){ console.warn('[Hospedaje] Error guardando abono:', e.message); }
+  _hospRefrescarVista();
 }
 
 /**

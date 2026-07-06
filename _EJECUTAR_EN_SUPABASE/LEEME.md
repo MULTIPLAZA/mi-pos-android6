@@ -16,6 +16,7 @@ Todos son idempotentes (`IF NOT EXISTS`): si ya corriste uno, volver a correrlo 
 | 07 | `07_hospedaje_habitaciones.sql` | Tabla `pos_habitaciones` (rubro hotel/hostería) | **Sí — código ya deployado** |
 | 08 | `08_hospedaje_estadias.sql` | Tabla `pos_estadias` (folio de huésped) | **Sí — código ya deployado** |
 | 09 | `09_hospedaje_nacionalidad.sql` | Campo `huesped_nacionalidad` en `pos_estadias` | **Sí — código ya deployado** |
+| 10 | `10_hospedaje_abonos.sql` | Campo `abonos` (pagos parciales durante la estadía) en `pos_estadias` | **Sí — código ya deployado** |
 | 99 | `99_SEGURIDAD_rls_hardening_...` | Cierra el acceso abierto de la base | ⚠️ **NO ejecutar solo — leer abajo** |
 
 ## Importante — orden vs. deploy del código

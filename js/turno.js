@@ -256,6 +256,14 @@ function supaInsertVenta(data){
         hospedajeLiquidarEstadiaTrasVenta(_estId, venta.comprobante || null)
           .catch(function(e){ console.warn('[Hospedaje] Error liquidando estadía:', e.message); });
       }
+      // Hospedaje: abono/pago parcial — registrar el pago SIN cerrar la
+      // estadía (el huésped sigue alojado, solo se reduce el saldo).
+      if(window._hospedajeEstadiaAbono && typeof hospedajeRegistrarAbonoTrasVenta === 'function'){
+        var _abonoInfo = window._hospedajeEstadiaAbono;
+        window._hospedajeEstadiaAbono = null;
+        hospedajeRegistrarAbonoTrasVenta(_abonoInfo.estadiaId, _abonoInfo.monto, venta.comprobante || null)
+          .catch(function(e){ console.warn('[Hospedaje] Error registrando abono:', e.message); });
+      }
     })
     .catch(e => {
       console.warn('[Venta] Error Supabase, encolando:', e.message);
