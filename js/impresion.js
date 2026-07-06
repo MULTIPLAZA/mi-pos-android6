@@ -1546,6 +1546,141 @@ function imprimirRecibo(dataOverride){
   }
 }
 
+// ── COMPROBANTE DE CHECK-IN / RESERVA (hospedaje) ────────────
+// No es un ticket de venta (no hay cargos que cobrar todavía) — un
+// comprobante de registro con los datos del huésped, la habitación y
+// las fechas, para que quede constancia impresa del check-in o la
+// reserva. Reusa el mismo pipeline de impresión que el ticket normal
+// (BT/Android/USB local/Generic Text Only) para no duplicar canales.
+function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
+  const cols = size==='58' ? 32 : 42;
+  const neg  = configData.negocio || 'MI NEGOCIO';
+  const dir  = configData.direccion || '';
+
+  const pad = n=>String(n).padStart(2,'0');
+  const ahora = new Date();
+  const fechaEmision = pad(ahora.getDate())+'/'+pad(ahora.getMonth()+1)+'/'+ahora.getFullYear()
+    +' '+pad(ahora.getHours())+':'+pad(ahora.getMinutes());
+
+  let lineas = '';
+  lineas += '<p class="c" style="font-size:14px;font-weight:900;letter-spacing:.5px;">'+neg+'</p>';
+  if(dir) lineas += '<p class="c s">'+dir+'</p>';
+  lineas += '<p class="hr"></p>';
+  lineas += '<p class="c s b">'+(estadia.estado==='reservado' ? 'COMPROBANTE DE RESERVA' : 'COMPROBANTE DE CHECK-IN')+'</p>';
+  lineas += '<p class="hr"></p>';
+
+  lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+(habitacion?habitacion.numero:'?')+'</span></p>';
+  lineas += '<p class="s">Huésped: '+(estadia.huesped_nombre||'')+'</p>';
+  if(estadia.huesped_documento) lineas += '<p class="s">Documento: '+estadia.huesped_documento+'</p>';
+  if(estadia.huesped_tel)       lineas += '<p class="s">Teléfono: '+estadia.huesped_tel+'</p>';
+  if(estadia.huesped_nacionalidad) lineas += '<p class="s">Nacionalidad: '+estadia.huesped_nacionalidad+'</p>';
+  lineas += '<p class="hr"></p>';
+
+  lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
+  if(estadia.checkout_previsto) lineas += '<p class="row s"><span class="l1">Salida prevista:</span><span class="l2">'+fmtFechaCorta(estadia.checkout_previsto)+'</span></p>';
+  lineas += '<p class="row s"><span class="l1">Tarifa/noche:</span><span class="l2">'+gn(estadia.tarifa_noche||0)+' Gs.</span></p>';
+  lineas += '<p class="hr"></p>';
+
+  lineas += '<p style="margin:0;line-height:2.4;">&nbsp;</p>';
+  lineas += '<p class="c s">Firma: ________________________</p>';
+  lineas += '<p class="hr"></p>';
+  lineas += '<p class="c" style="font-size:10px;">Emitido: '+fechaEmision+'</p>';
+  lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
+  lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
+
+  return '<html><head><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
+}
+
+function imprimirComprobanteCheckIn(estadia, habitacion){
+  const btpsTipo = localStorage.getItem('printerType_ticket');
+  const btpsMac  = localStorage.getItem('btps_mac');
+  const size = getPaperSize('ticket');
+  const html = generarHTMLComprobanteCheckIn(estadia, habitacion, size);
+  const p = printers['ticket'];
+
+  if(btpsTipo === 'usblocal' || (p && p.type === 'usblocal')){
+    imprimirUSBLocal(html, size);
+    return;
+  }
+  if(isAndroidAPK() && typeof window.AndroidPrint !== 'undefined'){
+    imprimirAndroidNativo(html, size);
+  } else if(p && p.type === 'bt' && p.device){
+    imprimirBluetooth(p.device, html, size);
+  } else {
+    // BT Print Server (btpsTipo/btpsMac) no tiene un método genérico para
+    // HTML libre (BTPrinter.imprimirRecibo espera la forma de un ticket de
+    // venta) — este comprobante no es una venta, así que cae al mismo
+    // texto plano que PC/USB en vez de forzar ese pipeline.
+    const cols = size === '58' ? 32 : 42;
+    abrirDialogoImpresionTexto(html, cols, size);
+  }
+}
+
+// ── COMPROBANTE DE CUENTA (folio) — para corroborar, no es una venta ──
+// Imprime los cargos acumulados de una estadía en curso tal como están
+// en el folio (noches, consumo, abonos) — útil para que el huésped
+// corrobore su cuenta a mitad de estadía, sin tener que hacer check-out.
+function generarHTMLComprobanteCuenta(estadia, habitacion, size){
+  const neg = configData.negocio || 'MI NEGOCIO';
+  const dir = configData.direccion || '';
+  const pad = n=>String(n).padStart(2,'0');
+  const ahora = new Date();
+  const fechaEmision = pad(ahora.getDate())+'/'+pad(ahora.getMonth()+1)+'/'+ahora.getFullYear()
+    +' '+pad(ahora.getHours())+':'+pad(ahora.getMinutes());
+
+  let lineas = '';
+  lineas += '<p class="c" style="font-size:14px;font-weight:900;letter-spacing:.5px;">'+neg+'</p>';
+  if(dir) lineas += '<p class="c s">'+dir+'</p>';
+  lineas += '<p class="hr"></p>';
+  lineas += '<p class="c s b">CUENTA DE HABITACIÓN (comprobante)</p>';
+  lineas += '<p class="hr"></p>';
+
+  lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+(habitacion?habitacion.numero:'?')+'</span></p>';
+  lineas += '<p class="s">Huésped: '+(estadia.huesped_nombre||'')+'</p>';
+  lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
+  lineas += '<p class="hr"></p>';
+
+  const cargos = estadia.cargos || [];
+  cargos.forEach(function(c){
+    lineas += '<p class="row s"><span class="l1">'+(c.descripcion||'')+(c.cantidad>1?' ×'+c.cantidad:'')+'</span><span class="l2">'+gn(c.monto||0)+'</span></p>';
+  });
+  lineas += '<p class="hr"></p>';
+  lineas += '<p class="row s b"><span class="l1">TOTAL:</span><span class="l2">'+gn(estadia.total||0)+' Gs.</span></p>';
+
+  const abonos = estadia.abonos || [];
+  const pagado = abonos.reduce(function(s,a){ return s+(a.monto||0); }, 0);
+  if(pagado > 0){
+    lineas += '<p class="row s"><span class="l1">Pagado (abonos):</span><span class="l2">'+gn(pagado)+'</span></p>';
+    lineas += '<p class="row s b"><span class="l1">SALDO PENDIENTE:</span><span class="l2">'+gn(Math.max(0,(estadia.total||0)-pagado))+' Gs.</span></p>';
+  }
+  lineas += '<p class="hr"></p>';
+  lineas += '<p class="c" style="font-size:10px;">Este comprobante es solo informativo — no reemplaza la factura del check-out.</p>';
+  lineas += '<p class="c" style="font-size:10px;">Emitido: '+fechaEmision+'</p>';
+  lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
+  lineas += '<p style="margin:0;line-height:1.8;">&nbsp;</p>';
+
+  return '<html><head><style>'+getCSSTermico(size)+'</style></head><body>'+lineas+'</body></html>';
+}
+
+function imprimirComprobanteCuenta(estadia, habitacion){
+  const size = getPaperSize('ticket');
+  const html = generarHTMLComprobanteCuenta(estadia, habitacion, size);
+  const p = printers['ticket'];
+
+  if(localStorage.getItem('printerType_ticket') === 'usblocal' || (p && p.type === 'usblocal')){
+    imprimirUSBLocal(html, size);
+    return;
+  }
+  if(isAndroidAPK() && typeof window.AndroidPrint !== 'undefined'){
+    imprimirAndroidNativo(html, size);
+  } else if(p && p.type === 'bt' && p.device){
+    imprimirBluetooth(p.device, html, size);
+  } else {
+    const cols = size === '58' ? 32 : 42;
+    abrirDialogoImpresionTexto(html, cols, size);
+  }
+}
+
 // ── IMPRIMIR COMANDA ──────────────────────────────────────
 function imprimirComanda(data){
   const size = getPaperSize('comanda');

@@ -259,6 +259,36 @@ function _hospConflictoReservaHoy(est){
   return llegada <= _hospDiaHotelActual() ? reserva : null;
 }
 
+/** ¿Los rangos [aInicio,aFin) y [bInicio,bFin) se superponen? Fin=null = estadía abierta (sin salida prevista todavía), se trata como "sin límite". */
+function _hospRangoSeSuperpone(aInicio, aFin, bInicio, bFin){
+  const aF = aFin || '9999-12-31';
+  const bF = bFin || '9999-12-31';
+  return aInicio < bF && bInicio < aF;
+}
+
+/**
+ * Reservas/estadías YA CARGADAS para esta habitación cuyo rango de fechas
+ * se superpone con el que se está por crear/editar — para avisar ANTES de
+ * guardar una reserva nueva (o cambiarle la fecha a una existente) que
+ * choca con algo que ya está en el sistema. excluirId es el propio id
+ * cuando se está editando (para no "chocar contra sí misma").
+ */
+function _hospReservasSuperpuestas(habId, checkin, checkoutPrevisto, excluirId){
+  return hospEstadias.filter(function(e){
+    if(e.habitacion_id !== habId) return false;
+    if(excluirId && e.id === excluirId) return false;
+    if(e.estado !== 'reservado' && e.estado !== 'en_estadia') return false;
+    return _hospRangoSeSuperpone(checkin, checkoutPrevisto, e.checkin, e.checkout_previsto);
+  });
+}
+
+/** Texto legible listando las reservas/estadías en conflicto, para el mensaje de confirmación. */
+function _hospTextoSuperpuestas(lista){
+  return lista.map(function(e){
+    return e.huesped_nombre + ' (' + fmtFechaCorta(e.checkin) + (e.checkout_previsto ? ' a ' + fmtFechaCorta(e.checkout_previsto) : ' en adelante') + ')';
+  }).join(', ');
+}
+
 function _hospEsHoy(fechaIso){
   if(!fechaIso) return false;
   var hoy = new Date(); var pad = function(n){ return String(n).padStart(2,'0'); };
@@ -740,8 +770,21 @@ async function confirmarCheckIn(modo){
   if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
   const checkin = document.getElementById('hospCkCheckin').value;
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
-  const tarifa = hospCkTarifaEnGs();
   const esReserva = modo === 'reservado';
+
+  // Al reservar para una fecha futura, avisar si choca con otra reserva o
+  // estadía ya cargada para esta misma habitación (no bloquea del todo —
+  // a veces el overbooking es una decisión consciente del recepcionista,
+  // pero no debería pasar sin que se entere).
+  if(esReserva){
+    const checkoutForm = document.getElementById('hospCkCheckout').value || null;
+    const superpuestas = _hospReservasSuperpuestas(_hospHabSel.id, checkin, checkoutForm, null);
+    if(superpuestas.length){
+      if(!confirm('Esta habitación ya tiene reserva/estadía que se superpone con estas fechas: ' + _hospTextoSuperpuestas(superpuestas) + '. ¿Confirmar la reserva de todos modos?')) return;
+    }
+  }
+
+  const tarifa = hospCkTarifaEnGs();
   const tarifaPrimeraNoche = esReserva ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
 
   const email = localStorage.getItem('lic_email');
@@ -770,6 +813,7 @@ async function confirmarCheckIn(modo){
   };
 
   const numeroHab = _hospHabSel.numero; // capturar ANTES de cerrarCheckIn(), que limpia _hospHabSel
+  const habSelObj = _hospHabSel;
   const btnId = esReserva ? 'hospCkBtnReservar' : 'hospCkBtnGuardar';
   const btn = document.getElementById(btnId);
   const txtOriginal = btn ? btn.textContent : '';
@@ -795,6 +839,7 @@ async function confirmarCheckIn(modo){
     toast(esReserva
       ? 'Reserva OK — Habitación ' + numeroHab + ' · ' + nombre
       : 'Check-in OK — Habitación ' + numeroHab + ' · ' + nombre);
+    if(typeof imprimirComprobanteCheckIn === 'function') imprimirComprobanteCheckIn(saved, habSelObj);
   }catch(e){
     toast('Error al guardar: ' + e.message);
   }
@@ -864,6 +909,14 @@ async function confirmarEditarReserva(){
   if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
   const checkin = document.getElementById('hospCkCheckin').value;
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
+
+  if(est.estado === 'reservado'){
+    const checkoutForm = document.getElementById('hospCkCheckout').value || null;
+    const superpuestas = _hospReservasSuperpuestas(est.habitacion_id, checkin, checkoutForm, est.id);
+    if(superpuestas.length){
+      if(!confirm('Esta habitación ya tiene reserva/estadía que se superpone con las nuevas fechas: ' + _hospTextoSuperpuestas(superpuestas) + '. ¿Guardar los cambios de todos modos?')) return;
+    }
+  }
 
   const payload = {
     huesped_nombre: nombre,
@@ -1245,6 +1298,14 @@ function cerrarFolio(){
 
 // ── CHECK-OUT: puente estadía → carrito → cobro normal ────
 // No reinventa el cobro: carga los cargos acumulados como líneas del
+
+/** Imprime la cuenta acumulada de la estadía abierta en el folio — solo informativo, no es una venta. */
+function hospImprimirCuenta(){
+  if(!_hospEstadiaSel) return;
+  const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
+  if(typeof imprimirComprobanteCuenta === 'function') imprimirComprobanteCuenta(_hospEstadiaSel, h);
+}
+
 /**
  * Anula una estadía SIN cobrar nada — para corregir un check-in mal
  * cargado (habitación equivocada, datos mal puestos, etc.) sin tener
