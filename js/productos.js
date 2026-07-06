@@ -2016,9 +2016,9 @@ async function supaLoadProductos(){
     // aún no existen en CATEGORIAS (para cubrir el caso de pos_categorias
     // incompleta en Supabase).
     derivarCategoriasDeProductos();
-    curCat = 'Todos los artículos';
+    curCat = (typeof _catDefaultInicial === 'function') ? _catDefaultInicial() : 'Todos los artículos';
     var catLblEl = document.getElementById('catLbl');
-    if(catLblEl) catLblEl.textContent = 'Todos los artículos';
+    if(catLblEl) catLblEl.textContent = curCat;
     renderCatPills();
     filterP();
     try { await cargarDescuentosConfig(); } catch(ed){ console.warn('[Desc]', ed.message); }

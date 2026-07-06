@@ -166,9 +166,9 @@ async function dbLoadProductos(){
       PRODS.push({id:99,name:'ÍTEM LIBRE',price:0,color:'#37474f',cat:'Otros',
         precioVariable:true,itemLibre:true,iva:'10',colorPropio:false,activo:true});
     }
-    curCat = 'Todos los artículos';
+    curCat = (typeof _catDefaultInicial === 'function') ? _catDefaultInicial() : 'Todos los artículos';
     const lbl2 = document.getElementById('catLbl');
-    if(lbl2) lbl2.textContent = 'Todos los artículos';
+    if(lbl2) lbl2.textContent = curCat;
     // Fallback: si CATEGORIAS está vacío, derivarlas de los productos recién cargados
     if(typeof CATEGORIAS !== 'undefined' && CATEGORIAS.length === 0 && typeof derivarCategoriasDeProductos === 'function'){
       derivarCategoriasDeProductos();

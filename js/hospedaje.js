@@ -122,12 +122,12 @@ async function abrirPantallaHabitaciones(){
   await hospCargar();
   if(hospHabitaciones.length === 0){
     const ok = confirm('No hay habitaciones configuradas. ¿Ir a crear una ahora?');
-    if(ok){ goTo('scHabitaciones'); renderHabitacionesScreen(); abrirFormHabitacion(); }
-    else { goTo('scHabitaciones'); renderHabitacionesScreen(); }
+    if(ok){ goTo('scHabitaciones'); _hospRefrescarVista(); abrirFormHabitacion(); }
+    else { goTo('scHabitaciones'); _hospRefrescarVista(); }
     return;
   }
   goTo('scHabitaciones');
-  renderHabitacionesScreen();
+  _hospRefrescarVista();
 }
 
 function _hospColorEstado(estadoVisual){
@@ -186,6 +186,20 @@ function renderHabitacionesScreen(){
       + '<div class="hosp-card-sub">' + sub + '</div>'
       + '</div>';
   }).join('');
+}
+
+/**
+ * Refresca el tablero de habitaciones esté donde esté visible: la pantalla
+ * completa (#habitacionesGrid) y/o la vista embebida en Cobrar (#pgrid,
+ * cuando la categoría activa es "Habitaciones"). Ambos render son no-op
+ * si su contenedor no existe/no está visible, así que llamar a los dos es
+ * seguro sin importar desde qué pantalla se disparó el cambio.
+ */
+function _hospRefrescarVista(){
+  renderHabitacionesScreen();
+  if(typeof curCat !== 'undefined' && curCat === 'Habitaciones' && document.getElementById('pgrid')){
+    renderHabitacionesEnGrid();
+  }
 }
 
 /**
@@ -287,7 +301,7 @@ function hospMenuHabAccion(accion){
 async function hospCambiarEstadoHabitacion(habId, estado){
   const h = hospHabitaciones.find(function(x){ return x.id === habId; });
   if(h) h.estado = estado; // optimista
-  renderHabitacionesScreen();
+  _hospRefrescarVista();
   try{ await supaPatch('pos_habitaciones', 'id=eq.'+habId, { estado: estado }, true); }
   catch(e){ toast('Error al cambiar estado: '+e.message); }
 }
@@ -399,7 +413,7 @@ async function confirmarCheckIn(modo){
     if(!saved || !saved.id) throw new Error('Sin ID de estadía');
     hospEstadias.push(saved);
     cerrarCheckIn();
-    renderHabitacionesScreen();
+    _hospRefrescarVista();
     toast(esReserva
       ? 'Reserva OK — Habitación ' + numeroHab + ' · ' + nombre
       : 'Check-in OK — Habitación ' + numeroHab + ' · ' + nombre);
@@ -436,7 +450,7 @@ async function hospCancelarReserva(){
     await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'cancelado' }, true);
     hospEstadias = hospEstadias.filter(function(e){ return e.id !== res.id; });
     cerrarReserva();
-    renderHabitacionesScreen();
+    _hospRefrescarVista();
     toast('Reserva cancelada');
   }catch(e){ toast('Error al cancelar: ' + e.message); }
 }
@@ -455,7 +469,7 @@ async function hospConvertirReservaEnCheckin(){
     await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'en_estadia', cargos: cargos, total: tarifa }, true);
     res.estado = 'en_estadia'; res.cargos = cargos; res.total = tarifa;
     cerrarReserva();
-    renderHabitacionesScreen();
+    _hospRefrescarVista();
     toast('Check-in confirmado — ' + res.huesped_nombre);
   }catch(e){ toast('Error al confirmar check-in: ' + e.message); }
 }
@@ -702,7 +716,7 @@ async function hospConfirmarConsumoDesdeCart(){
 
   toast('Consumo cargado a Habitación ' + modo.habNumero);
   goTo('scHabitaciones');
-  renderHabitacionesScreen();
+  _hospRefrescarVista();
   abrirFolio(est.id);
 }
 
@@ -725,7 +739,7 @@ async function hospAgregarCargo(cargo){
   est.cargos.push(cargo);
   est.total = est.cargos.reduce(function(s, c){ return s + (c.monto || 0); }, 0);
   renderFolioCargos();
-  renderHabitacionesScreen();
+  _hospRefrescarVista();
   try{
     await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
     toast('+ ' + cargo.descripcion + ' · ' + gs(cargo.monto));
@@ -788,7 +802,7 @@ async function hospedajeLiquidarEstadiaTrasVenta(estadiaId, comprobante){
       if(h) h.estado = 'limpieza';
     }
     hospEstadias = hospEstadias.filter(function(e){ return e.id !== estadiaId; });
-    if(typeof renderHabitacionesScreen === 'function') renderHabitacionesScreen();
+    if(typeof renderHabitacionesScreen === 'function') _hospRefrescarVista();
     _log('[Hospedaje] Estadía liquidada:', estadiaId);
   }catch(e){
     console.warn('[Hospedaje] Error liquidando estadía:', e.message);
@@ -840,7 +854,7 @@ async function guardarHabitacion(){
     }
     cerrarFormHabitacion();
     await hospCargar();
-    renderHabitacionesScreen();
+    _hospRefrescarVista();
     toast('Habitación guardada');
   }catch(e){
     toast('Error al guardar: ' + e.message);

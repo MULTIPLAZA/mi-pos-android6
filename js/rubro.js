@@ -91,6 +91,13 @@ function esRubroServicios(){ return rubroFlag('es_servicio');   }
 function usaHabitaciones() { return rubroFlag('habitaciones');  }
 function usaFolio()        { return rubroFlag('folio');         }
 
+// Categoría con la que debe arrancar Cobrar: en hospedaje el "producto"
+// principal son las habitaciones, así que esa es la vista por defecto
+// en vez de "Todos los artículos".
+function _catDefaultInicial(){
+  return usaHabitaciones() ? 'Habitaciones' : 'Todos los artículos';
+}
+
 // ── Setear tipo de negocio ────────────────────────────────
 // Al cambiar el tipo se limpian los overrides para que los defaults entren.
 // Si se quiere conservar overrides explícitos pasar keepOverrides=true.
