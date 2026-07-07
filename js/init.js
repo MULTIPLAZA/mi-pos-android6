@@ -964,6 +964,36 @@ async function anularVentaConfirmar(id){
       } catch(e){ console.warn('[Anulacion] Error revirtiendo stock:', e.message); }
     }
 
+    // 2b. Hospedaje: si esta venta era el check-out de una habitación, la
+    // habitación ya se liberó y la estadía quedó cerrada — anular la venta
+    // NO revierte nada de eso automáticamente (no hay forma segura de
+    // "reabrir" una habitación que puede ya estar ocupada por otro
+    // huésped). Avisar fuerte y dejar la marca en la estadía para que se
+    // revise a mano, en vez de que quede un check-out "cobrado" en el aire
+    // sin que nadie se entere.
+    if(!USAR_DEMO && navigator.onLine && venta.comprobante && typeof usaHabitaciones === 'function' && usaHabitaciones()){
+      try {
+        const estadias = await supaGet('pos_estadias', 'comprobante_venta=eq.'+encodeURIComponent(venta.comprobante));
+        if(estadias && estadias.length){
+          for(const est of estadias){
+            await supaPatch('pos_estadias', 'id=eq.'+est.id, {
+              pago_anulado: true,
+              pago_anulado_fecha: new Date().toISOString(),
+            }, true);
+          }
+          const est0 = estadias[0];
+          let numHab = '';
+          try {
+            const habs = await supaGet('pos_habitaciones', 'id=eq.'+est0.habitacion_id);
+            numHab = (habs && habs[0]) ? habs[0].numero : '';
+          } catch(e){}
+          alert('ATENCIÓN — esta venta era el check-out de la Habitación ' + (numHab||'?') +
+            ' (' + (est0.huesped_nombre||'huésped') + '). La habitación ya fue liberada y no se revierte ' +
+            'automáticamente. Revisá manualmente si corresponde volver a cobrar esa estadía.');
+        }
+      } catch(e){ console.warn('[Anulacion] Error chequeando estadía de hospedaje:', e.message); }
+    }
+
     // 3. Reconstruir turnoData.ventas desde DB para que el turno cuadre
     //    (elimina la venta anulada del conteo de activas)
     await reconstruirVentasTurno();
