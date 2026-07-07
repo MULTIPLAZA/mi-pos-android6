@@ -1313,6 +1313,12 @@ function renderDivList() {
   const container = document.getElementById('divList');
   container.innerHTML = divPagos.map((p, i) => {
     const needsComp = p.metodo === 'POS' || p.metodo === 'Transferencia';
+    const esBRL = _divEsBRL(i);
+    const cotBRLDiv = esBRL && typeof mmCotizacion === 'function' ? mmCotizacion('BRL') : 0;
+    const equivBRL = cotBRLDiv > 0 ? mmGsAExtranjera(p.monto, cotBRLDiv, 0) : null;
+    const valDisp = (esBRL && equivBRL !== null)
+      ? 'R$ ' + equivBRL.toLocaleString('es-PY') + ' (≈ ' + gs(p.monto) + ')'
+      : gs(p.monto);
     return `
     <div class="div-pago-item" id="divItem${i}">
       <div class="div-pago-row1">
@@ -1326,7 +1332,7 @@ function renderDivList() {
       </div>
       <div class="div-pago-row2">
         <input class="div-monto" id="divMonto${i}" type="text" readonly
-          value="${gs(p.monto)}"
+          value="${valDisp}"
           onclick="openDivNumpad(${i})"
           ${p.cobrado ? 'disabled style="opacity:.5"' : ''}>
         <button class="div-cobrar-btn ${p.cobrado ? 'cobrado' : ''}"
@@ -1401,11 +1407,24 @@ function dividirHecho() {
   confirmarPago();
 }
 
+/** true si la parte i del pago dividido se tipea/muestra en R$ en vez de Gs
+ * — Pix siempre (es un medio brasilero), Efectivo cuando la caja declara en
+ * Reales. El monto de fondo (divPagos[i].monto) sigue siempre en Gs. */
+function _divEsBRL(i){
+  var p = divPagos[i];
+  if (!p) return false;
+  if (p.metodo === 'Pix') return true;
+  return p.metodo === 'Efectivo' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL();
+}
+
 function openDivMethodSheet(i) {
   setDivMethodIdx(i);
   const sheet = document.getElementById('catSheetContent');
   let html = '';
-  PAY_METHODS.forEach(m => {
+  var metodos = PAY_METHODS.slice();
+  if (localStorage.getItem('mm_use_PIX') !== '0') metodos.push('Pix');
+  if (localStorage.getItem('mm_use_MP') !== '0') metodos.push('Mercado Pago');
+  metodos.forEach(m => {
     const sel = divPagos[i].metodo === m ? 'sel' : '';
     html += '<div class="cat-item ' + sel + '" onclick="pickDivMethod(this)">' + m + '</div>';
   });
@@ -1426,9 +1445,18 @@ function openDivNumpad(i) {
   if (divPagos[i].cobrado) return;
   setDivNpIdx(i);
   setNpCtx('div');
-  setNpVal(String(divPagos[i].monto));
-  document.getElementById('npLbl').textContent = 'Monto pago ' + (i + 1);
-  document.getElementById('npDisp').textContent = gs(divPagos[i].monto);
+  const esBRL = _divEsBRL(i);
+  const cotBRL = esBRL && typeof mmCotizacion === 'function' ? mmCotizacion('BRL') : 0;
+  const equivBRL = cotBRL > 0 ? mmGsAExtranjera(divPagos[i].monto, cotBRL, 0) : null;
+  if (esBRL && equivBRL !== null) {
+    setNpVal(String(equivBRL));
+    document.getElementById('npLbl').textContent = 'Monto pago ' + (i + 1) + ' (R$)';
+    document.getElementById('npDisp').textContent = 'R$ ' + equivBRL;
+  } else {
+    setNpVal(String(divPagos[i].monto));
+    document.getElementById('npLbl').textContent = 'Monto pago ' + (i + 1);
+    document.getElementById('npDisp').textContent = gs(divPagos[i].monto);
+  }
   document.getElementById('billetesRow').classList.remove('show');
   document.getElementById('npOverlay').classList.add('open');
 }

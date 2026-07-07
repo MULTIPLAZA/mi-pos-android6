@@ -364,6 +364,8 @@ function npP(d) {
       document.getElementById('npDisp').textContent = 'US$ ' + _pV;
     } else if (npCtx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
       document.getElementById('npDisp').textContent = 'R$ ' + _pV;
+    } else if (npCtx === 'div' && typeof _divEsBRL === 'function' && _divEsBRL(divNpIdx)) {
+      document.getElementById('npDisp').textContent = 'R$ ' + _pV;
     } else {
       document.getElementById('npDisp').textContent = gs(_pV);
     }
@@ -385,6 +387,8 @@ function npD() {
     } else if (npCtx === 'mm_usd' || npCtx === 'cierre_arq_USD') {
       document.getElementById('npDisp').textContent = 'US$ ' + _dV;
     } else if (npCtx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+      document.getElementById('npDisp').textContent = 'R$ ' + _dV;
+    } else if (npCtx === 'div' && typeof _divEsBRL === 'function' && _divEsBRL(divNpIdx)) {
       document.getElementById('npDisp').textContent = 'R$ ' + _dV;
     } else {
       document.getElementById('npDisp').textContent = gs(_dV);
@@ -417,7 +421,16 @@ function npOK() {
     }
 
   } else if (npCtx === 'div') {
-    divPagos[divNpIdx].monto = v;
+    if (typeof _divEsBRL === 'function' && _divEsBRL(divNpIdx)) {
+      var cotBRLDiv = typeof mmCotizacion === 'function' ? mmCotizacion('BRL') : 0;
+      if (cotBRLDiv <= 0) {
+        toast('Configurá la cotización del Real en Configuración → Multi-moneda antes de continuar');
+        return;
+      }
+      divPagos[divNpIdx].monto = mmExtranjeraAGs(v, cotBRLDiv);
+    } else {
+      divPagos[divNpIdx].monto = v;
+    }
     // Recalcular los otros pagos no cobrados para que la suma cierre el total
     if (typeof divAjustarRestantes === 'function') divAjustarRestantes(divNpIdx);
     document.getElementById('npOverlay').classList.remove('open');
