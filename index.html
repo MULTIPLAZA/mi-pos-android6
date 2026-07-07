@@ -2681,13 +2681,12 @@ if('serviceWorker' in navigator){
   // controllerchange es solo la toma de control inicial → no recargar.
   var _hadController = !!navigator.serviceWorker.controller;
 
-  function _ventaEnCurso(){
+  // Cualquier modal de hospedaje abierto tiene datos sin guardar (check-in,
+  // editar reserva, alta/edición de habitación, abono) — a diferencia del
+  // carrito, no hay forma de "guardar como pendiente" un formulario a medio
+  // llenar, así que ahí sí hay que esperar/avisar antes de recargar.
+  function _hospModalAbierto(){
     try {
-      if(typeof cart !== 'undefined' && cart && cart.length > 0) return true;
-      // Cualquier modal de hospedaje abierto tiene datos sin guardar (check-in,
-      // editar reserva, alta/edición de habitación, abono) — recargar ahí
-      // perdía todo lo tipeado sin avisar. Mismo criterio que el carrito: no
-      // recargar mientras haya algo a medio cargar en pantalla.
       var modales = document.querySelectorAll('.hosp-modal-ov');
       for(var i=0;i<modales.length;i++){
         if(modales[i].style.display === 'flex') return true;
@@ -2696,12 +2695,59 @@ if('serviceWorker' in navigator){
     }
     catch(e){ return false; }
   }
+  function _ventaEnCurso(){
+    try {
+      if(typeof cart !== 'undefined' && cart && cart.length > 0) return true;
+      return _hospModalAbierto();
+    }
+    catch(e){ return false; }
+  }
+  // Si hay un carrito con items, lo guarda como pendiente (mismo mecanismo
+  // del botón GUARDAR) antes de actualizar — así ninguna venta cargada se
+  // pierde al aplicar una actualización, ni automática ni manual. Se puede
+  // retomar después desde Pendientes. Devuelve true si guardó algo.
+  function _autoGuardarCartComoPendiente(){
+    try {
+      if(typeof cart === 'undefined' || !cart || cart.length === 0) return false;
+      if(typeof pendientes === 'undefined' || typeof calcTotal !== 'function') return false;
+      var nomCli = (typeof clienteNombre !== 'undefined' && clienteNombre) || '';
+      if(currentTicketNro !== null){
+        var idx = pendientes.findIndex(function(t){ return t.nro === currentTicketNro; });
+        if(idx >= 0){
+          pendientes[idx].cart = JSON.parse(JSON.stringify(cart));
+          pendientes[idx].total = calcTotal();
+          pendientes[idx].clienteNombre = nomCli;
+          pendientes[idx].fecha = new Date().toISOString();
+          pendientes[idx].tipoPedido = (typeof tipoPedido !== 'undefined' && tipoPedido) || 'local';
+          pendientes[idx].descuentoTicket = (typeof ticketDescuento !== 'undefined' && ticketDescuento) || 0;
+        }
+      } else {
+        var nro = ticketCounter;
+        incrementTicketCounter();
+        pendientes.push({
+          nro: nro, obs: '', clienteNombre: nomCli,
+          cart: JSON.parse(JSON.stringify(cart)), total: calcTotal(),
+          fecha: new Date().toISOString(), esPresupuesto: false,
+          tipoPedido: (typeof tipoPedido !== 'undefined' && tipoPedido) || 'local',
+          descuentoTicket: (typeof ticketDescuento !== 'undefined' && ticketDescuento) || 0,
+        });
+      }
+      setCurrentTicketNro(null);
+      clearCart();
+      guardarPendientesLocal();
+      if(typeof updUI === 'function') updUI();
+      if(typeof updBtnGuardar === 'function') updBtnGuardar();
+      return true;
+    } catch(e){ console.warn('[Actualizar] No se pudo autoguardar el carrito como pendiente:', e.message); return false; }
+  }
   function _swAplicarSiSeguro(){
     if(!_swPending || _swReloaded) return;
-    if(_ventaEnCurso()){
+    var guardoAlgo = _autoGuardarCartComoPendiente();
+    if(_hospModalAbierto()){
       if(typeof toast === 'function') toast('Actualización lista — se aplica al cerrar la venta');
       return;
     }
+    if(guardoAlgo && typeof toast === 'function') toast('Venta guardada como pendiente — actualizando...');
     _swReloaded = true;
     location.reload();
   }
@@ -2762,11 +2808,13 @@ if('serviceWorker' in navigator){
 // Estrategia: borrar TODAS las cachés del SW + desregistrar + recargar.
 // Más confiable que reg.update() porque bypasea la caché del CDN de Cloudflare.
 function buscarActualizacion(){
-  // A diferencia de la actualización automática (que espera a que se
-  // cierre la venta), este botón manual recargaba sin avisar — perdía
-  // el carrito o cualquier modal de hospedaje abierto sin guardar.
-  if(typeof _ventaEnCurso === 'function' && _ventaEnCurso()){
-    var seguir = confirm('Hay una venta o un formulario sin guardar en pantalla. Si actualizás ahora, se pierde. ¿Actualizar igual?');
+  // Si hay un carrito cargado, guardarlo como pendiente antes de recargar —
+  // se puede retomar después desde Pendientes, no se pierde. Un modal de
+  // hospedaje a medio llenar (check-in, abono, etc.) no se puede
+  // autoguardar, ahí sí hace falta preguntar antes de perderlo.
+  if(typeof _autoGuardarCartComoPendiente === 'function') _autoGuardarCartComoPendiente();
+  if(typeof _hospModalAbierto === 'function' && _hospModalAbierto()){
+    var seguir = confirm('Hay un formulario sin guardar en pantalla (check-in, reserva, etc.). Si actualizás ahora, se pierde. ¿Actualizar igual?');
     if(!seguir) return;
   }
   var btn = document.getElementById('btnCheckUpdate');
