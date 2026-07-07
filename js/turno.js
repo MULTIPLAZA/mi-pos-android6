@@ -570,9 +570,8 @@ async function renderTurno(){
   // Si la cuenta declara la caja en Reales, esta vista muestra los montos
   // principales en R$ (equivalente vía cotización) — el dato de fondo
   // sigue en Gs, esto es solo la presentación, igual que en el ticket.
-  const _cotBRLturno = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-  const _turnoEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLturno > 0;
-  const gnT = (n) => _turnoEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLturno).toLocaleString('es-PY') : gs(n);
+  const _turnoEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && mmCotizacion('BRL') > 0;
+  const gnT = (n) => mmMontoCaja(n);
 
   // Por método de pago — desglosa divPagos si existe, o el string compuesto
   const metodos = {};
@@ -781,7 +780,13 @@ function guardarEgreso(){
   // si la cuenta declara en R$, convertir lo que tipeó el cajero.
   if(typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()){
     const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-    if(cotBRL > 0) monto = Math.round(monto * cotBRL);
+    if(cotBRL <= 0){
+      // Sin esto, el monto tipeado en R$ se guardaba tal cual como si
+      // fueran Gs (subestimando el egreso real por el factor de cambio).
+      toast('Configurá la cotización del Real en Configuración → Multi-moneda antes de continuar');
+      return;
+    }
+    monto = Math.round(monto * cotBRL);
   }
   const egreso = { desc, monto, fecha: new Date() };
   turnoData.egresos.push(egreso);
@@ -1381,9 +1386,7 @@ function renderCierreResumen(){
     }
   });
 
-  const _cotBRLcr = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-  const _crEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLcr > 0;
-  const gnCR = (n) => _crEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLcr).toLocaleString('es-PY') : gs(n);
+  const gnCR = (n) => mmMontoCaja(n);
 
   let html = '';
   html += '<div class="cierre-resumen-row"><span class="cierre-resumen-lbl">Apertura</span><span class="cierre-resumen-val">'+fmt(turnoData.fechaApertura)+'</span></div>';
@@ -1405,9 +1408,7 @@ function updCierreDiff(){
   const box = document.getElementById('cierreDiffBox');
   const lbl = document.getElementById('cierreDiffLbl');
   const val = document.getElementById('cierreDiffVal');
-  const _cotBRLdiff = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-  const _diffEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLdiff > 0;
-  const gnDiff = (n) => _diffEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLdiff).toLocaleString('es-PY') : gs(n);
+  const gnDiff = (n) => mmMontoCaja(n);
   box.style.display = 'flex';
   box.className = 'cierre-diff-box';
   lbl.className = 'cierre-diff-lbl';

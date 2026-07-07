@@ -1808,10 +1808,10 @@ function buildCierreTicket(size){
   lines += sep();
   // RESUMEN — en cuentas con "Declarar caja en Reales" activo, mostrar acá
   // en R$ (el dato de fondo sigue siendo Gs, esto es solo la presentación).
-  var _cotBRLresumen = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-  var _resumenEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && _cotBRLresumen > 0;
+  var _resumenEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && mmCotizacion('BRL') > 0;
   var gnResumen = function(n){
-    return _resumenEnBRL ? 'R$ ' + Math.round((n||0)/_cotBRLresumen).toLocaleString('es-PY') : gn2(n);
+    if(_resumenEnBRL) return 'R$ ' + mmGsAExtranjera(n, mmCotizacion('BRL'), 0).toLocaleString('es-PY');
+    return gn2(n);
   };
   lines += rowLabel('RESUMEN');
   lines += sep();
@@ -2020,7 +2020,7 @@ async function confirmarCierre(){
     } catch(e){ console.warn('[Cierre] Error cancelando pedidos satelite:', e.message); }
   }
 
-  // Guardar datos para buildCierreBTPS ANTES de limpiar turnoData
+  // Guardar datos para imprimirCierreTurno() (BTPS) ANTES de limpiar turnoData
   cierreData = {
     fechaApertura: turnoData.fechaApertura,
     totalVentas:   turnoData.ventas.reduce(function(s,v){return s+v.total;},0),
@@ -2073,132 +2073,7 @@ async function confirmarCierre(){
   goTo('scClosed');
 }
 
-function buildCierreBTPS(){
-  // Construir texto BTPS del cierre con los datos guardados en cierreTextoPlano
-  // pero con formato de impresora térmica
-  if(!cierreTextoPlano){ return null; }
-  var size = getPaperSize('ticket') || '58';
-  var cols = size==='80' ? 48 : 32;
-  var sep  = '='.repeat(cols);
-  var sep2 = '-'.repeat(cols);
-  var n    = '\n';
-  var gn2  = function(v){ return Math.round(v||0).toLocaleString('es-PY'); };
-  var pad  = function(l,r){ var sp=Math.max(1,cols-String(l).length-String(r).length); return String(l)+' '.repeat(sp)+String(r); };
-
-  var negocio  = configData.negocio  || 'MI NEGOCIO';
-  var ruc      = configData.ruc      || '';
-  var dir      = configData.direccion|| '';
-  var terminal = configData.terminal || 'CAJA1';
-  var pad2     = function(n){ return String(n).padStart(2,'0'); };
-  var fmtDT    = function(d){ return d ? pad2(new Date(d).getDate())+'/'+pad2(new Date(d).getMonth()+1)+'/'+new Date(d).getFullYear()+' '+pad2(new Date(d).getHours())+':'+pad2(new Date(d).getMinutes()) : '-'; };
-  var ahora    = new Date();
-
-  var totalVentas   = cierreData ? cierreData.totalVentas   : 0;
-  var totalEgresos  = cierreData ? cierreData.totalEgresos  : 0;
-  var totalIngresos = cierreData ? cierreData.totalIngresos : 0;
-  var efInicial     = cierreData ? cierreData.efInicial     : 0;
-  var saldoCaja     = efInicial + totalVentas + totalIngresos - totalEgresos;
-  var totalContado  = Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
-  var saldoEsp      = calcSaldoEsperado ? calcSaldoEsperado() : saldoCaja;
-  var diff          = totalContado > 0 ? totalContado - saldoEsp : null;
-
-  var txt = '';
-  txt += '[CENTER][BOLD]' + negocio.toUpperCase() + '[/BOLD][/CENTER]' + n;
-  if(ruc) txt += '[CENTER]RUC: ' + ruc + '[/CENTER]' + n;
-  if(dir) txt += '[CENTER]' + dir + '[/CENTER]' + n;
-  txt += sep + n;
-  txt += '[CENTER][BOLD]CIERRE DE CAJA[/BOLD][/CENTER]' + n;
-  txt += sep + n;
-  txt += pad('Terminal:', terminal) + n;
-  txt += pad('Apertura:', fmtDT(cierreData && cierreData.fechaApertura)) + n;
-  txt += pad('Cierre:', fmtDT(ahora)) + n;
-  txt += sep2 + n;
-  txt += '[BOLD]RESUMEN[/BOLD]' + n;
-  txt += sep2 + n;
-  txt += pad('Ef. Inicial:', gn2(efInicial)) + n;
-  txt += pad('Total ventas:', gn2(totalVentas)) + n;
-  if(totalEgresos > 0) txt += pad('Total egresos:', gn2(totalEgresos)) + n;
-  if(totalIngresos > 0) txt += pad('Total ingresos:', gn2(totalIngresos)) + n;
-  txt += '[BOLD]' + pad('SALDO EN CAJA:', gn2(saldoCaja)) + '[/BOLD]' + n;
-  txt += sep2 + n;
-  txt += '[BOLD]FORMAS DE PAGO[/BOLD]' + n;
-  txt += sep2 + n;
-
-  // Usar los metodos ya calculados (ya desglosan divPagos)
-  if(cierreData && cierreData.metodos){
-    Object.entries(cierreData.metodos).sort(function(a,b){return b[1].total-a[1].total;}).forEach(function(e){
-      txt += pad(e[0] + ' ('+e[1].ops+'op):', gn2(e[1].total)) + n;
-    });
-  }
-  txt += '[BOLD]' + pad('TOTAL:', gn2(totalVentas)) + '[/BOLD]' + n;
-  txt += sep2 + n;
-
-  if(cierreData && cierreData.egresos && cierreData.egresos.length){
-    txt += '[BOLD]EGRESOS[/BOLD]' + n;
-    txt += sep2 + n;
-    cierreData.egresos.forEach(function(e){
-      txt += pad('  '+String(e.desc||'').substring(0, cols-14), gn2(e.monto)) + n;
-    });
-    txt += sep2 + n;
-  }
-
-  if(totalContado > 0){
-    txt += '[BOLD]CONTEO[/BOLD]' + n;
-    txt += sep2 + n;
-    Object.entries(cierreMetodos).forEach(function(e){
-      var m=e[0], d=e[1];
-      if(d.contado>0){
-        var dif=d.contado-d.esperado;
-        var difStr=dif===0?' OK':dif>0?' +'+gn2(dif):' -'+gn2(Math.abs(dif));
-        txt += pad(m+':', gn2(d.contado)) + n;
-        txt += '  Esperado: '+gn2(d.esperado)+'  '+difStr + n;
-      }
-    });
-    if(diff !== null){
-      var dLabel = diff===0 ? 'CUADRE EXACTO' : diff>0 ? 'SOBRANTE: +'+gn2(diff) : 'FALTANTE: -'+gn2(Math.abs(diff));
-      txt += '[CENTER][BOLD]' + dLabel + '[/BOLD][/CENTER]' + n;
-    }
-    txt += sep2 + n;
-  }
-
-  txt += pad('Cant. ventas:', String(cierreData ? cierreData.cantVentas : 0)) + n;
-  txt += sep2 + n;
-
-  // Rendicion del cajero y diferencia
-  txt += '[BOLD]RENDICION DEL CAJERO[/BOLD]' + n;
-  txt += sep2 + n;
-  txt += pad('Saldo esperado:', gn2(saldoCaja)) + n;
-  if(totalContado > 0){
-    txt += pad('Total contado:', gn2(totalContado)) + n;
-    var diferencia = totalContado - saldoCaja;
-    if(diferencia === 0){
-      txt += '[CENTER][BOLD]*** CUADRE EXACTO ***[/BOLD][/CENTER]' + n;
-    } else if(diferencia > 0){
-      txt += '[BOLD]' + pad('SOBRANTE:', '+' + gn2(diferencia)) + '[/BOLD]' + n;
-    } else {
-      txt += '[BOLD]' + pad('FALTANTE:', '-' + gn2(Math.abs(diferencia))) + '[/BOLD]' + n;
-    }
-  } else {
-    txt += pad('Total contado:', '(sin conteo)') + n;
-    txt += pad('Diferencia:', '(sin conteo)') + n;
-  }
-  txt += sep2 + n;
-
-  // Firma del cajero
-  txt += 'OBS: ' + n;
-  txt += sep2 + n;
-  txt += n;
-  txt += n;
-  txt += '[CENTER]______________________________[/CENTER]' + n;
-  txt += '[CENTER]Firma / Aclaracion / CI[/CENTER]' + n;
-  txt += sep + n;
-  txt += '[CENTER]*** FIN CIERRE ***[/CENTER]' + n;
-  txt += '[FEED:4]' + n;
-  txt += '[CUT]';
-  return txt;
-}
-
-// Variable para guardar datos del cierre para BTPS
+// Datos del cierre usados por imprimirCierreTurno() (BT Print Server).
 var cierreData = null;
 
 function imprimirCierre(){

@@ -400,8 +400,14 @@ function npOK() {
     const shiftEl = document.getElementById('shiftDisp');
     if (typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
       const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+      if (cotBRL <= 0) {
+        // Sin esto, v*0=0 se guardaba igual como si fuera el equivalente
+        // real — el efectivo inicial tipeado en R$ se perdía en silencio.
+        toast('Configurá la cotización del Real en Configuración → Multi-moneda antes de continuar');
+        return;
+      }
       const gsEquiv = Math.round(v * cotBRL);
-      shiftEl.textContent = 'R$ ' + v.toLocaleString('es-PY') + (cotBRL > 0 ? ' (≈ ' + gs(gsEquiv) + ')' : '');
+      shiftEl.textContent = 'R$ ' + v.toLocaleString('es-PY') + ' (≈ ' + gs(gsEquiv) + ')';
       shiftEl.dataset.brl = String(v);
       shiftEl.dataset.gsValue = String(gsEquiv);
     } else {

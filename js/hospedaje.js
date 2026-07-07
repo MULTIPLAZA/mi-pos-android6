@@ -329,9 +329,7 @@ function _hospLabelTipo(tipo){
 
 /** "(≈ R$ X)" para un monto en Gs, o cadena vacía si no hay cotización de Reales configurada. */
 function _hospEquivBRL(montoGs){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-  if(!cotBRL || !montoGs) return '';
-  return ' (≈ R$ ' + (montoGs/cotBRL).toFixed(2) + ')';
+  return typeof mmFormatoEquivalente === 'function' ? mmFormatoEquivalente(montoGs, 'R$', 'BRL') : '';
 }
 
 function _hospLabelEstado(estadoVisual){
@@ -512,11 +510,11 @@ async function hospCambiarEstadoHabitacion(habId, estado){
 var _hospCkMonedaTarifa = 'gs';
 
 function hospCkSetMonedaTarifa(moneda){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const cotBRL = mmCotizacion('BRL');
   if(moneda !== _hospCkMonedaTarifa && cotBRL > 0){
     const inp = document.getElementById('hospCkTarifa');
     const actual = parseFloat(inp.value) || 0;
-    if(actual > 0) inp.value = moneda === 'brl' ? (actual / cotBRL).toFixed(2) : Math.round(actual * cotBRL);
+    if(actual > 0) inp.value = moneda === 'brl' ? mmGsAExtranjera(actual, cotBRL, 2).toFixed(2) : mmExtranjeraAGs(actual, cotBRL);
   }
   _hospCkMonedaTarifa = moneda;
   _hospCkPintarBotonesMoneda();
@@ -536,29 +534,27 @@ function _hospCkPintarBotonesMoneda(){
 }
 
 function hospCkRecalcEquivTarifa(){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const cotBRL = mmCotizacion('BRL');
   const el = document.getElementById('hospCkTarifaEquiv');
   if(!el) return;
   const val = parseFloat(document.getElementById('hospCkTarifa').value) || 0;
   if(!cotBRL || !val){ el.textContent = ''; return; }
-  el.textContent = _hospCkMonedaTarifa === 'brl' ? '≈ ' + gs(Math.round(val * cotBRL)) : '≈ R$ ' + (val / cotBRL).toFixed(2);
+  el.textContent = _hospCkMonedaTarifa === 'brl' ? '≈ ' + gs(mmExtranjeraAGs(val, cotBRL)) : '≈ R$ ' + mmGsAExtranjera(val, cotBRL, 2).toFixed(2);
 }
 
 /** El monto de Tarifa/noche SIEMPRE en guaraníes, sin importar en qué moneda esté mostrado el input. */
 function hospCkTarifaEnGs(){
   const val = parseFloat(document.getElementById('hospCkTarifa').value) || 0;
-  if(_hospCkMonedaTarifa === 'brl'){
-    const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
-    return Math.round(val * cotBRL);
-  }
+  if(_hospCkMonedaTarifa === 'brl') return mmExtranjeraAGs(val, mmCotizacion('BRL'));
   return Math.round(val);
 }
 
 /** Prellena Tarifa/noche a partir de un monto en Gs, respetando la moneda seleccionada actualmente. */
 function _hospCkSetTarifaDesdeGs(montoGs){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const cotBRL = mmCotizacion('BRL');
   const inp = document.getElementById('hospCkTarifa');
-  inp.value = (_hospCkMonedaTarifa === 'brl' && cotBRL > 0) ? (montoGs / cotBRL).toFixed(2) : (montoGs || 0);
+  const equiv = mmGsAExtranjera(montoGs, cotBRL, 2);
+  inp.value = (_hospCkMonedaTarifa === 'brl' && equiv !== null) ? equiv.toFixed(2) : (montoGs || 0);
   _hospCkPintarBotonesMoneda();
   hospCkRecalcEquivTarifa();
 }
@@ -1448,7 +1444,7 @@ function hospAbrirAbono(){
 
 /** Equivalente en Reales del saldo pendiente y del monto tipeado, en vivo. */
 function hospAbonoRecalcEquivBRL(){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const cotBRL = mmCotizacion('BRL');
   const elSaldo = document.getElementById('hospAbonoSaldoBRL');
   const elMonto = document.getElementById('hospAbonoMontoBRL');
   if(!cotBRL){
@@ -1460,8 +1456,8 @@ function hospAbonoRecalcEquivBRL(){
   const totalRef = est ? _hospTotalReferenciaAbono(est) : 0;
   const saldo = (est && totalRef != null) ? Math.max(0, totalRef - _hospTotalPagado(est)) : 0;
   const monto = parseInt(document.getElementById('hospAbonoMonto').value) || 0;
-  if(elSaldo) elSaldo.textContent = saldo > 0 ? '(≈ R$ ' + (saldo/cotBRL).toFixed(2) + ')' : '';
-  if(elMonto) elMonto.textContent = monto > 0 ? '≈ R$ ' + (monto/cotBRL).toFixed(2) : '';
+  if(elSaldo) elSaldo.textContent = saldo > 0 ? '(≈ R$ ' + mmGsAExtranjera(saldo, cotBRL, 2).toFixed(2) + ')' : '';
+  if(elMonto) elMonto.textContent = monto > 0 ? '≈ R$ ' + mmGsAExtranjera(monto, cotBRL, 2).toFixed(2) : '';
 }
 
 function cerrarAbono(){
@@ -1569,11 +1565,11 @@ function hospFormTipoCambio(){
 
 /** Equivalente en Reales de la tarifa/noche tipeada en el form de habitación, en vivo. */
 function hospFormRecalcEquivBRL(){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const cotBRL = mmCotizacion('BRL');
   const el = document.getElementById('hospFormPrecioBRL');
   if(!el) return;
   const monto = parseInt(document.getElementById('hospFormPrecio').value) || 0;
-  el.textContent = (cotBRL && monto > 0) ? '≈ R$ ' + (monto/cotBRL).toFixed(2) : '';
+  el.textContent = (cotBRL && monto > 0) ? '≈ R$ ' + mmGsAExtranjera(monto, cotBRL, 2).toFixed(2) : '';
 }
 
 function cerrarFormHabitacion(){
@@ -1612,7 +1608,7 @@ function abrirPreciosTipo(){
 /** Muestra "≈ R$ X" bajo el precio/precio finde de un tipo, usando la
  * cotización de Reales configurada en Multi-moneda (si hay una cargada). */
 function _hospActualizarEquivBRL(tipo){
-  const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  const cotBRL = mmCotizacion('BRL');
   const elPrecio = document.getElementById('hospPT_precioBRL_' + tipo);
   const elFinde = document.getElementById('hospPT_findeBRL_' + tipo);
   if(!cotBRL){
@@ -1622,8 +1618,8 @@ function _hospActualizarEquivBRL(tipo){
   }
   const precio = parseInt((document.getElementById('hospPT_precio_' + tipo) || {}).value) || 0;
   const finde = parseInt((document.getElementById('hospPT_finde_' + tipo) || {}).value) || 0;
-  if(elPrecio) elPrecio.textContent = precio > 0 ? '≈ R$ ' + (precio/cotBRL).toFixed(2) : '';
-  if(elFinde) elFinde.textContent = finde > 0 ? '≈ R$ ' + (finde/cotBRL).toFixed(2) : '';
+  if(elPrecio) elPrecio.textContent = precio > 0 ? '≈ R$ ' + mmGsAExtranjera(precio, cotBRL, 2).toFixed(2) : '';
+  if(elFinde) elFinde.textContent = finde > 0 ? '≈ R$ ' + mmGsAExtranjera(finde, cotBRL, 2).toFixed(2) : '';
 }
 
 function cerrarPreciosTipo(){
