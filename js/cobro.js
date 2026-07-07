@@ -138,6 +138,24 @@ function _goCobrarSetup() {
 // ── MÉTODO DE PAGO ───────────────────────────────────────────
 
 /**
+ * Atajo "EFECTIVO R$" — para negocios donde la mayoría del efectivo que
+ * reciben es en reales (hoteles de frontera), sin tener que activar
+ * Multi-moneda a mano ni navegar el panel de 4 monedas: un toque y el
+ * numpad pide directo el monto en R$. Activa Multi-moneda en silencio si
+ * no estaba (confirmarPago() lo necesita para armar mmPagos con el
+ * desglose real Gs/R$ — sin esto, quedaría igual que tipear el
+ * equivalente a mano, que es justo lo que este botón evita).
+ */
+function selPayEfectivoBRL(){
+  if(localStorage.getItem('mm_activo') !== '1') localStorage.setItem('mm_activo', '1');
+  const btnEfectivo = document.querySelector(".pay-btn[onclick*=\"'efectivo'\"]");
+  if(btnEfectivo) selPay(btnEfectivo, 'efectivo');
+  _mmVals.gs = 0; _mmVals.ars = 0; _mmVals.usd = 0;
+  if(typeof updMMTotal === 'function') updMMTotal();
+  openNP('mm_brl');
+}
+
+/**
  * Selecciona el método de pago y actualiza la UI.
  * @param {HTMLElement} btn  - Botón presionado
  * @param {string}      m    - 'efectivo' | 'pos' | 'transferencia'
