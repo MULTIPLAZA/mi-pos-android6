@@ -1164,6 +1164,11 @@ function hospAbrirConsumo(){
   const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
   _hospConsumoEstadiaId = est.id;
   window._hospedajeCargandoConsumo = { estadiaId: est.id, habNumero: h ? h.numero : '' };
+  // Si en pantalla quedó una venta ya cobrada en modo solo-lectura (ej. se
+  // navegó con las flechas ‹ #NNNN › del turno), salir de ese modo antes de
+  // armar el carrito nuevo — si no, la pantalla queda pegada mostrando
+  // "COBRADO / Solo lectura" y no deja agregar productos al consumo.
+  if(typeof _modoLectura !== 'undefined' && _modoLectura && typeof salirDeModoLectura === 'function') salirDeModoLectura();
   setCart([]);
   cerrarFolio();
   const banner = document.getElementById('hospConsumoBanner');
