@@ -1329,6 +1329,8 @@ function renderDivList() {
           <span>${p.metodo}</span>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
+        ${p.metodo === 'Efectivo' && !p.cobrado ? `
+        <button onclick="divToggleMonedaEfectivo(${i})" style="background:#2a2a2a;border:1px solid ${esBRL ? '#4caf50' : '#444'};color:${esBRL ? '#4caf50' : '#888'};border-radius:6px;font-size:11px;font-weight:700;padding:4px 9px;cursor:pointer;">${esBRL ? 'R$' : 'Gs'}</button>` : ''}
       </div>
       <div class="div-pago-row2">
         <input class="div-monto" id="divMonto${i}" type="text" readonly
@@ -1408,13 +1410,26 @@ function dividirHecho() {
 }
 
 /** true si la parte i del pago dividido se tipea/muestra en R$ en vez de Gs
- * — Pix siempre (es un medio brasilero), Efectivo cuando la caja declara en
- * Reales. El monto de fondo (divPagos[i].monto) sigue siempre en Gs. */
+ * — Pix siempre (es un medio brasilero); Efectivo cuando la caja declara en
+ * Reales O cuando se activó el toggle Gs/R$ de esa fila puntual (para
+ * cuentas que no declaran TODA la caja en Reales pero igual reciben algún
+ * pago suelto en efectivo-R$). El monto de fondo (divPagos[i].monto) sigue
+ * siempre en Gs. */
 function _divEsBRL(i){
   var p = divPagos[i];
   if (!p) return false;
   if (p.metodo === 'Pix') return true;
-  return p.metodo === 'Efectivo' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL();
+  if (p.metodo !== 'Efectivo') return false;
+  if (p.brlEfectivo) return true;
+  return typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL();
+}
+
+/** Toggle Gs/R$ para la fila de Efectivo de un pago dividido puntual. */
+function divToggleMonedaEfectivo(i){
+  var p = divPagos[i];
+  if (!p || p.cobrado) return;
+  p.brlEfectivo = !p.brlEfectivo;
+  renderDivList();
 }
 
 function openDivMethodSheet(i) {
