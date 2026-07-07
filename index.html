@@ -660,6 +660,18 @@
           </label>
         </div>
       </div>
+      <div class="general-field" style="border-bottom:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);">Caja en dos monedas (Gs y R$ a la vez)</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px;">Para negocios que cobran y tienen efectivo real en ambas monedas al mismo tiempo (ej. efectivo/transferencia en Gs + efectivo/Pix en R$). Apertura, egresos y el cierre de caja muestran las dos columnas por separado, sin convertir una a la otra. Se desactiva sola si activás "Declarar caja en Reales" de arriba.</div>
+          </div>
+          <label class="toggle-switch" style="flex-shrink:0;">
+            <input type="checkbox" id="cfgCajaDobleMoneda" onchange="hospGuardarCajaDobleMoneda()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -712,7 +724,10 @@
         <input class="art-form-input" id="egresoDesc" type="text" placeholder="Ej: Compra de insumos, Pago proveedor...">
       </div>
       <div class="art-form-field" style="margin-top:16px;">
-        <span class="art-form-label" id="egresoMontoLabel">Monto *</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span class="art-form-label" id="egresoMontoLabel">Monto *</span>
+          <button type="button" id="egresoMonedaBtn" onclick="toggleMonedaEgreso()" style="background:#2a2a2a;border:1px solid #444;color:#888;border-radius:6px;font-size:11px;font-weight:700;padding:4px 9px;cursor:pointer;">Gs</button>
+        </div>
         <input class="art-form-input" id="egresoMonto" type="number" placeholder="0" min="0">
       </div>
       <div style="display:flex;gap:10px;margin-top:20px;">
@@ -2069,7 +2084,7 @@
     </div>
     <p class="closed-title">El turno está cerrado</p>
     <p class="closed-sub">Abra el turno para realizar ventas</p>
-    <button class="btn-abrir" onclick="goTo('scShift')">ABRIR EL TURNO</button>
+    <button class="btn-abrir" onclick="abrirPantallaApertura()">ABRIR EL TURNO</button>
   </div>
 </div>
 
@@ -2082,8 +2097,12 @@
   <div class="sbody">
     <p class="sdesc">Especifique la cantidad de efectivo de la caja con el que empezará su turno</p>
     <div class="igroup">
-      <span class="ilabel">Cantidad</span>
+      <span class="ilabel" id="shiftLbl">Cantidad</span>
       <div class="adisp" id="shiftDisp" onclick="openNP('shift')">₲0</div>
+    </div>
+    <div class="igroup" id="shiftGroupBRL" style="display:none;">
+      <span class="ilabel">Efectivo inicial en R$</span>
+      <div class="adisp" id="shiftDispBRL" onclick="openNP('shift_brl')">R$ 0</div>
     </div>
     <button class="btn-abrir-outline" onclick="doOpenShift()">ABRIR EL TURNO</button>
   </div>

@@ -267,6 +267,7 @@ function openNP(ctx) {
 
   const labels = {
     shift:          'Efectivo inicial',
+    shift_brl:      'Efectivo inicial en R$',
     cobrar:         'Efectivo recibido',
     comprobante:    'Nro. de Comprobante',
     mm_gs:          'Guaranies recibidos',
@@ -301,6 +302,10 @@ function openNP(ctx) {
     var _shiftBRLPrev = parseFloat(document.getElementById('shiftDisp').dataset.brl || '');
     if (_shiftBRLPrev > 0) setNpVal(String(_shiftBRLPrev));
   }
+  if (ctx === 'shift_brl') {
+    var _shiftBRLActual = parseInt((document.getElementById('shiftDispBRL').textContent||'').replace(/[^\d]/g,'')) || 0;
+    if (_shiftBRLActual > 0) setNpVal(String(_shiftBRLActual));
+  }
 
   if (ctx === 'cierreTotal') {
     setNpVal(cierreTotal > 0 ? String(cierreTotal) : '');
@@ -326,6 +331,8 @@ function openNP(ctx) {
   } else if (ctx === 'comprobante') {
     document.getElementById('npDisp').textContent = npVal || '—';
   } else if (ctx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+    document.getElementById('npDisp').textContent = npVal ? 'R$ ' + _npInitV : 'R$ 0';
+  } else if (ctx === 'shift_brl') {
     document.getElementById('npDisp').textContent = npVal ? 'R$ ' + _npInitV : 'R$ 0';
   } else {
     document.getElementById('npDisp').textContent = npVal ? gs(_npInitV) : '₲0';
@@ -364,6 +371,8 @@ function npP(d) {
       document.getElementById('npDisp').textContent = 'US$ ' + _pV;
     } else if (npCtx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
       document.getElementById('npDisp').textContent = 'R$ ' + _pV;
+    } else if (npCtx === 'shift_brl') {
+      document.getElementById('npDisp').textContent = 'R$ ' + _pV;
     } else if (npCtx === 'div' && typeof _divEsBRL === 'function' && _divEsBRL(divNpIdx)) {
       document.getElementById('npDisp').textContent = 'R$ ' + _pV;
     } else {
@@ -387,6 +396,8 @@ function npD() {
     } else if (npCtx === 'mm_usd' || npCtx === 'cierre_arq_USD') {
       document.getElementById('npDisp').textContent = 'US$ ' + _dV;
     } else if (npCtx === 'shift' && typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()) {
+      document.getElementById('npDisp').textContent = 'R$ ' + _dV;
+    } else if (npCtx === 'shift_brl') {
       document.getElementById('npDisp').textContent = 'R$ ' + _dV;
     } else if (npCtx === 'div' && typeof _divEsBRL === 'function' && _divEsBRL(divNpIdx)) {
       document.getElementById('npDisp').textContent = 'R$ ' + _dV;
@@ -420,6 +431,11 @@ function npOK() {
       delete shiftEl.dataset.gsValue;
     }
 
+  } else if (npCtx === 'shift_brl') {
+    // Balance inicial en R$ de la caja de dos monedas — no se convierte a
+    // Gs, es un saldo aparte que se lleva en paralelo al de guaraníes.
+    document.getElementById('shiftDispBRL').textContent = 'R$ ' + v.toLocaleString('es-PY');
+
   } else if (npCtx === 'div') {
     if (typeof _divEsBRL === 'function' && _divEsBRL(divNpIdx)) {
       var cotBRLDiv = typeof mmCotizacion === 'function' ? mmCotizacion('BRL') : 0;
@@ -428,8 +444,15 @@ function npOK() {
         return;
       }
       divPagos[divNpIdx].monto = mmExtranjeraAGs(v, cotBRLDiv);
+      // Guardar el monto y la cotización tal como se tipeó — para el cierre
+      // de caja de dos monedas, que necesita el R$ real recibido, no un
+      // equivalente re-derivado más tarde con una cotización distinta.
+      divPagos[divNpIdx].montoBRL = v;
+      divPagos[divNpIdx].cotBRLUsada = cotBRLDiv;
     } else {
       divPagos[divNpIdx].monto = v;
+      delete divPagos[divNpIdx].montoBRL;
+      delete divPagos[divNpIdx].cotBRLUsada;
     }
     // Recalcular los otros pagos no cobrados para que la suma cierre el total
     if (typeof divAjustarRestantes === 'function') divAjustarRestantes(divNpIdx);

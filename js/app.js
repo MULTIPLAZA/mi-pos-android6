@@ -187,6 +187,8 @@ function loadGeneralConfigInputs(){
   }
   const chkCajaBRL = document.getElementById('cfgCajaMonedaBRL');
   if(chkCajaBRL) chkCajaBRL.checked = _cajaMonedaBRL();
+  const chkCajaDoble = document.getElementById('cfgCajaDobleMoneda');
+  if(chkCajaDoble) chkCajaDoble.checked = typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
 
   const set = (id, val) => { const el = document.getElementById(id); if(el!=null) el.value = val || ''; };
   set('cfgNegocio',   configData.negocio   || localStorage.getItem('an') || '');
@@ -624,6 +626,29 @@ function _leerEfectivoInicialGs(){
   return parseInt(el.textContent.replace(/[₲.,]/g,''))||0;
 }
 
+/** Lee el efectivo inicial en R$ (solo relevante en modo "caja de dos monedas"). */
+function _leerEfectivoInicialBRL(){
+  const el = document.getElementById('shiftDispBRL');
+  if(!el) return 0;
+  return parseInt((el.textContent||'').replace(/[^\d]/g,''))||0;
+}
+
+/** Prepara la pantalla de apertura de turno — muestra el segundo campo (R$)
+ * si la cuenta lleva la caja en dos monedas simultáneas. */
+function abrirPantallaApertura(){
+  document.getElementById('shiftDisp').textContent = '₲0';
+  delete document.getElementById('shiftDisp').dataset.brl;
+  delete document.getElementById('shiftDisp').dataset.gsValue;
+  const grupoBRL = document.getElementById('shiftGroupBRL');
+  const dobleMoneda = typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
+  if(grupoBRL) grupoBRL.style.display = dobleMoneda ? 'block' : 'none';
+  const dispBRL = document.getElementById('shiftDispBRL');
+  if(dispBRL) dispBRL.textContent = 'R$ 0';
+  const lbl = document.getElementById('shiftLbl');
+  if(lbl) lbl.textContent = dobleMoneda ? 'Efectivo inicial en Gs' : 'Cantidad';
+  goTo('scShift');
+}
+
 async function doOpenShift(){
   const v   = _leerEfectivoInicialGs();
   const btn = document.querySelector('#scClosed .btn-abrir-outline') || document.querySelector('[onclick*="doOpenShift"]');
@@ -637,6 +662,7 @@ async function doOpenShift(){
 
   turnoData.fechaApertura  = await obtenerFechaServidor(); // hora del servidor, no del dispositivo
   turnoData.efectivoInicial = v;
+  turnoData.efectivoInicialBRL = (typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda()) ? _leerEfectivoInicialBRL() : 0;
   turnoData.ventas          = [];
   turnoData.egresos         = [];
   turnoData.ingresos        = [];
@@ -1806,13 +1832,65 @@ function buildCierreTicket(size){
   lines += row('Local:', terminal);
   lines += row('Cierre:', fmtDT(ahora));
   lines += sep();
-  // RESUMEN — en cuentas con "Declarar caja en Reales" activo, mostrar acá
-  // en R$ (el dato de fondo sigue siendo Gs, esto es solo la presentación).
+
+  // gnResumen sirve de formateador Gs/R$-preferido para el resto del ticket
+  // (Movimientos de Caja, etc.) sin importar el modo de RESUMEN de abajo.
   var _resumenEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && mmCotizacion('BRL') > 0;
   var gnResumen = function(n){
     if(_resumenEnBRL) return 'R$ ' + mmGsAExtranjera(n, mmCotizacion('BRL'), 0).toLocaleString('es-PY');
     return gn2(n);
   };
+
+  // Caja en dos monedas (Gs y R$ físicos a la vez, sin convertir uno al
+  // otro) — hoteles de frontera que cobran parte en cada moneda. Sección
+  // aparte, con su propio agregador (mmTurnoDobleMonedaResumen).
+  var _dobleMoneda = typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
+
+  if(_dobleMoneda && typeof mmTurnoDobleMonedaResumen === 'function'){
+    var _dm = mmTurnoDobleMonedaResumen(turnoData);
+    var efInicialBRL = turnoData.efectivoInicialBRL || 0;
+    // OJO: usar los totales del agregador de dos monedas (_dm.totalEntradaGs/
+    // totalSalidaGs), NO las variables totalVentas/totalEgresos/saldoCaja de
+    // más arriba — esas suman el total COMPLETO de cada venta/egreso sin
+    // importar en qué moneda se cobró/pagó de verdad, y acá necesitamos la
+    // parte que específicamente entró/salió en Gs.
+    var saldoCajaGsDual  = turnoData.efectivoInicial + _dm.totalEntradaGs - _dm.totalSalidaGs;
+    var saldoCajaBRL      = efInicialBRL + _dm.totalEntradaBRL - _dm.totalSalidaBRL;
+    var rendGs  = (typeof cierreArqueoGS  !== 'undefined') ? cierreArqueoGS  : 0;
+    var rendBRL = (typeof cierreArqueoBRL !== 'undefined') ? cierreArqueoBRL : 0;
+    var difGs   = rendGs  - saldoCajaGsDual;
+    var difBRL  = rendBRL - saldoCajaBRL;
+
+    var rowDual = function(label, brlVal, gsVal, bold){
+      var valBRL = 'R$ ' + Math.round(brlVal||0).toLocaleString('es-PY');
+      var valGs  = 'Gs ' + Math.round(gsVal||0).toLocaleString('es-PY');
+      var sp = Math.max(2, cols - valBRL.length - valGs.length);
+      var linea2 = valBRL + ' '.repeat(sp) + valGs;
+      var st = bold ? 'font-weight:bold;' : '';
+      return '<p style="margin:0;'+st+'">'+label+'</p><p style="margin:0 0 2px;'+st+'">'+linea2+'</p>';
+    };
+
+    lines += rowLabel('RESUMEN (Gs y R$)');
+    lines += sep();
+    lines += rowDual('Importe Inicial', efInicialBRL, turnoData.efectivoInicial);
+    lines += rowDual('Total Entrada', _dm.totalEntradaBRL, _dm.totalEntradaGs);
+    lines += rowDual('Total Salida', _dm.totalSalidaBRL, _dm.totalSalidaGs);
+    lines += rowDual('Saldo En Caja', saldoCajaBRL, saldoCajaGsDual, true);
+    lines += rowDual('Rendicion', rendBRL, rendGs);
+    lines += rowDual('Diferencia', difBRL, difGs);
+    lines += sep();
+    lines += rowLabel('FORMAS DE PAGO');
+    lines += sep();
+    Object.keys(_dm.metodos).sort(function(a,b){ return (_dm.metodos[b].gs+_dm.metodos[b].brl*1) - (_dm.metodos[a].gs+_dm.metodos[a].brl*1); }).forEach(function(m){
+      lines += rowDual(m, _dm.metodos[m].brl, _dm.metodos[m].gs);
+    });
+    lines += sep();
+    // El resto del ticket (detalle de ventas, firma) sigue igual más abajo —
+    // saltar directo a esa parte sin duplicar el RESUMEN de una sola moneda.
+  } else {
+
+  // RESUMEN — en cuentas con "Declarar caja en Reales" activo, mostrar acá
+  // en R$ (el dato de fondo sigue siendo Gs, esto es solo la presentación).
   lines += rowLabel('RESUMEN');
   lines += sep();
   lines += row('Importe Inicial', gnResumen(turnoData.efectivoInicial));
@@ -1836,6 +1914,8 @@ function buildCierreTicket(size){
   });
   lines += row('TOTAL:', gnResumen(totalVentas), true);
   lines += sep();
+  } // fin del else (modo una sola moneda)
+
   // MOVIMIENTOS DE CAJA
   lines += rowLabel('MOVIMIENTOS DE CAJA');
   lines += sep();
@@ -2154,6 +2234,21 @@ function _cajaMonedaBRL(){
 function hospGuardarCajaMonedaBRL(){
   const chk = document.getElementById('cfgCajaMonedaBRL');
   if(chk) localStorage.setItem('caja_moneda_principal', chk.checked ? 'BRL' : 'GS');
+  // "Declarar en Reales" y "dos monedas" son mutuamente excluyentes — activar
+  // una apaga la otra, para no mezclar dos formas distintas de mostrar la caja.
+  if(chk && chk.checked){
+    const chkDoble = document.getElementById('cfgCajaDobleMoneda');
+    if(chkDoble && chkDoble.checked){ chkDoble.checked = false; localStorage.setItem('caja_doble_moneda', '0'); }
+  }
+}
+
+function hospGuardarCajaDobleMoneda(){
+  const chk = document.getElementById('cfgCajaDobleMoneda');
+  if(chk) localStorage.setItem('caja_doble_moneda', chk.checked ? '1' : '0');
+  if(chk && chk.checked){
+    const chkBRL = document.getElementById('cfgCajaMonedaBRL');
+    if(chkBRL && chkBRL.checked){ chkBRL.checked = false; localStorage.setItem('caja_moneda_principal', 'GS'); }
+  }
 }
 
 function saveGeneralConfig(){

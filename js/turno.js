@@ -756,14 +756,35 @@ async function renderTurno(){
   body.innerHTML = html;
 }
 
+// Moneda del egreso que se está por registrar — "pegajoso" por default
+// según el modo de la cuenta (caja en R$ o caja de dos monedas), pero
+// alternable por egreso puntual con el botón Gs/R$ del modal.
+var _egresoMonedaBRL = false;
+
 function openEgresoModal(){
   document.getElementById('egresoDesc').value = '';
   document.getElementById('egresoMonto').value = '';
-  const enBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL();
-  const lbl = document.getElementById('egresoMontoLabel');
-  if(lbl) lbl.textContent = enBRL ? 'Monto (R$) *' : 'Monto *';
+  _egresoMonedaBRL = (typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL())
+    || (typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda());
+  _pintarToggleMonedaEgreso();
   document.getElementById('egresoModal').classList.add('open');
   setTimeout(()=>document.getElementById('egresoDesc').focus(), 200);
+}
+
+function toggleMonedaEgreso(){
+  _egresoMonedaBRL = !_egresoMonedaBRL;
+  _pintarToggleMonedaEgreso();
+}
+
+function _pintarToggleMonedaEgreso(){
+  const lbl = document.getElementById('egresoMontoLabel');
+  if(lbl) lbl.textContent = _egresoMonedaBRL ? 'Monto (R$) *' : 'Monto *';
+  const btn = document.getElementById('egresoMonedaBtn');
+  if(btn){
+    btn.textContent = _egresoMonedaBRL ? 'R$' : 'Gs';
+    btn.style.borderColor = _egresoMonedaBRL ? '#4caf50' : '#444';
+    btn.style.color = _egresoMonedaBRL ? '#4caf50' : '#888';
+  }
 }
 
 function closeEgresoModal(e){
@@ -776,19 +797,25 @@ function guardarEgreso(){
   let monto = parseInt(document.getElementById('egresoMonto').value)||0;
   if(!desc){ toast('Ingresá la descripción'); return; }
   if(!monto){ toast('Ingresá el monto'); return; }
+  const egreso = { desc, fecha: new Date() };
   // Egreso siempre se guarda en Gs (mismo criterio que el resto de la caja) —
-  // si la cuenta declara en R$, convertir lo que tipeó el cajero.
-  if(typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL()){
-    const cotBRL = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
+  // si se tipeó en R$ (toggle del modal), convertir y ADEMÁS preservar el
+  // monto original en R$ — lo necesita el cierre de caja de dos monedas
+  // para saber cuánto salió de cada moneda física, no solo el equivalente.
+  if(_egresoMonedaBRL){
+    const cotBRL = mmCotizacion('BRL');
     if(cotBRL <= 0){
       // Sin esto, el monto tipeado en R$ se guardaba tal cual como si
       // fueran Gs (subestimando el egreso real por el factor de cambio).
       toast('Configurá la cotización del Real en Configuración → Multi-moneda antes de continuar');
       return;
     }
-    monto = Math.round(monto * cotBRL);
+    egreso.monto = mmExtranjeraAGs(monto, cotBRL);
+    egreso.monedaOriginal = 'BRL';
+    egreso.montoOriginal = monto;
+  } else {
+    egreso.monto = monto;
   }
-  const egreso = { desc, monto, fecha: new Date() };
   turnoData.egresos.push(egreso);
   turnoGuardar();
   // Guardar en IndexedDB y persistir el dbId
