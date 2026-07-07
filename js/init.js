@@ -794,6 +794,25 @@ async function renderVentasList(){
     let items = [];
     try { items = JSON.parse(v.items||'[]'); } catch(e){ /* safe to ignore: fallback to empty items */ }
     const metodo = (v.metodo_pago||'EFECTIVO').toUpperCase();
+    // Nro. de habitación (rubro hospedaje) — se busca en el nombre de los
+    // items ("Noche — Hab. 104") para mostrarlo en la tarjeta sin tener que
+    // abrir el detalle.
+    const habMatch = items.map(it => it.nombre||it.name||'').join(' ').match(/Hab\.?\s*(\d+)/i);
+    const habNro = habMatch ? habMatch[1] : null;
+    // Total en la moneda real cobrada (Gs/R$/mixto) — no siempre el
+    // equivalente en guaraníes: una venta en Pix o Efectivo-R$ tiene que
+    // mostrar reales, no una conversión.
+    const divPagosVenta = (() => { try { return v.div_pagos ? (typeof v.div_pagos==='string'?JSON.parse(v.div_pagos):v.div_pagos) : null; } catch(e){ return null; } })();
+    const mmPagosVenta = (() => { try { return v.mm_pagos ? (typeof v.mm_pagos==='string'?JSON.parse(v.mm_pagos):v.mm_pagos) : null; } catch(e){ return null; } })();
+    const pixMpPagosVenta = (() => { try { return v.pix_mp_pagos ? (typeof v.pix_mp_pagos==='string'?JSON.parse(v.pix_mp_pagos):v.pix_mp_pagos) : null; } catch(e){ return null; } })();
+    let totalDisplay = gs(v.total);
+    if(typeof mmVentaMetodoMonedaBreakdown === 'function'){
+      const bd = mmVentaMetodoMonedaBreakdown({ total: v.total, metodo: v.metodo_pago, divPagos: divPagosVenta, mmPagos: mmPagosVenta, pixMpPagos: pixMpPagosVenta });
+      const totGs = bd.reduce((s,c)=>s+(c.gs||0),0);
+      const totBRL = bd.reduce((s,c)=>s+(c.brl||0),0);
+      if(totBRL > 0 && totGs === 0) totalDisplay = 'R$ '+totBRL.toLocaleString('es-PY');
+      else if(totBRL > 0 && totGs > 0) totalDisplay = 'R$ '+totBRL.toLocaleString('es-PY')+' + '+gs(totGs);
+    }
     const facturada = !!v.tiene_factura;
     const nroFact = v.factura ? (function(){ var _f = typeof v.factura==='string' ? JSON.parse(v.factura) : v.factura; return (_f && _f.nro_factura) || ''; })() : '';
     const rucFact = v.factura_ruc || '';
@@ -859,13 +878,14 @@ async function renderVentasList(){
           <div class="venta-card-info">
             <div class="venta-card-titulo">
               Venta #${v.id||i+1}
+              ${habNro ? ` <span style="font-size:11px;background:rgba(255,152,0,.15);color:#ff9800;padding:1px 7px;border-radius:10px;font-weight:700;">Hab. ${habNro}</span>` : ''}
               ${facturada ? ` <span style="font-size:11px;background:${v.factura_anulada?'rgba(239,83,80,.15)':'rgba(33,150,243,.15)'};color:${v.factura_anulada?'#ef5350':'#2196f3'};padding:1px 6px;border-radius:10px;font-weight:700;">${v.factura_anulada?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 1V2H4z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="14" y2="15"/></svg> ANULADA':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 1V2H4z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="14" y2="15"/></svg> '+( nroFact||'FAC')}</span>` : ''}
               ${anulada ? ` <span style="font-size:11px;color:#ef5350;font-weight:700;">ANULADA</span>` : ''}
             </div>
             <div class="venta-card-sub">${fecha} · ${items.length} artículo${items.length!==1?'s':''}${rucFact?' · '+rucFact:''}</div>
           </div>
           <div class="venta-card-right">
-            <div class="venta-card-total">${gs(v.total)}</div>
+            <div class="venta-card-total">${totalDisplay}</div>
             <div class="venta-card-metodo">${metodo}</div>
           </div>
           <svg class="venta-card-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
@@ -878,7 +898,7 @@ async function renderVentasList(){
             <div style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
               ${badgeEstado}${badgeFactura}
             </div>
-            <div><span class="venta-det-total-lbl">Total </span><span class="venta-det-total-val">${gs(v.total)}</span></div>
+            <div><span class="venta-det-total-lbl">Total </span><span class="venta-det-total-val">${totalDisplay}</span></div>
           </div>
           ${acciones}
         </div>
@@ -1165,6 +1185,12 @@ async function reconstruirVentasTurno(){
         nroTicket:   v.nro_ticket || null,
         items:       (() => { try { return JSON.parse(v.items||'[]');     } catch(e){ return []; } })(),
         divPagos:    (() => { try { return JSON.parse(v.div_pagos||'null'); } catch(e){ return null; } })(),
+        // mmPagos/pixMpPagos: sin esto, el desglose real Gs/R$ de una venta
+        // se perdía apenas se reconstruía el turno (recarga de la app, o los
+        // otros puntos que llaman a esta función) — el cierre de caja veía
+        // la venta como si fuera 100% en guaraníes.
+        mmPagos:     (() => { try { return JSON.parse(v.mm_pagos||'null'); } catch(e){ return null; } })(),
+        pixMpPagos:  (() => { try { return JSON.parse(v.pix_mp_pagos||'null'); } catch(e){ return null; } })(),
       }));
   } catch(e){ console.warn('[Turno] Error reconstruyendo ventas:', e.message); toast('Error al cargar ventas del turno'); }
 }

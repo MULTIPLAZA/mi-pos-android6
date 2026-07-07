@@ -213,6 +213,12 @@ async function dbSaveVenta(data){
     comprobante:  data.comprobante || '',
     items:        JSON.stringify(data.items),
     div_pagos:    data.divPagos ? JSON.stringify(data.divPagos) : null,
+    // mm_pagos/pix_mp_pagos: desglose real Gs/R$/ARS/USD de la venta (pago
+    // simple con Multi-moneda o Pix/MP) — sin esto, esa info solo vivía en
+    // turnoData.ventas EN MEMORIA y se perdía al cerrar la app o recargar,
+    // quedando indistinguible de un pago 100% en guaraníes.
+    mm_pagos:     data.mmPagos ? JSON.stringify(data.mmPagos) : null,
+    pix_mp_pagos: data.pixMpPagos ? JSON.stringify(data.pixMpPagos) : null,
     tiene_factura: !!data.factura,
     factura_ruc:  data.factura ? data.factura.ruc : '',
     factura_nombre: data.factura ? data.factura.nombre : '',

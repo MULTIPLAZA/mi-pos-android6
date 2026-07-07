@@ -1854,8 +1854,8 @@ function buildCierreTicket(size){
     // más arriba — esas suman el total COMPLETO de cada venta/egreso sin
     // importar en qué moneda se cobró/pagó de verdad, y acá necesitamos la
     // parte que específicamente entró/salió en Gs.
-    var saldoCajaGsDual  = turnoData.efectivoInicial + _dm.totalEntradaGs - _dm.totalSalidaGs;
-    var saldoCajaBRL      = efInicialBRL + _dm.totalEntradaBRL - _dm.totalSalidaBRL;
+    var saldoCajaGsDual  = turnoData.efectivoInicial + _dm.totalEntradaGs + _dm.ingresosGs - _dm.totalSalidaGs;
+    var saldoCajaBRL      = efInicialBRL + _dm.totalEntradaBRL + _dm.ingresosBRL - _dm.totalSalidaBRL;
     var rendGs  = (typeof cierreArqueoGS  !== 'undefined') ? cierreArqueoGS  : 0;
     var rendBRL = (typeof cierreArqueoBRL !== 'undefined') ? cierreArqueoBRL : 0;
     var difGs   = rendGs  - saldoCajaGsDual;
@@ -1920,12 +1920,23 @@ function buildCierreTicket(size){
   lines += rowLabel('MOVIMIENTOS DE CAJA');
   lines += sep();
   var totalEntMovs = (turnoData.ingresos||[]).reduce(function(s,i){return s+i.monto;},0);
-  lines += row('Total Entrada:', gnResumen(totalEntMovs));
-  lines += row('Total Salida :', gnResumen(totalEgresos));
-  if(turnoData.egresos && turnoData.egresos.length){
-    turnoData.egresos.filter(function(e){return !e.anulada;}).forEach(function(e){
-      lines += row('  '+e.desc.substring(0,cols-14), gnResumen(e.monto));
-    });
+  if(_dobleMoneda && _dm){
+    lines += rowDual('Total Entrada', _dm.ingresosBRL, _dm.ingresosGs);
+    lines += rowDual('Total Salida', _dm.totalSalidaBRL, _dm.totalSalidaGs);
+    if(turnoData.egresos && turnoData.egresos.length){
+      turnoData.egresos.filter(function(e){return !e.anulada;}).forEach(function(e){
+        var esBRLEgr = e.monedaOriginal === 'BRL' && e.montoOriginal;
+        lines += rowDual('  '+e.desc.substring(0,cols-14), esBRLEgr ? e.montoOriginal : 0, esBRLEgr ? 0 : e.monto);
+      });
+    }
+  } else {
+    lines += row('Total Entrada:', gnResumen(totalEntMovs));
+    lines += row('Total Salida :', gnResumen(totalEgresos));
+    if(turnoData.egresos && turnoData.egresos.length){
+      turnoData.egresos.filter(function(e){return !e.anulada;}).forEach(function(e){
+        lines += row('  '+e.desc.substring(0,cols-14), gnResumen(e.monto));
+      });
+    }
   }
   lines += sep();
   // Moneda extranjera del turno

@@ -164,10 +164,21 @@ window.mmTurnoDobleMonedaResumen = function(turnoData){
     if (e.monedaOriginal === 'BRL' && e.montoOriginal) egresosBRL += e.montoOriginal;
     else egresosGs += e.monto || 0;
   });
+  // Ingresos manuales (ej. cobro de fiado) también suman a la entrada total,
+  // en la moneda en la que realmente entraron.
+  var ingresosGs = 0, ingresosBRL = 0;
+  (turnoData.ingresos || []).forEach(function(i){
+    if (i.monedaOriginal === 'BRL' && i.montoOriginal) ingresosBRL += i.montoOriginal;
+    else ingresosGs += i.monto || 0;
+  });
   return {
     metodos: metodos,
+    // totalEntradaGs/BRL: solo ventas (mismo criterio que "Total Entrada" del
+    // resumen en modo una sola moneda) — ingresosGs/BRL van aparte, para
+    // "Movimientos de Caja" y para el cálculo de Saldo en Caja del cierre.
     totalEntradaGs: totalGs, totalEntradaBRL: totalBRL,
     totalSalidaGs: egresosGs, totalSalidaBRL: egresosBRL,
+    ingresosGs: ingresosGs, ingresosBRL: ingresosBRL,
   };
 };
 

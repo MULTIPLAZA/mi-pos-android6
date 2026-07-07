@@ -195,9 +195,21 @@ function supaInsertVenta(data){
                      ? data.divPagos.map(p => ({
                          metodo:      (p.metodo || '').toUpperCase(),
                          monto:       p.monto || 0,
-                         comprobante: p.comprobante || ''
+                         comprobante: p.comprobante || '',
+                         // montoBRL/cotBRLUsada: monto real tipeado en R$ (no el
+                         // equivalente convertido) — sin esto se perdía en el
+                         // camino a Supabase y la venta quedaba indistinguible
+                         // de un pago 100% en guaraníes en cualquier reporte
+                         // que no fuera el cierre del mismo turno en memoria.
+                         montoBRL:    p.montoBRL || undefined,
+                         cotBRLUsada: p.cotBRLUsada || undefined,
                        }))
                      : null,
+    // mm_pagos/pix_mp_pagos: desglose real Gs/R$/ARS/USD de un pago simple
+    // (Multi-moneda o Pix/MP) — mismo motivo que arriba, antes no se enviaban.
+    // Requiere las columnas pos_ventas.mm_pagos/pix_mp_pagos (ver migración).
+    mm_pagos:       data.mmPagos || null,
+    pix_mp_pagos:   data.pixMpPagos || null,
     // cliente_nombre: nombre rapido del cliente (no es factura).
     // Requiere la columna pos_ventas.cliente_nombre (ver add_cliente_nombre.sql).
     cliente_nombre: data.clienteNombre || null,
@@ -830,9 +842,17 @@ function guardarEgreso(){
   toast('Egreso registrado');
 }
 
-function registrarIngreso(desc, monto, metodo) {
+function registrarIngreso(desc, monto, metodo, montoOriginal, monedaOriginal) {
   if (!monto || monto <= 0) return;
   var ingreso = { desc: desc, monto: monto, metodo: metodo || '', fecha: new Date() };
+  // montoOriginal/monedaOriginal (opcional): igual que en egresos — si el
+  // ingreso se cobró en R$ (ej. cobro de fiado en reales), preserva el monto
+  // real para que el cierre de dos monedas lo reste/sume de la columna
+  // correcta en vez de asumir que todo entra en guaraníes.
+  if (monedaOriginal === 'BRL' && montoOriginal){
+    ingreso.monedaOriginal = 'BRL';
+    ingreso.montoOriginal = montoOriginal;
+  }
   turnoData.ingresos.push(ingreso);
   turnoGuardar();
 }

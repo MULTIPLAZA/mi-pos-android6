@@ -19,6 +19,7 @@ Todos son idempotentes (`IF NOT EXISTS`): si ya corriste uno, volver a correrlo 
 | 10 | `10_hospedaje_abonos.sql` | Campo `abonos` (pagos parciales durante la estadía) en `pos_estadias` | **Sí — código ya deployado** |
 | 11 | `11_hospedaje_huespedes.sql` | Tabla `pos_huespedes` (registro de huéspedes para autocompletar check-in) | **Sí — código ya deployado** |
 | 12 | `12_hospedaje_pago_anulado.sql` | Campos `pago_anulado`/`pago_anulado_fecha` en `pos_estadias` (avisa si se anula la venta de un check-out ya hecho) | **Sí — código ya deployado** |
+| 13 | `13_ventas_mm_pagos.sql` | Campos `mm_pagos`/`pix_mp_pagos` en `pos_ventas` (desglose real Gs/R$/ARS/USD de un pago simple en Multi-moneda o Pix/MP) | **URGENTE — sin esto, las ventas cobradas en reales se pierden al cerrar/reabrir la app** |
 | 99 | `99_SEGURIDAD_rls_hardening_...` | Cierra el acceso abierto de la base | ⚠️ **NO ejecutar solo — leer abajo** |
 
 ## Importante — orden vs. deploy del código
