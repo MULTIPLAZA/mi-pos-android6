@@ -183,7 +183,7 @@ function loadGeneralConfigInputs(){
     const usaHosp = typeof usaHabitaciones === 'function' && usaHabitaciones();
     secHosp.style.display = usaHosp ? 'block' : 'none';
     const chkImp = document.getElementById('cfgHospImprimirCheckin');
-    if(chkImp) chkImp.checked = localStorage.getItem('hosp_imprimir_checkin') !== '0';
+    if(chkImp) chkImp.checked = localStorage.getItem('hosp_imprimir_checkin') === '1';
   }
   const chkCajaBRL = document.getElementById('cfgCajaMonedaBRL');
   if(chkCajaBRL) chkCajaBRL.checked = _cajaMonedaBRL();
