@@ -585,6 +585,13 @@ async function renderTurno(){
   const _turnoEnBRL = typeof _cajaMonedaBRL === 'function' && _cajaMonedaBRL() && mmCotizacion('BRL') > 0;
   const gnT = (n) => mmMontoCaja(n);
 
+  // Caja en dos monedas: agregador con el desglose real Gs/R$ del turno —
+  // mismo que usa el ticket impreso, para que la pantalla y el papel
+  // muestren siempre los mismos números.
+  const _dobleMonedaTurno = typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
+  const _dmTurno = (_dobleMonedaTurno && typeof mmTurnoDobleMonedaResumen === 'function') ? mmTurnoDobleMonedaResumen(turnoData) : null;
+  const gnDual = (brlVal, gsVal) => 'R$ ' + Math.round(brlVal||0).toLocaleString('es-PY') + ' <span style="color:var(--muted);font-weight:400;">/</span> ' + gs(gsVal);
+
   // Por método de pago — desglosa divPagos si existe, o el string compuesto
   const metodos = {};
   const acumMetodo = (m, monto) => {
@@ -634,17 +641,35 @@ async function renderTurno(){
 
   // ── Resumen apertura ──
   html += '<div class="turno-section">';
-  html += '<div class="turno-section-title">Resumen del turno</div>';
+  html += '<div class="turno-section-title">Resumen del turno' + (_dmTurno ? ' (Gs y R$)' : '') + '</div>';
   html += '<div class="turno-row"><span class="turno-row-label">Apertura</span><span class="turno-row-val">' + fmtFecha(turnoData.fechaApertura) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnT(turnoData.efectivoInicial) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnT(totalVentas) + '</span></div>';
-  html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + ' · Ticket promedio: ' + gnT(ticketProm) + '</span><span></span></div>';
-  if(totalEgresos > 0)
-    html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gnT(totalEgresos) + '</span></div>';
-  if(totalIngresos > 0)
-    html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gnT(totalIngresos) + '</span></div>';
-
-  html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gnT(saldoEsperado) + '</span></div>';
+  if(_dmTurno){
+    var efInicialBRLTurno = turnoData.efectivoInicialBRL || 0;
+    var saldoEsperadoBRLTurno = efInicialBRLTurno + _dmTurno.totalEntradaBRL + _dmTurno.ingresosBRL - _dmTurno.totalSalidaBRL;
+    // OJO: usar _dmTurno.totalEntradaGs/ingresosGs/totalSalidaGs (solo la
+    // parte que entró/salió realmente en Gs), NO totalVentasEfectivas/
+    // totalIngresos/totalEgresos de más arriba — esas suman el total
+    // COMPLETO de cada venta/egreso sin importar la moneda real, así que
+    // acá duplicarían la parte que ya se muestra en la columna R$.
+    var saldoEsperadoGsDual = turnoData.efectivoInicial + _dmTurno.totalEntradaGs + _dmTurno.ingresosGs - _dmTurno.totalSalidaGs;
+    html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnDual(efInicialBRLTurno, turnoData.efectivoInicial) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnDual(_dmTurno.totalEntradaBRL, _dmTurno.totalEntradaGs) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + '</span><span></span></div>';
+    if(_dmTurno.totalSalidaGs > 0 || _dmTurno.totalSalidaBRL > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gnDual(_dmTurno.totalSalidaBRL, _dmTurno.totalSalidaGs) + '</span></div>';
+    if(_dmTurno.ingresosGs > 0 || _dmTurno.ingresosBRL > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gnDual(_dmTurno.ingresosBRL, _dmTurno.ingresosGs) + '</span></div>';
+    html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gnDual(saldoEsperadoBRLTurno, saldoEsperadoGsDual) + '</span></div>';
+  } else {
+    html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnT(turnoData.efectivoInicial) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnT(totalVentas) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + ' · Ticket promedio: ' + gnT(ticketProm) + '</span><span></span></div>';
+    if(totalEgresos > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gnT(totalEgresos) + '</span></div>';
+    if(totalIngresos > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gnT(totalIngresos) + '</span></div>';
+    html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gnT(saldoEsperado) + '</span></div>';
+  }
   html += '</div>';
 
   // ── Cobros de fiado del turno (detalle por cliente) ──
@@ -675,7 +700,21 @@ async function renderTurno(){
   // ── Formas de pago ──
   html += '<div class="turno-section">';
   html += '<div class="turno-section-title">Formas de pago</div>';
-  if(Object.keys(metodos).length === 0){
+  if(_dmTurno){
+    if(Object.keys(_dmTurno.metodos).length === 0){
+      html += '<div class="turno-row"><span class="turno-row-label muted" style="color:#555;">Sin ventas registradas</span></div>';
+    } else {
+      Object.entries(_dmTurno.metodos).forEach(([m, d]) => {
+        var _ops = (metodos[m] && metodos[m].ops) || 0;
+        var _subOps = _ops + ' operación' + (_ops!==1?'es':'');
+        html += '<div class="turno-metodo-row">';
+        html += '<div class="turno-metodo-icon">' + (metodoIcons[m]||metodoIcons['EFECTIVO']) + '</div>';
+        html += '<div class="turno-metodo-info"><div class="turno-metodo-name">' + m + '</div><div class="turno-metodo-ops">' + _subOps + '</div></div>';
+        html += '<div class="turno-metodo-total">' + gnDual(d.brl, d.gs) + '</div>';
+        html += '</div>';
+      });
+    }
+  } else if(Object.keys(metodos).length === 0){
     html += '<div class="turno-row"><span class="turno-row-label muted" style="color:#555;">Sin ventas registradas</span></div>';
   } else {
     Object.entries(metodos).forEach(([m, d]) => {
@@ -709,10 +748,12 @@ async function renderTurno(){
       if(v.pixMpPagos.tipo === 'mp') { _mpARS  += v.pixMpPagos.monedaAmt || 0; _mpARSGs  += v.pixMpPagos.monedaGs || 0; }
     }
   });
-  if(_totalBRL > 0 || _totalARS > 0 || _totalUSD > 0){
+  if((!_dmTurno && _totalBRL > 0) || _totalARS > 0 || _totalUSD > 0){
     html += '<div class="turno-section">';
     html += '<div class="turno-section-title">Moneda extranjera efectivo</div>';
-    if(_totalBRL > 0)
+    // El R$ ya se ve desglosado en "Resumen del turno" y "Formas de pago"
+    // en modo caja de dos monedas — no repetirlo acá.
+    if(!_dmTurno && _totalBRL > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('BR')+' Reales</span><span class="turno-row-val">R$ '+_totalBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalBRLGs)+' Gs)</span></span></div>';
     if(_totalARS > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('AR')+' Pesos Arg.</span><span class="turno-row-val">$ '+_totalARS.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalARSGs)+' Gs)</span></span></div>';
@@ -720,10 +761,10 @@ async function renderTurno(){
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('US')+' Dólares</span><span class="turno-row-val">US$ '+_totalUSD.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalUSDGs)+' Gs)</span></span></div>';
     html += '</div>';
   }
-  if(_pixBRL > 0 || _mpARS > 0){
+  if((!_dmTurno && _pixBRL > 0) || _mpARS > 0){
     html += '<div class="turno-section">';
     html += '<div class="turno-section-title">Pagos digitales</div>';
-    if(_pixBRL > 0)
+    if(!_dmTurno && _pixBRL > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">Pix '+_flagSvg('BR')+'</span><span class="turno-row-val">R$ '+_pixBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_pixBRLGs)+' Gs)</span></span></div>';
     if(_mpARS > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">Mercado Pago '+_flagSvg('AR')+'</span><span class="turno-row-val">$ '+Number(_mpARS).toLocaleString('es-PY')+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_mpARSGs)+' Gs)</span></span></div>';
@@ -739,14 +780,19 @@ async function renderTurno(){
   } else {
     turnoData.egresos.forEach((e, idx) => {
       if(e.anulada) return; // ocultar anulados
+      var esBRLEgr = e.monedaOriginal === 'BRL' && e.montoOriginal;
+      var montoEgr = esBRLEgr ? 'R$ ' + e.montoOriginal.toLocaleString('es-PY') : gnT(e.monto);
       html += '<div class="turno-egreso-row" style="display:flex;align-items:center;gap:10px;">';
       html += '<div class="turno-egreso-info" style="flex:1;"><div class="turno-egreso-desc">' + e.desc + '</div><div class="turno-egreso-fecha">' + fmtFecha(e.fecha) + '</div></div>';
-      html += '<div class="turno-egreso-monto">−' + gnT(e.monto) + '</div>';
+      html += '<div class="turno-egreso-monto">−' + montoEgr + '</div>';
       html += '<button onclick="anularEgreso('+idx+')" title="Anular egreso" style="background:none;border:none;cursor:pointer;padding:6px;color:#ef5350;display:flex;align-items:center;flex-shrink:0;" >';
       html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></button>';
       html += '</div>';
     });
-    html += '<div class="turno-row"><span class="turno-row-label" style="font-weight:700;">Total egresos</span><span class="turno-row-val red">−' + gnT(totalEgresos) + '</span></div>';
+    if(_dmTurno)
+      html += '<div class="turno-row"><span class="turno-row-label" style="font-weight:700;">Total egresos</span><span class="turno-row-val red">−' + gnDual(_dmTurno.totalSalidaBRL, _dmTurno.totalSalidaGs) + '</span></div>';
+    else
+      html += '<div class="turno-row"><span class="turno-row-label" style="font-weight:700;">Total egresos</span><span class="turno-row-val red">−' + gnT(totalEgresos) + '</span></div>';
   }
   html += '</div>';
 
