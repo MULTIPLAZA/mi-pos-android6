@@ -2762,6 +2762,13 @@ if('serviceWorker' in navigator){
 // Estrategia: borrar TODAS las cachés del SW + desregistrar + recargar.
 // Más confiable que reg.update() porque bypasea la caché del CDN de Cloudflare.
 function buscarActualizacion(){
+  // A diferencia de la actualización automática (que espera a que se
+  // cierre la venta), este botón manual recargaba sin avisar — perdía
+  // el carrito o cualquier modal de hospedaje abierto sin guardar.
+  if(typeof _ventaEnCurso === 'function' && _ventaEnCurso()){
+    var seguir = confirm('Hay una venta o un formulario sin guardar en pantalla. Si actualizás ahora, se pierde. ¿Actualizar igual?');
+    if(!seguir) return;
+  }
   var btn = document.getElementById('btnCheckUpdate');
   if(btn){ btn.textContent = '⟳ Limpiando...'; btn.disabled = true; }
 
