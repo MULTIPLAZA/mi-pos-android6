@@ -753,6 +753,26 @@ async function renderVentasList(){
     } catch(e){ console.warn('[Turno] Error cargando ventas:', e.message); ventas = []; }
   }
 
+  // Complementar con Supabase — IndexedDB es local por dispositivo, así que
+  // una venta hecha en OTRA terminal (u otro dbId local tras una reinstalación)
+  // nunca aparecía acá aunque sí haya llegado a la nube. Se fusiona por
+  // comprobante para no duplicar, y las que solo existen en la nube se
+  // marcan _remoto (sin acciones locales — anular/reimprimir necesitan el id
+  // de IndexedDB, que estas filas no tienen).
+  if(turnoData.supaId && navigator.onLine){
+    try {
+      const remotas = await supaGet('pos_ventas', 'turno_id=eq.'+turnoData.supaId+'&order=fecha.desc&limit=200');
+      const vistos = new Set(ventas.map(v => v.comprobante || ('id'+v.id)));
+      remotas.forEach(function(rv){
+        const clave = rv.comprobante || ('id'+rv.id);
+        if(vistos.has(clave)) return;
+        vistos.add(clave);
+        ventas.push(Object.assign({}, rv, { _remoto: true }));
+      });
+      ventas.sort((a,b) => new Date(b.fecha) - new Date(a.fecha));
+    } catch(e){ console.warn('[Ventas] Error trayendo ventas remotas:', e.message); }
+  }
+
   const activas   = ventas.filter(v => !v.anulada || v.anulada === 0);
   const anuladas  = ventas.filter(v => v.anulada && v.anulada !== 0);
   const totalAct  = activas.reduce((s,v) => s+(v.total||0), 0);
@@ -845,8 +865,10 @@ async function renderVentasList(){
     // Comprobante si existe
     const compDet = v.comprobante ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;">Ref: ${v.comprobante}</div>` : '';
 
-    // Botones de acción
-    const acciones = anulada ? '' : `
+    // Botones de acción — una fila _remoto (traída de Supabase, hecha en otro
+    // dispositivo) no tiene id de IndexedDB local, así que anular/reimprimir/
+    // cambiar pago no se pueden ejecutar desde acá con seguridad.
+    const acciones = (anulada || v._remoto) ? '' : `
       <div class="venta-det-actions" onclick="event.stopPropagation()">
         ${!facturada ? `
         <button class="venta-act-btn emitir-fac" onclick="emitirFacturaPostCobro(${v.id})">
@@ -881,6 +903,7 @@ async function renderVentasList(){
               ${habNro ? ` <span style="font-size:11px;background:rgba(255,152,0,.15);color:#ff9800;padding:1px 7px;border-radius:10px;font-weight:700;">Hab. ${habNro}</span>` : ''}
               ${facturada ? ` <span style="font-size:11px;background:${v.factura_anulada?'rgba(239,83,80,.15)':'rgba(33,150,243,.15)'};color:${v.factura_anulada?'#ef5350':'#2196f3'};padding:1px 6px;border-radius:10px;font-weight:700;">${v.factura_anulada?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 1V2H4z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="14" y2="15"/></svg> ANULADA':'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 1V2H4z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="14" y2="15"/></svg> '+( nroFact||'FAC')}</span>` : ''}
               ${anulada ? ` <span style="font-size:11px;color:#ef5350;font-weight:700;">ANULADA</span>` : ''}
+              ${v._remoto ? ` <span style="font-size:11px;background:rgba(255,152,0,.15);color:#ff9800;padding:1px 7px;border-radius:10px;font-weight:700;" title="Hecha en otro dispositivo — sin acciones desde acá">Otra terminal</span>` : ''}
             </div>
             <div class="venta-card-sub">${fecha} · ${items.length} artículo${items.length!==1?'s':''}${rucFact?' · '+rucFact:''}</div>
           </div>

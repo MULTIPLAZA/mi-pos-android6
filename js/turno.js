@@ -748,12 +748,10 @@ async function renderTurno(){
       if(v.pixMpPagos.tipo === 'mp') { _mpARS  += v.pixMpPagos.monedaAmt || 0; _mpARSGs  += v.pixMpPagos.monedaGs || 0; }
     }
   });
-  if((!_dmTurno && _totalBRL > 0) || _totalARS > 0 || _totalUSD > 0){
+  if(_totalBRL > 0 || _totalARS > 0 || _totalUSD > 0){
     html += '<div class="turno-section">';
     html += '<div class="turno-section-title">Moneda extranjera efectivo</div>';
-    // El R$ ya se ve desglosado en "Resumen del turno" y "Formas de pago"
-    // en modo caja de dos monedas — no repetirlo acá.
-    if(!_dmTurno && _totalBRL > 0)
+    if(_totalBRL > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('BR')+' Reales</span><span class="turno-row-val">R$ '+_totalBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalBRLGs)+' Gs)</span></span></div>';
     if(_totalARS > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('AR')+' Pesos Arg.</span><span class="turno-row-val">$ '+_totalARS.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalARSGs)+' Gs)</span></span></div>';
@@ -761,10 +759,10 @@ async function renderTurno(){
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">'+_flagSvg('US')+' Dólares</span><span class="turno-row-val">US$ '+_totalUSD.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(&#8776; '+gs(_totalUSDGs)+' Gs)</span></span></div>';
     html += '</div>';
   }
-  if((!_dmTurno && _pixBRL > 0) || _mpARS > 0){
+  if(_pixBRL > 0 || _mpARS > 0){
     html += '<div class="turno-section">';
     html += '<div class="turno-section-title">Pagos digitales</div>';
-    if(!_dmTurno && _pixBRL > 0)
+    if(_pixBRL > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">Pix '+_flagSvg('BR')+'</span><span class="turno-row-val">R$ '+_pixBRL.toFixed(2)+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_pixBRLGs)+' Gs)</span></span></div>';
     if(_mpARS > 0)
       html += '<div class="turno-row"><span class="turno-row-label" style="display:inline-flex;align-items:center;gap:5px;">Mercado Pago '+_flagSvg('AR')+'</span><span class="turno-row-val">$ '+Number(_mpARS).toLocaleString('es-PY')+' <span style="color:var(--muted);font-size:11px;">(= '+gs(_mpARSGs)+' Gs)</span></span></div>';
