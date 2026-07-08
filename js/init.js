@@ -1196,7 +1196,7 @@ async function reconstruirVentasTurno(){
     const ventas = await db.ventas
       .where('turno_id').equals(turnoData.dbId)
       .toArray();
-    turnoData.ventas = ventas
+    const reconstruidas = ventas
       .filter(v => !v.anulada || v.anulada === 0)  // excluir anuladas (anulada=1)
       .map(v => ({
         dbId:        v.id,
@@ -1215,6 +1215,17 @@ async function reconstruirVentasTurno(){
         mmPagos:     (() => { try { return JSON.parse(v.mm_pagos||'null'); } catch(e){ return null; } })(),
         pixMpPagos:  (() => { try { return JSON.parse(v.pix_mp_pagos||'null'); } catch(e){ return null; } })(),
       }));
+    // Salvavidas: si IndexedDB devuelve MENOS ventas de las que ya había en
+    // memoria, algo falló guardando localmente (o esta lectura llegó antes
+    // que el write) — nunca pisar el turno en memoria con datos incompletos,
+    // porque esta función corre justo antes de mostrar/cerrar la caja y así
+    // se perdía plata real de la pantalla de cierre sin ningún aviso.
+    if(reconstruidas.length < turnoData.ventas.length){
+      console.warn('[Turno] reconstruirVentasTurno trajo menos ventas ('+reconstruidas.length+') que las que había en memoria ('+turnoData.ventas.length+') — se conserva la memoria.');
+      toast('Atención: no se pudieron confirmar todas las ventas guardadas localmente. No cierres el turno sin avisar a soporte.');
+      return;
+    }
+    turnoData.ventas = reconstruidas;
   } catch(e){ console.warn('[Turno] Error reconstruyendo ventas:', e.message); toast('Error al cargar ventas del turno'); }
 }
 

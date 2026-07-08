@@ -264,6 +264,7 @@ async function dbCerrarTurno(turnoDbId, totalContado, diferencia){
   });
   await dbQueueSync('turno', 'update', {
     id:             turnoDbId,
+    fecha_cierre:   new Date().toISOString(),
     estado:         'cerrado',
     total_contado:  totalContado,
     diferencia,
