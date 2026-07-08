@@ -762,9 +762,15 @@ async function renderVentasList(){
   if(turnoData.supaId && navigator.onLine){
     try {
       const remotas = await supaGet('pos_ventas', 'turno_id=eq.'+turnoData.supaId+'&order=fecha.desc&limit=200');
-      const vistos = new Set(ventas.map(v => v.comprobante || ('id'+v.id)));
+      // Clave de fusión: comprobante si existe, si no la fecha normalizada a
+      // epoch ms. NO usar el id como respaldo — el id local (IndexedDB) y el
+      // id remoto (Supabase) son numeraciones independientes que nunca
+      // coinciden, así que con comprobante vacío (caso común) cada venta
+      // terminaba listada dos veces: una copia local y una "Otra terminal".
+      const claveDe = v => v.comprobante || String(new Date(v.fecha).getTime());
+      const vistos = new Set(ventas.map(claveDe));
       remotas.forEach(function(rv){
-        const clave = rv.comprobante || ('id'+rv.id);
+        const clave = claveDe(rv);
         if(vistos.has(clave)) return;
         vistos.add(clave);
         ventas.push(Object.assign({}, rv, { _remoto: true }));
