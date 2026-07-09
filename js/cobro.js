@@ -38,12 +38,15 @@
 /**
  * Muestra debajo del total en Gs cuánto equivale en R$ a la cotización
  * configurada — para que el cajero sepa de entrada cuántos reales cobrar
- * sin tener que entrar al modo Multi-moneda o Dividir. Oculto si no hay
- * cotización de BRL configurada.
+ * sin tener que entrar al modo Multi-moneda o Dividir. Solo para cuentas
+ * de rubro Hospedaje (pedido puntual de Hotel Nico) — el resto de rubros
+ * sigue sin ver esto aunque tengan Multi-moneda/Pix configurado.
+ * Oculto también si no hay cotización de BRL configurada.
  */
 function _actualizarCtotalBRL(t) {
   const el = document.getElementById('ctotalBRL');
   if (!el) return;
+  if (typeof usaHabitaciones !== 'function' || !usaHabitaciones()) { el.style.display = 'none'; return; }
   const cotBRL = (typeof mmCotizacion === 'function') ? mmCotizacion('BRL') : 0;
   if (cotBRL > 0) {
     el.textContent = '≈ R$ ' + Math.ceil(t / cotBRL);

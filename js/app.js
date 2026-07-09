@@ -176,19 +176,24 @@ function renderGeneralInfo(){
 }
 
 function loadGeneralConfigInputs(){
+  // Hospedaje: rubro con el que se gatean las secciones exclusivas de abajo.
+  const usaHosp = typeof usaHabitaciones === 'function' && usaHabitaciones();
+
   // Hospedaje: sección + toggle de impresión de comprobante al check-in
   // (solo visible/relevante para cuentas con rubro hospedaje).
   const secHosp = document.getElementById('cfgHospedajeSection');
   if(secHosp){
-    const usaHosp = typeof usaHabitaciones === 'function' && usaHabitaciones();
     secHosp.style.display = usaHosp ? 'block' : 'none';
     const chkImp = document.getElementById('cfgHospImprimirCheckin');
     if(chkImp) chkImp.checked = localStorage.getItem('hosp_imprimir_checkin') === '1';
   }
   const chkCajaBRL = document.getElementById('cfgCajaMonedaBRL');
   if(chkCajaBRL) chkCajaBRL.checked = _cajaMonedaBRL();
+  // "Caja en dos monedas" — solo Hospedaje (pedido puntual de Hotel Nico).
+  const rowCajaDoble = document.getElementById('cfgCajaDobleMonedaRow');
+  if(rowCajaDoble) rowCajaDoble.style.display = usaHosp ? 'flex' : 'none';
   const chkCajaDoble = document.getElementById('cfgCajaDobleMoneda');
-  if(chkCajaDoble) chkCajaDoble.checked = typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
+  if(chkCajaDoble) chkCajaDoble.checked = usaHosp && typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
 
   const set = (id, val) => { const el = document.getElementById(id); if(el!=null) el.value = val || ''; };
   set('cfgNegocio',   configData.negocio   || localStorage.getItem('an') || '');

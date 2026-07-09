@@ -90,6 +90,10 @@ window.mmMontoCaja = function(montoGs) {
  * visualización") — acá se muestran las DOS columnas a la vez.
  */
 window._cajaDobleMoneda = function(){
+  // Solo cuentas de rubro Hospedaje pueden usar esta función — aunque el
+  // flag quedara en '1' en localStorage (config vieja, cuenta que cambió
+  // de rubro, etc.), no se activa fuera de Hospedaje.
+  if(typeof usaHabitaciones === 'function' && !usaHabitaciones()) return false;
   return localStorage.getItem('caja_doble_moneda') === '1';
 };
 
