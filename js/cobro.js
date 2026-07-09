@@ -508,14 +508,18 @@ function npOK() {
   } else if (npCtx.startsWith('cierre_')) {
     const m = cierreNpMetodo || npCtx.replace('cierre_', '');
     if (m === 'TOTAL') {
+      // cierreTotal es la fuente única de verdad que lee confirmarCierre() —
+      // antes solo se actualizaba acá cuando mm_activo estaba apagado, y con
+      // mm_activo prendido el monto tipeado se iba a cierreArqueoGS, una
+      // variable que confirmarCierre() nunca lee: el total contado quedaba
+      // en 0 pasara lo que pasara con este campo (caso real: Hotel Nico).
+      cierreTotal = v;
+      const disp = document.getElementById('cierreVal_TOTAL');
+      if (disp) disp.textContent = gs(v);
       var _cMM = localStorage.getItem('mm_activo') === '1';
       if(_cMM){
         cierreArqueoGS = v;
         if(typeof updCierreMMTotal === 'function') updCierreMMTotal();
-      } else {
-        cierreTotal = v;
-        const disp = document.getElementById('cierreVal_TOTAL');
-        if (disp) disp.textContent = gs(v);
       }
     } else {
       if (cierreMetodos[m]) cierreMetodos[m].contado = v;

@@ -252,23 +252,38 @@ async function dbAbrirTurno(efectivoInicial){
   return id;
 }
 
-async function dbCerrarTurno(turnoDbId, totalContado, diferencia){
+async function dbCerrarTurno(turnoDbId, totalContado, diferencia, extra){
+  // extra: {totalVendido, totalEgresos, cantVentas, resumenPagos} — sin esto,
+  // si el cierre se termina sincronizando desde esta cola en segundo plano
+  // (vuelve internet en la misma sesión, sin reiniciar la app) en vez de por
+  // el PATCH directo o por pos_cierre_pendiente al reiniciar, el turno se
+  // cerraba en Supabase sin total_vendido/cantidad_ventas/resumen_pagos.
+  extra = extra || {};
   const email = localStorage.getItem('lic_email') || '';
+  const fechaCierre = new Date().toISOString();
   await db.turno.update(turnoDbId, {
-    fecha_cierre:   new Date().toISOString(),
-    estado:         'cerrado',
-    total_contado:  totalContado,
+    fecha_cierre:    fechaCierre,
+    estado:          'cerrado',
+    total_contado:   totalContado,
     diferencia,
-    licencia_email: email,
-    sincronizado:   0,
+    total_vendido:   extra.totalVendido || 0,
+    total_egresos:   extra.totalEgresos || 0,
+    cantidad_ventas: extra.cantVentas   || 0,
+    resumen_pagos:   extra.resumenPagos || null,
+    licencia_email:  email,
+    sincronizado:    0,
   });
   await dbQueueSync('turno', 'update', {
-    id:             turnoDbId,
-    fecha_cierre:   new Date().toISOString(),
-    estado:         'cerrado',
-    total_contado:  totalContado,
+    id:              turnoDbId,
+    fecha_cierre:    fechaCierre,
+    estado:          'cerrado',
+    total_contado:   totalContado,
     diferencia,
-    licencia_email: email,
+    total_vendido:   extra.totalVendido || 0,
+    total_egresos:   extra.totalEgresos || 0,
+    cantidad_ventas: extra.cantVentas   || 0,
+    resumen_pagos:   extra.resumenPagos || null,
+    licencia_email:  email,
   });
 }
 

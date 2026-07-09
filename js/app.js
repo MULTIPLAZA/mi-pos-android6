@@ -660,6 +660,43 @@ async function doOpenShift(){
     if(!ok) return; // licMostrarBloqueo ya fue llamado
   }
 
+  // Salvavidas: no crear un turno nuevo si ya hay uno "abierto" para esta
+  // cuenta+terminal en Supabase. Sin este chequeo, un turno que quedó abierto
+  // por una falla de red al cerrar (o porque la verificación de arranque en
+  // init.js falló en silencio) queda huérfano para siempre, y esta terminal
+  // termina con dos turnos abiertos en paralelo — las ventas se reparten
+  // entre ambos y el cierre de cualquiera de los dos da mal (caso real:
+  // Hotel Nico Palace).
+  if(navigator.onLine && !USAR_DEMO){
+    try {
+      const emailChk    = localStorage.getItem(SK.email);
+      const terminalChk = localStorage.getItem('pos_terminal');
+      if(emailChk && terminalChk){
+        const query = 'estado=eq.abierto'
+          + '&licencia_email=eq.' + encodeURIComponent(emailChk)
+          + '&terminal=eq.' + encodeURIComponent(terminalChk)
+          + '&order=fecha_apertura.desc&limit=1'
+          + '&select=id,fecha_apertura,efectivo_inicial';
+        const rowsChk = await supaGet('pos_turno', query);
+        const tChk = rowsChk && rowsChk[0];
+        if(tChk){
+          turnoData.fechaApertura      = new Date(tChk.fecha_apertura);
+          turnoData.efectivoInicial    = tChk.efectivo_inicial || 0;
+          turnoData.efectivoInicialBRL = 0;
+          turnoData.supaId             = tChk.id;
+          turnoData.dbId               = tChk.id;
+          turnoData.ventas             = [];
+          turnoData.egresos            = [];
+          turnoData.ingresos           = [];
+          turnoGuardar();
+          goTo('scSale'); renderCatPills(); filterP();
+          toast('Ya había un turno abierto — se retomó en vez de abrir uno nuevo');
+          return;
+        }
+      }
+    } catch(e){ console.warn('[Turno] Error chequeando turno abierto previo:', e.message); }
+  }
+
   turnoData.fechaApertura  = await obtenerFechaServidor(); // hora del servidor, no del dispositivo
   turnoData.efectivoInicial = v;
   turnoData.efectivoInicialBRL = (typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda()) ? _leerEfectivoInicialBRL() : 0;
@@ -1734,9 +1771,10 @@ function buildCierreTicket(size){
   size = size || getPaperSize('ticket') || '58';
   var cols = size==='80' ? 48 : 32;
   var saldoEsperado = calcSaldoEsperado();
-  // Si MM activo, usar cierreTotal (GS + BRL equiv + ARS equiv); si no, suma del desglose por método
-  var _mmActCierre = localStorage.getItem('mm_activo') === '1';
-  var totalContado = _mmActCierre ? cierreTotal : Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
+  // cierreTotal ya refleja el total correcto tanto si se usó el campo único
+  // como si se usó el desglose por método (ver fix en cobro.js) — no depende
+  // de mm_activo, así el preview y el cierre guardado siempre coinciden.
+  var totalContado = cierreTotal;
   // Acumular moneda extranjera del turno
   var _shiftBRL = 0, _shiftBRLGs = 0, _shiftARS = 0, _shiftARSGs = 0, _shiftUSD = 0, _shiftUSDGs = 0;
   turnoData.ventas.forEach(function(v){
@@ -2012,12 +2050,27 @@ function buildCierreTicket(size){
 }
 
 async function confirmarCierre(){
+  // Guard anti doble-tap — sin esto, dos toques rápidos antes de que la UI
+  // reaccione ejecutan dos pasadas completas sobre el mismo turnoData, y la
+  // segunda puede persistir totales distintos pisando los de la primera.
+  if(confirmarCierre._running) return;
+  confirmarCierre._running = true;
+  var _btnCerrar = document.querySelector('.btn-confirmar-cierre') || document.querySelector('[onclick*="confirmarCierre"]');
+  if(_btnCerrar) _btnCerrar.disabled = true;
+  try {
   var size = getPaperSize('ticket') || '58';
   buildCierreTicket(size);
 
   // ── Calcular totales para persistir el cierre ────────────
-  var _mmActConfirmar = localStorage.getItem('mm_activo') === '1';
-  var totalContado = _mmActConfirmar ? cierreTotal : Object.values(cierreMetodos).reduce(function(s,d){return s+d.contado;},0);
+  // cierreTotal es la única fuente de verdad: se actualiza tanto al tipear
+  // el campo único "Total contado" como al desglosar por método de pago
+  // (cobro.js recalcula cierreTotal ahí mismo) — antes esta línea elegía
+  // entre cierreTotal y cierreMetodos según mm_activo, una condición que no
+  // tenía nada que ver con qué campo usó el cajero, y terminaba leyendo la
+  // variable que el cajero NUNCA tocó (total_contado quedaba en 0 siempre
+  // que se usara el campo único con mm_activo prendido, o el desglose con
+  // mm_activo apagado).
+  var totalContado = cierreTotal;
   var saldoEsperado = calcSaldoEsperado();
   var diferencia = totalContado > 0 ? totalContado - saldoEsperado : 0;
   // Acumular moneda extranjera del turno para pasar al cierre impreso
@@ -2056,7 +2109,14 @@ async function confirmarCierre(){
 
   // ── Persistir cierre en IndexedDB + encolar sync ─────────
   if(db && turnoDbIdCierre){
-    try { await dbCerrarTurno(turnoDbIdCierre, totalContado, diferencia); }
+    try {
+      await dbCerrarTurno(turnoDbIdCierre, totalContado, diferencia, {
+        totalVendido: _totalVentas,
+        totalEgresos: _totalEgresos,
+        cantVentas:   _cantVentas,
+        resumenPagos: JSON.stringify(_metodosTotales),
+      });
+    }
     catch(e){ console.warn('[Cierre] Error IndexedDB:', e.message); }
   }
 
@@ -2079,7 +2139,11 @@ async function confirmarCierre(){
   }
   if(navigator.onLine && supaId){
     try {
-      await supaPatch('pos_turno', 'id=eq.'+supaId, {
+      // Filtro &estado=eq.abierto: si otra terminal ya cerró este mismo
+      // turno primero, este PATCH no actualiza ninguna fila en vez de pisar
+      // silenciosamente el total_contado/diferencia ya guardados por la
+      // otra terminal. Sin 'minimal' para poder ver cuántas filas afectó.
+      const _cierreRows = await supaPatch('pos_turno', 'id=eq.'+supaId+'&estado=eq.abierto', {
           estado:          'cerrado',
           fecha_cierre:    (await obtenerFechaServidor()).toISOString(),
           total_contado:   totalContado,
@@ -2088,9 +2152,14 @@ async function confirmarCierre(){
           total_egresos:   _totalEgresos,
           cantidad_ventas: _cantVentas,
           resumen_pagos:   JSON.stringify(_metodosTotales),
-        }, true);
-      localStorage.removeItem('pos_cierre_pendiente');
-      _log('[Cierre] Turno cerrado en Supabase OK');
+        });
+      if(_cierreRows && _cierreRows.length === 0){
+        console.warn('[Cierre] El turno ya estaba cerrado desde otra terminal — no se sobreescribió');
+        toast('Este turno ya había sido cerrado desde otro dispositivo');
+      } else {
+        localStorage.removeItem('pos_cierre_pendiente');
+        _log('[Cierre] Turno cerrado en Supabase OK');
+      }
     } catch(e){ console.warn('[Cierre] Error Supabase:', e.message); }
 
     // ── Cancelar pedidos satelite abiertos al cerrar turno ─
@@ -2162,6 +2231,10 @@ async function confirmarCierre(){
   imprimirCierre();
   toast('Cierre realizado');
   goTo('scClosed');
+  } finally {
+    confirmarCierre._running = false;
+    if(_btnCerrar) _btnCerrar.disabled = false;
+  }
 }
 
 // Datos del cierre usados por imprimirCierreTurno() (BT Print Server).
