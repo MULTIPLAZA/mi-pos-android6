@@ -1315,7 +1315,13 @@ function renderDivList() {
     const needsComp = p.metodo === 'POS' || p.metodo === 'Transferencia';
     const esBRL = _divEsBRL(i);
     const cotBRLDiv = esBRL && typeof mmCotizacion === 'function' ? mmCotizacion('BRL') : 0;
-    const equivBRL = cotBRLDiv > 0 ? mmGsAExtranjera(p.monto, cotBRLDiv, 0) : null;
+    // Redondear siempre para arriba (nunca sugerir de menos) — con round()
+    // esta línea podía sugerir, p. ej., R$8 para cubrir Ǥ10.000 a 1.200
+    // (8×1200=9.600, faltarían Ǥ400), y sobre todo quedaba en R$8 mientras
+    // el total de arriba sugería R$209 para el mismo saldo dividido en dos
+    // pagos (200+8=208 ≠ 209) — confundía al cajero, que nunca veía cerrar
+    // la cuenta aunque hubiera cargado los montos "sugeridos".
+    const equivBRL = cotBRLDiv > 0 ? Math.ceil(p.monto / cotBRLDiv) : null;
     const valDisp = (esBRL && equivBRL !== null)
       ? 'R$ ' + equivBRL.toLocaleString('es-PY') + ' (≈ ' + gs(p.monto) + ')'
       : gs(p.monto);
