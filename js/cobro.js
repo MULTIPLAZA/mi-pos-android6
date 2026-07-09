@@ -36,6 +36,24 @@
 // ── IR A COBRAR ─────────────────────────────────────────────
 
 /**
+ * Muestra debajo del total en Gs cuánto equivale en R$ a la cotización
+ * configurada — para que el cajero sepa de entrada cuántos reales cobrar
+ * sin tener que entrar al modo Multi-moneda o Dividir. Oculto si no hay
+ * cotización de BRL configurada.
+ */
+function _actualizarCtotalBRL(t) {
+  const el = document.getElementById('ctotalBRL');
+  if (!el) return;
+  const cotBRL = (typeof mmCotizacion === 'function') ? mmCotizacion('BRL') : 0;
+  if (cotBRL > 0) {
+    el.textContent = '≈ R$ ' + Math.ceil(t / cotBRL);
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+/**
  * Setup visual de la pantalla de cobro — actualiza ctotal, métodos, etc.
  * Llamada desde goCobrar() en index.html cuando MODO_TERMINAL === 'caja'.
  * NO hacer goTo() aquí — lo hace goCobrar() después de llamar esta función.
@@ -47,6 +65,7 @@ function _goCobrarSetup() {
 
   document.getElementById('ctotal').textContent = gs(t);
   document.getElementById('efecVal').textContent = gs(t);
+  _actualizarCtotalBRL(t);
 
   // Fila de descuento — visible solo si hay descuento activo
   const row     = document.getElementById('descTicketRow');
@@ -257,6 +276,7 @@ function abrirDescTicket() {
 
   document.getElementById('ctotal').textContent = gs(t);
   document.getElementById('efecVal').textContent = gs(t);
+  _actualizarCtotalBRL(t);
 
   if (pct > 0) toast('Descuento ' + pct + '% aplicado — ' + gs(monto) + ' de descuento');
   else         toast('Descuento eliminado');
