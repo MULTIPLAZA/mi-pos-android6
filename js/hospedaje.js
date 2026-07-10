@@ -218,7 +218,7 @@ async function hospAutoCargarNochesVencidas(){
       // estadía) — necesaria para saber si cae en fin de semana, aunque
       // el registro del cargo se siga fechando "hoy" (día en que se auditó).
       const nocheFecha = _hospFechaISO(new Date(checkinDate.getTime() + (cargadas+i)*86400000));
-      const tarifaNoche = _hospTarifaParaNoche(est.habitacion_id, nocheFecha, tarifa);
+      const tarifaNoche = est.tarifa_personalizada ? tarifa : _hospTarifaParaNoche(est.habitacion_id, nocheFecha, tarifa);
       est.cargos.push({
         fecha: hoyIso, descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
         cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
@@ -782,6 +782,14 @@ async function confirmarCheckIn(modo){
 
   const tarifa = hospCkTarifaEnGs();
   const tarifaPrimeraNoche = esReserva ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
+  // Si el recepcionista tipeó una tarifa distinta a la normal de la
+  // habitación (ej. un precio especial pactado en R$ con el huésped), esa
+  // tarifa vale para TODA la estadía — sin esto, "+ NOCHE" en un día que
+  // cae viernes/sábado pisaba la tarifa pactada con el recargo de fin de
+  // semana de la habitación sin que nadie se diera cuenta (caso real:
+  // Hotel Nico Palace, huésped a R$350/noche, la 2da noche saltó a la
+  // tarifa de finde de la habitación).
+  const tarifaPersonalizada = tarifa !== (_hospHabSel.precio_noche || 0);
 
   const email = localStorage.getItem('lic_email');
   const licId = parseInt(localStorage.getItem('ali')) || null;
@@ -798,6 +806,7 @@ async function confirmarCheckIn(modo){
     checkin: checkin,
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
     tarifa_noche: tarifa,
+    tarifa_personalizada: tarifaPersonalizada,
     // Reserva: todavía no llegó, no se cobra nada hasta el check-in real.
     // Check-in ahora: la primera noche se carga de una, es lo mínimo que corresponde cobrar.
     cargos: esReserva ? [] : [{
@@ -924,6 +933,8 @@ async function confirmarEditarReserva(){
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
     tarifa_noche: hospCkTarifaEnGs(),
   };
+  const _habEdit = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
+  payload.tarifa_personalizada = payload.tarifa_noche !== ((_habEdit && _habEdit.precio_noche) || 0);
 
   const btn = document.getElementById('hospCkBtnEditarGuardar');
   const txtOriginal = btn ? btn.textContent : '';
@@ -959,7 +970,7 @@ async function hospConvertirReservaEnCheckin(){
   if(!res) return;
   const tarifa = res.tarifa_noche || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
-  const tarifaNoche = _hospTarifaParaNoche(res.habitacion_id, fechaHoy, tarifa);
+  const tarifaNoche = res.tarifa_personalizada ? tarifa : _hospTarifaParaNoche(res.habitacion_id, fechaHoy, tarifa);
   const cargos = [{
     fecha: fechaHoy,
     descripcion: 'Noche — Hab. ' + (hospHabitaciones.find(function(h){ return h.id === res.habitacion_id; })||{}).numero,
@@ -1268,7 +1279,12 @@ function hospAgregarNoche(){
   const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
   const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
-  const tarifaNoche = _hospTarifaParaNoche(_hospEstadiaSel.habitacion_id, fechaHoy, tarifa);
+  // Si esta estadía tiene una tarifa pactada distinta a la normal de la
+  // habitación, esa tarifa vale para todas las noches — no se le pisa con
+  // el recargo de fin de semana de la habitación (ver check-in).
+  const tarifaNoche = _hospEstadiaSel.tarifa_personalizada
+    ? tarifa
+    : _hospTarifaParaNoche(_hospEstadiaSel.habitacion_id, fechaHoy, tarifa);
   hospAgregarCargo({
     fecha: fechaHoy,
     descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
