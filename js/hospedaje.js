@@ -198,7 +198,9 @@ function _hospNochesEsperadas(checkinStr){
 }
 
 async function hospAutoCargarNochesVencidas(){
-  const activas = hospEstadias.filter(function(e){ return e.estado === 'en_estadia'; });
+  // Mensual: se excluye del todo — el cobro del próximo mes se agrega a
+  // mano con "+ MES" cuando corresponda, no hay noches sueltas que auditar.
+  const activas = hospEstadias.filter(function(e){ return e.estado === 'en_estadia' && e.modalidad !== 'mes'; });
   for(const est of activas){
     const esperadas = _hospNochesEsperadas(est.checkin);
     const cargadas = (est.cargos || []).filter(function(c){ return c.descripcion && c.descripcion.indexOf('Noche') === 0; }).length;
@@ -549,6 +551,28 @@ function hospCkTarifaEnGs(){
   return Math.round(val);
 }
 
+/** Modalidad de cobro del check-in en curso: 'noche' (default) o 'mes'
+ * (estadías largas — un monto fijo mensual, sin recargo de fin de semana
+ * ni auto-cobro de noches sueltas). */
+var _hospCkModalidad = 'noche';
+function hospSetModalidad(m){
+  _hospCkModalidad = m;
+  const btnNoche = document.getElementById('hospModNocheBtn');
+  const btnMes = document.getElementById('hospModMesBtn');
+  const lbl = document.getElementById('hospCkTarifaLbl');
+  const rapidas = document.getElementById('hospNochesRapidas');
+  [[btnNoche,'noche'],[btnMes,'mes']].forEach(function(par){
+    var btn = par[0], val = par[1];
+    if(!btn) return;
+    var activo = m === val;
+    btn.style.background = activo ? '#4caf50' : '#222';
+    btn.style.border = activo ? 'none' : '1px solid #3a3a3a';
+    btn.style.color = activo ? '#fff' : '#ccc';
+  });
+  if(lbl) lbl.textContent = m === 'mes' ? 'Tarifa/mes' : 'Tarifa/noche';
+  if(rapidas) rapidas.style.display = m === 'mes' ? 'none' : 'flex';
+}
+
 /** Prellena Tarifa/noche a partir de un monto en Gs, respetando la moneda seleccionada actualmente. */
 function _hospCkSetTarifaDesdeGs(montoGs){
   const cotBRL = mmCotizacion('BRL');
@@ -575,6 +599,7 @@ function abrirCheckIn(habId){
   document.getElementById('hospCkCheckin').value = hoyStr;
   document.getElementById('hospCkCheckout').value = '';
   _hospCkSetTarifaDesdeGs(h.precio_noche || 0);
+  hospSetModalidad('noche');
   document.getElementById('hospCkTitulo').textContent = 'Check-in — Habitación ' + h.numero;
   document.getElementById('hospNochesLbl').textContent = '';
   hospCkOcultarSugerencias();
@@ -780,8 +805,11 @@ async function confirmarCheckIn(modo){
     }
   }
 
+  const esMensual = _hospCkModalidad === 'mes';
   const tarifa = hospCkTarifaEnGs();
-  const tarifaPrimeraNoche = esReserva ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
+  // Mensual: tarifa fija por mes, sin recargo de fin de semana (eso es
+  // exclusivo del cobro por noche).
+  const tarifaPrimeraNoche = (esReserva || esMensual) ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
   // Si el recepcionista tipeó una tarifa distinta a la normal de la
   // habitación (ej. un precio especial pactado en R$ con el huésped), esa
   // tarifa vale para TODA la estadía — sin esto, "+ NOCHE" en un día que
@@ -790,6 +818,7 @@ async function confirmarCheckIn(modo){
   // Hotel Nico Palace, huésped a R$350/noche, la 2da noche saltó a la
   // tarifa de finde de la habitación).
   const tarifaPersonalizada = tarifa !== (_hospHabSel.precio_noche || 0);
+  const descCargo = esMensual ? 'Mes — Hab. ' + _hospHabSel.numero : 'Noche — Hab. ' + _hospHabSel.numero;
 
   const email = localStorage.getItem('lic_email');
   const licId = parseInt(localStorage.getItem('ali')) || null;
@@ -807,10 +836,11 @@ async function confirmarCheckIn(modo){
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
     tarifa_noche: tarifa,
     tarifa_personalizada: tarifaPersonalizada,
+    modalidad: esMensual ? 'mes' : 'noche',
     // Reserva: todavía no llegó, no se cobra nada hasta el check-in real.
-    // Check-in ahora: la primera noche se carga de una, es lo mínimo que corresponde cobrar.
+    // Check-in ahora: la primera noche/mes se carga de una, es lo mínimo que corresponde cobrar.
     cargos: esReserva ? [] : [{
-      fecha: checkin, descripcion: 'Noche — Hab. ' + _hospHabSel.numero,
+      fecha: checkin, descripcion: descCargo,
       cantidad: 1, precio_unitario: tarifaPrimeraNoche, monto: tarifaPrimeraNoche, iva: '10',
     }],
     total: esReserva ? 0 : tarifaPrimeraNoche,
@@ -968,12 +998,13 @@ async function hospCancelarReserva(){
 async function hospConvertirReservaEnCheckin(){
   const res = _hospReservaSel;
   if(!res) return;
+  const esMensual = res.modalidad === 'mes';
   const tarifa = res.tarifa_noche || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
-  const tarifaNoche = res.tarifa_personalizada ? tarifa : _hospTarifaParaNoche(res.habitacion_id, fechaHoy, tarifa);
+  const tarifaNoche = (esMensual || res.tarifa_personalizada) ? tarifa : _hospTarifaParaNoche(res.habitacion_id, fechaHoy, tarifa);
   const cargos = [{
     fecha: fechaHoy,
-    descripcion: 'Noche — Hab. ' + (hospHabitaciones.find(function(h){ return h.id === res.habitacion_id; })||{}).numero,
+    descripcion: (esMensual ? 'Mes — Hab. ' : 'Noche — Hab. ') + (hospHabitaciones.find(function(h){ return h.id === res.habitacion_id; })||{}).numero,
     cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
   }];
   try{
@@ -1108,7 +1139,11 @@ function abrirFolio(estadiaId){
   document.getElementById('hospFolioSub').textContent =
     'Check-in: ' + fmtFechaCorta(est.checkin) + (est.checkout_previsto ? ' · Salida prevista: ' + fmtFechaCorta(est.checkout_previsto) : '')
     + (est.huesped_documento ? ' · Doc: ' + est.huesped_documento : '')
-    + (est.huesped_nacionalidad ? ' · ' + est.huesped_nacionalidad : '');
+    + (est.huesped_nacionalidad ? ' · ' + est.huesped_nacionalidad : '')
+    + (est.modalidad === 'mes' ? ' · Cobro mensual' : '');
+
+  const btnNoche = document.getElementById('hospBtnAgregarNoche');
+  if(btnNoche) btnNoche.textContent = est.modalidad === 'mes' ? '+ MES' : '+ NOCHE';
 
   renderFolioCargos();
   document.getElementById('hospFolioOv').style.display = 'flex';
@@ -1268,26 +1303,30 @@ async function hospConfirmarConsumoDesdeCart(){
   abrirFolio(est.id);
 }
 
-/** Atajo directo: agregar una noche más con la tarifa configurada */
+/** Atajo directo: agregar una noche (o un mes, si la estadía es mensual) más con la tarifa configurada */
 function hospAgregarNoche(){
   if(!_hospEstadiaSel) return;
-  const conflicto = _hospConflictoReservaHoy(_hospEstadiaSel);
-  if(conflicto){
-    alert('No se puede agregar otra noche: esta habitación tiene una reserva de ' + conflicto.huesped_nombre + ' para el ' + fmtFechaCorta(conflicto.checkin) + ', que ya llegó. Cambiá a ' + _hospEstadiaSel.huesped_nombre + ' de habitación antes de seguir cobrándole noches acá.');
-    return;
+  const esMensual = _hospEstadiaSel.modalidad === 'mes';
+  if(!esMensual){
+    const conflicto = _hospConflictoReservaHoy(_hospEstadiaSel);
+    if(conflicto){
+      alert('No se puede agregar otra noche: esta habitación tiene una reserva de ' + conflicto.huesped_nombre + ' para el ' + fmtFechaCorta(conflicto.checkin) + ', que ya llegó. Cambiá a ' + _hospEstadiaSel.huesped_nombre + ' de habitación antes de seguir cobrándole noches acá.');
+      return;
+    }
   }
   const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
   const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
-  // Si esta estadía tiene una tarifa pactada distinta a la normal de la
-  // habitación, esa tarifa vale para todas las noches — no se le pisa con
-  // el recargo de fin de semana de la habitación (ver check-in).
-  const tarifaNoche = _hospEstadiaSel.tarifa_personalizada
+  // Mensual: tarifa fija, sin recargo de fin de semana. Si esta estadía
+  // tiene una tarifa pactada distinta a la normal de la habitación, esa
+  // tarifa vale para todas las noches — no se le pisa con el recargo de
+  // fin de semana de la habitación (ver check-in).
+  const tarifaNoche = (esMensual || _hospEstadiaSel.tarifa_personalizada)
     ? tarifa
     : _hospTarifaParaNoche(_hospEstadiaSel.habitacion_id, fechaHoy, tarifa);
   hospAgregarCargo({
     fecha: fechaHoy,
-    descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
+    descripcion: (esMensual ? 'Mes — Hab. ' : 'Noche — Hab. ') + (h ? h.numero : ''),
     cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
   });
 }
