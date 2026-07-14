@@ -653,14 +653,19 @@ async function renderTurno(){
     // fueran billetes en el cajón).
     var saldoEsperadoBRLTurno = efInicialBRLTurno + _dmTurno.efectivoFisicoBRL + _dmTurno.ingresosFisicoBRL - _dmTurno.totalSalidaBRL;
     var saldoEsperadoGsDual = turnoData.efectivoInicial + _dmTurno.efectivoFisicoGs + _dmTurno.ingresosFisicoGs - _dmTurno.totalSalidaGs;
+    // Orden pensado para responder "¿cuánto tengo que contar en la caja?"
+    // sin tener que entender el sistema — todo hasta "Saldo esperado en
+    // caja" es SOLO efectivo físico; el total por todos los medios
+    // (Efectivo+Pix+Transferencia) va aparte, marcado como informativo,
+    // para no confundirlo con lo que hay que contar en billetes.
     html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnDual(efInicialBRLTurno, turnoData.efectivoInicial) + '</span></div>';
-    html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnDual(_dmTurno.totalEntradaBRL, _dmTurno.totalEntradaGs) + '</span></div>';
-    html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + '</span><span></span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label">+ Cobrado en efectivo</span><span class="turno-row-val green">' + gnDual(_dmTurno.efectivoFisicoBRL, _dmTurno.efectivoFisicoGs) + '</span></div>';
     if(_dmTurno.totalSalidaGs > 0 || _dmTurno.totalSalidaBRL > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">Total egresos</span><span class="turno-row-val red">−' + gnDual(_dmTurno.totalSalidaBRL, _dmTurno.totalSalidaGs) + '</span></div>';
-    if(_dmTurno.ingresosGs > 0 || _dmTurno.ingresosBRL > 0)
-      html += '<div class="turno-row"><span class="turno-row-label">Cobros fiado</span><span class="turno-row-val green">+' + gnDual(_dmTurno.ingresosBRL, _dmTurno.ingresosGs) + '</span></div>';
-    html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">Saldo esperado en caja</span><span class="turno-row-val big green">' + gnDual(saldoEsperadoBRLTurno, saldoEsperadoGsDual) + '</span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label">− Retirado de la caja</span><span class="turno-row-val red">−' + gnDual(_dmTurno.totalSalidaBRL, _dmTurno.totalSalidaGs) + '</span></div>';
+    if(_dmTurno.ingresosFisicoGs > 0 || _dmTurno.ingresosFisicoBRL > 0)
+      html += '<div class="turno-row"><span class="turno-row-label">+ Cobros fiado en efvo.</span><span class="turno-row-val green">+' + gnDual(_dmTurno.ingresosFisicoBRL, _dmTurno.ingresosFisicoGs) + '</span></div>';
+    html += '<div class="turno-row" style="background:rgba(76,175,80,.06)"><span class="turno-row-label" style="font-weight:700;">= Debe haber en la caja</span><span class="turno-row-val big green">' + gnDual(saldoEsperadoBRLTurno, saldoEsperadoGsDual) + '</span></div>';
+    html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + ' · Total vendido (todos los medios): ' + gnDual(_dmTurno.totalEntradaBRL, _dmTurno.totalEntradaGs) + '</span><span></span></div>';
   } else {
     html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnT(turnoData.efectivoInicial) + '</span></div>';
     html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnT(totalVentas) + '</span></div>';

@@ -1921,15 +1921,30 @@ function buildCierreTicket(size){
       return '<p style="margin:0;'+st+'">'+label+'</p><p style="margin:0 0 2px;'+st+'">'+linea2+'</p>';
     };
 
-    lines += rowLabel('RESUMEN (Gs y R$)');
+    // Orden pensado para que el cajero sepa qué hacer sin tener que
+    // entender el sistema: primero "cuánto tengo que contar", después
+    // "cuánto conté" y la diferencia, y recién al final el total vendido
+    // por todos los medios (informativo, no se cuenta en el cajón) — antes
+    // "Total Entrada" y "Saldo En Caja" aparecían pegados y ambos sumaban
+    // Pix, así que no quedaba claro por qué el número a contar era menor
+    // (caso real: Hotel Nico Palace, la recepcionista no entendía el ticket).
+    lines += rowLabel('EFECTIVO A CONTAR EN LA CAJA');
     lines += sep();
-    lines += rowDual('Importe Inicial', efInicialBRL, turnoData.efectivoInicial);
-    lines += rowDual('Total Entrada', _dm.totalEntradaBRL, _dm.totalEntradaGs);
-    lines += rowDual('Total Salida', _dm.totalSalidaBRL, _dm.totalSalidaGs);
-    lines += rowDual('Saldo En Caja', saldoCajaBRL, saldoCajaGsDual, true);
-    lines += rowDual('Rendicion', rendBRL, rendGs);
-    lines += rowDual('Diferencia', difBRL, difGs);
+    lines += rowDual('Efectivo inicial', efInicialBRL, turnoData.efectivoInicial);
+    lines += rowDual('+ Cobrado en efectivo', _dm.efectivoFisicoBRL, _dm.efectivoFisicoGs);
+    if(_dm.ingresosFisicoGs > 0 || _dm.ingresosFisicoBRL > 0)
+      lines += rowDual('+ Cobros fiado en efvo.', _dm.ingresosFisicoBRL, _dm.ingresosFisicoGs);
+    if(_dm.totalSalidaGs > 0 || _dm.totalSalidaBRL > 0)
+      lines += rowDual('- Retirado de la caja', _dm.totalSalidaBRL, _dm.totalSalidaGs);
+    lines += rowDual('= DEBE HABER', saldoCajaBRL, saldoCajaGsDual, true);
     lines += sep();
+    lines += rowDual('Usted contó', rendBRL, rendGs);
+    lines += rowDual('Diferencia', difBRL, difGs, true);
+    lines += sep();
+    lines += rowLabel('TOTAL VENDIDO (todos los medios)');
+    lines += center('Efectivo + Pix + Transferencia, etc.');
+    lines += sep();
+    lines += rowDual('Total vendido', _dm.totalEntradaBRL, _dm.totalEntradaGs);
     lines += rowLabel('FORMAS DE PAGO');
     lines += sep();
     Object.keys(_dm.metodos).sort(function(a,b){ return (_dm.metodos[b].gs+_dm.metodos[b].brl*1) - (_dm.metodos[a].gs+_dm.metodos[a].brl*1); }).forEach(function(m){
