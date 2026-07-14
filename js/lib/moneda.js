@@ -151,9 +151,16 @@ window.mmVentaMetodoMonedaBreakdown = function(v){
  * @returns {{metodos:Object, totalEntradaGs:number, totalEntradaBRL:number,
  *            totalSalidaGs:number, totalSalidaBRL:number}}
  */
+// Métodos que representan plata física en el cajón — todo lo demás (Pix,
+// Transferencia, POS, Mercado Pago) es electrónico y nunca pasa por la
+// caja física, así que no debe contar para "cuánto tengo que encontrar
+// al abrir el cajón".
+var _MM_METODOS_FISICOS = { 'EFECTIVO': true };
+
 window.mmTurnoDobleMonedaResumen = function(turnoData){
   var metodos = {};
   var totalGs = 0, totalBRL = 0;
+  var efectivoFisicoGs = 0, efectivoFisicoBRL = 0;
   (turnoData.ventas || []).forEach(function(v){
     window.mmVentaMetodoMonedaBreakdown(v).forEach(function(c){
       if (!metodos[c.metodo]) metodos[c.metodo] = { gs: 0, brl: 0 };
@@ -161,28 +168,54 @@ window.mmTurnoDobleMonedaResumen = function(turnoData){
       metodos[c.metodo].brl += c.brl;
       totalGs += c.gs;
       totalBRL += c.brl;
+      // Sin este filtro por método, un cobro por Pix/Transferencia sumaba
+      // igual que un cobro en efectivo al "Saldo en Caja" — la plata que
+      // entra por Pix va directo al banco, nunca pisa el cajón físico
+      // (caso real: Hotel Nico Palace, "Saldo en Caja" mostraba R$5.195
+      // cuando lo que había que contar en billetes era R$2.270).
+      if (_MM_METODOS_FISICOS[c.metodo]) {
+        efectivoFisicoGs += c.gs;
+        efectivoFisicoBRL += c.brl;
+      }
     });
   });
   var egresosGs = 0, egresosBRL = 0;
   (turnoData.egresos || []).filter(function(e){ return !e.anulada; }).forEach(function(e){
+    // Un egreso siempre sale físicamente del cajón (es plata que se retira
+    // a mano), no tiene "método" — cuenta siempre como salida física.
     if (e.monedaOriginal === 'BRL' && e.montoOriginal) egresosBRL += e.montoOriginal;
     else egresosGs += e.monto || 0;
   });
   // Ingresos manuales (ej. cobro de fiado) también suman a la entrada total,
-  // en la moneda en la que realmente entraron.
+  // en la moneda en la que realmente entraron — pero solo cuentan como
+  // efectivo físico si el cobro fue en efectivo (un cobro de fiado por
+  // Pix/transferencia tampoco pasa por el cajón).
   var ingresosGs = 0, ingresosBRL = 0;
+  var ingresosFisicoGs = 0, ingresosFisicoBRL = 0;
   (turnoData.ingresos || []).forEach(function(i){
-    if (i.monedaOriginal === 'BRL' && i.montoOriginal) ingresosBRL += i.montoOriginal;
+    var esBRL = i.monedaOriginal === 'BRL' && i.montoOriginal;
+    if (esBRL) ingresosBRL += i.montoOriginal;
     else ingresosGs += i.monto || 0;
+    var metodoIngreso = (i.metodo || 'efectivo').toUpperCase().trim();
+    if (_MM_METODOS_FISICOS[metodoIngreso]) {
+      if (esBRL) ingresosFisicoBRL += i.montoOriginal;
+      else ingresosFisicoGs += i.monto || 0;
+    }
   });
   return {
     metodos: metodos,
-    // totalEntradaGs/BRL: solo ventas (mismo criterio que "Total Entrada" del
-    // resumen en modo una sola moneda) — ingresosGs/BRL van aparte, para
-    // "Movimientos de Caja" y para el cálculo de Saldo en Caja del cierre.
+    // totalEntradaGs/BRL: TODO lo que entró por cualquier medio (ventas) —
+    // uso informativo, para la fila "Total Entrada". NO usar para calcular
+    // cuánto debería haber físicamente en la caja — para eso usar
+    // efectivoFisicoGs/BRL de abajo.
     totalEntradaGs: totalGs, totalEntradaBRL: totalBRL,
     totalSalidaGs: egresosGs, totalSalidaBRL: egresosBRL,
     ingresosGs: ingresosGs, ingresosBRL: ingresosBRL,
+    // *FisicoGs/BRL: solo lo que efectivamente entra/sale en billetes reales
+    // — esto es lo que hay que sumar al efectivo inicial para saber cuánto
+    // debería haber en el cajón físico al cerrar.
+    efectivoFisicoGs: efectivoFisicoGs, efectivoFisicoBRL: efectivoFisicoBRL,
+    ingresosFisicoGs: ingresosFisicoGs, ingresosFisicoBRL: ingresosFisicoBRL,
   };
 };
 

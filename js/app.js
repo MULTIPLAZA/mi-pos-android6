@@ -1899,13 +1899,14 @@ function buildCierreTicket(size){
   if(_dobleMoneda && typeof mmTurnoDobleMonedaResumen === 'function'){
     var _dm = mmTurnoDobleMonedaResumen(turnoData);
     var efInicialBRL = turnoData.efectivoInicialBRL || 0;
-    // OJO: usar los totales del agregador de dos monedas (_dm.totalEntradaGs/
-    // totalSalidaGs), NO las variables totalVentas/totalEgresos/saldoCaja de
-    // más arriba — esas suman el total COMPLETO de cada venta/egreso sin
-    // importar en qué moneda se cobró/pagó de verdad, y acá necesitamos la
-    // parte que específicamente entró/salió en Gs.
-    var saldoCajaGsDual  = turnoData.efectivoInicial + _dm.totalEntradaGs + _dm.ingresosGs - _dm.totalSalidaGs;
-    var saldoCajaBRL      = efInicialBRL + _dm.totalEntradaBRL + _dm.ingresosBRL - _dm.totalSalidaBRL;
+    // "Saldo En Caja" = plata FÍSICA esperada en el cajón — usa
+    // efectivoFisico*/ingresosFisico* (solo EFECTIVO), no totalEntrada*/
+    // ingresos* a secas, que suman también Pix/Transferencia/POS. Esa plata
+    // nunca pisa el cajón físico (caso real: Hotel Nico Palace, el ticket
+    // mostraba R$5.195 de "Saldo en Caja" contando Pix como si fueran
+    // billetes, cuando lo que había que contar en el cajón era R$2.270).
+    var saldoCajaGsDual  = turnoData.efectivoInicial + _dm.efectivoFisicoGs + _dm.ingresosFisicoGs - _dm.totalSalidaGs;
+    var saldoCajaBRL      = efInicialBRL + _dm.efectivoFisicoBRL + _dm.ingresosFisicoBRL - _dm.totalSalidaBRL;
     var rendGs  = (typeof cierreArqueoGS  !== 'undefined') ? cierreArqueoGS  : 0;
     var rendBRL = (typeof cierreArqueoBRL !== 'undefined') ? cierreArqueoBRL : 0;
     var difGs   = rendGs  - saldoCajaGsDual;

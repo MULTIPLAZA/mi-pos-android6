@@ -645,13 +645,14 @@ async function renderTurno(){
   html += '<div class="turno-row"><span class="turno-row-label">Apertura</span><span class="turno-row-val">' + fmtFecha(turnoData.fechaApertura) + '</span></div>';
   if(_dmTurno){
     var efInicialBRLTurno = turnoData.efectivoInicialBRL || 0;
-    var saldoEsperadoBRLTurno = efInicialBRLTurno + _dmTurno.totalEntradaBRL + _dmTurno.ingresosBRL - _dmTurno.totalSalidaBRL;
-    // OJO: usar _dmTurno.totalEntradaGs/ingresosGs/totalSalidaGs (solo la
-    // parte que entró/salió realmente en Gs), NO totalVentasEfectivas/
-    // totalIngresos/totalEgresos de más arriba — esas suman el total
-    // COMPLETO de cada venta/egreso sin importar la moneda real, así que
-    // acá duplicarían la parte que ya se muestra en la columna R$.
-    var saldoEsperadoGsDual = turnoData.efectivoInicial + _dmTurno.totalEntradaGs + _dmTurno.ingresosGs - _dmTurno.totalSalidaGs;
+    // Saldo esperado EN CAJA (plata física) — usa efectivoFisico*/ingresosFisico*
+    // (solo ventas/cobros en EFECTIVO), no totalEntrada*/ingresos* a secas,
+    // que suman también Pix/Transferencia/POS — esa plata nunca pisa el
+    // cajón físico, va directo al banco (caso real: Hotel Nico Palace,
+    // "Saldo en caja" mostraba de más porque contaba los Pix como si
+    // fueran billetes en el cajón).
+    var saldoEsperadoBRLTurno = efInicialBRLTurno + _dmTurno.efectivoFisicoBRL + _dmTurno.ingresosFisicoBRL - _dmTurno.totalSalidaBRL;
+    var saldoEsperadoGsDual = turnoData.efectivoInicial + _dmTurno.efectivoFisicoGs + _dmTurno.ingresosFisicoGs - _dmTurno.totalSalidaGs;
     html += '<div class="turno-row"><span class="turno-row-label">Efectivo inicial</span><span class="turno-row-val green">' + gnDual(efInicialBRLTurno, turnoData.efectivoInicial) + '</span></div>';
     html += '<div class="turno-row"><span class="turno-row-label">Total ventas</span><span class="turno-row-val green">' + gnDual(_dmTurno.totalEntradaBRL, _dmTurno.totalEntradaGs) + '</span></div>';
     html += '<div class="turno-row"><span class="turno-row-label sub">' + cantVentas + ' venta' + (cantVentas!==1?'s':'') + '</span><span></span></div>';
