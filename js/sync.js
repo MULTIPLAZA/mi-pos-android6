@@ -293,6 +293,12 @@ async function dbSaveEgreso(egreso){
     turno_id:       turnoData.dbId || null,
     descripcion:    egreso.desc,
     monto:          egreso.monto,
+    // monto_original/moneda_original: si el egreso se tipeó en R$ (toggle
+    // del modal), sin esto el monto real en reales solo vivía en
+    // turnoData/localStorage y se perdía si el dispositivo reconstruía el
+    // turno desde cero (mismo hueco que el efectivo inicial en R$).
+    monto_original:  egreso.montoOriginal || null,
+    moneda_original: egreso.monedaOriginal || null,
     fecha:          egreso.fecha ? egreso.fecha.toISOString() : new Date().toISOString(),
     terminal:       (typeof configData !== 'undefined' ? configData.terminal : null) || 'Principal',
     licencia_email: localStorage.getItem('lic_email') || '',
@@ -301,6 +307,57 @@ async function dbSaveEgreso(egreso){
   const id = await db.egresos.add(data);
   await dbQueueSync('egresos', 'insert', { ...data, id });
   return id;
+}
+
+/** Reconstruye egresos/ingresos de un turno desde Supabase — usado cuando
+ * el dispositivo perdió el localStorage y hay que recomponer turnoData
+ * desde cero. Sin esto, esos puntos de restauración pisaban egresos e
+ * ingresos con un array vacío aunque el turno ya tuviera varios cargados
+ * (los datos seguían en la base, pero turnoData no los volvía a leer),
+ * dejando el arqueo de cierre corto en la resta/suma correspondiente. */
+async function reconstruirEgresosIngresosDesdeSupabase(turnoId){
+  const out = { egresos: [], ingresos: [] };
+  if(!turnoId || typeof USAR_DEMO !== 'undefined' && USAR_DEMO) return out;
+  try {
+    const rowsEgr = await supaGet('pos_egresos', 'turno_id=eq.' + turnoId + '&order=fecha.asc');
+    out.egresos = (rowsEgr || []).map(function(e){
+      const o = { desc: e.descripcion, monto: e.monto || 0, fecha: e.fecha ? new Date(e.fecha) : new Date() };
+      if(e.moneda_original){ o.monedaOriginal = e.moneda_original; o.montoOriginal = e.monto_original; }
+      return o;
+    });
+  } catch(err){ console.warn('[Turno] Error recuperando egresos:', err.message); }
+  try {
+    const rowsIng = await supaGet('pos_ingresos', 'turno_id=eq.' + turnoId + '&order=fecha.asc');
+    out.ingresos = (rowsIng || []).map(function(i){
+      const o = { desc: i.descripcion, monto: i.monto || 0, metodo: i.metodo || '', fecha: i.fecha ? new Date(i.fecha) : new Date() };
+      if(i.moneda_original){ o.monedaOriginal = i.moneda_original; o.montoOriginal = i.monto_original; }
+      return o;
+    });
+  } catch(err){ console.warn('[Turno] Error recuperando ingresos:', err.message); }
+  return out;
+}
+
+/** Persiste un ingreso del turno (cobro de fiado) directo en Supabase —
+ * sin esto, los ingresos vivían solo en turnoData/localStorage, sin
+ * ninguna tabla propia en la base (se perdían sin dejar rastro si el
+ * dispositivo reconstruía el turno desde cero). Best-effort: si falla,
+ * el ingreso sigue viendose en pantalla durante la sesión igual. */
+async function dbSaveIngreso(ingreso){
+  if(typeof USAR_DEMO !== 'undefined' && USAR_DEMO) return;
+  if(!navigator.onLine) return;
+  const data = {
+    turno_id:        turnoData.dbId || null,
+    descripcion:     ingreso.desc,
+    monto:           ingreso.monto,
+    metodo:          ingreso.metodo || null,
+    monto_original:  ingreso.montoOriginal || null,
+    moneda_original: ingreso.monedaOriginal || null,
+    fecha:           ingreso.fecha ? ingreso.fecha.toISOString() : new Date().toISOString(),
+    terminal:        (typeof configData !== 'undefined' ? configData.terminal : null) || 'Principal',
+    licencia_email:  localStorage.getItem('lic_email') || '',
+  };
+  try { await supaPost('pos_ingresos', data, null, true); }
+  catch(e){ console.warn('[Turno] Error guardando ingreso en Supabase:', e.message); }
 }
 
 // ── SYNC QUEUE ────────────────────────────────────────────

@@ -899,6 +899,7 @@ function registrarIngreso(desc, monto, metodo, montoOriginal, monedaOriginal) {
   }
   turnoData.ingresos.push(ingreso);
   turnoGuardar();
+  if(typeof dbSaveIngreso === 'function') dbSaveIngreso(ingreso);
 }
 
 async function emitirFacturaPostCobro(ventaId){

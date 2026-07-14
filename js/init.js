@@ -331,8 +331,11 @@ async function iniciarApp(){
             turnoData.supaId         = t.id;
             turnoData.dbId           = t.id;
             turnoData.ventas         = [];
-            turnoData.egresos        = [];
-            turnoData.ingresos       = [];
+            const _recEI = (typeof reconstruirEgresosIngresosDesdeSupabase === 'function')
+              ? await reconstruirEgresosIngresosDesdeSupabase(t.id)
+              : { egresos: [], ingresos: [] };
+            turnoData.egresos        = _recEI.egresos;
+            turnoData.ingresos       = _recEI.ingresos;
             // Guardar en localStorage para la próxima vez
             turnoGuardar();
             turnoOk = true;

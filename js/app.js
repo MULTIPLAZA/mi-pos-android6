@@ -691,8 +691,11 @@ async function doOpenShift(){
           turnoData.supaId             = tChk.id;
           turnoData.dbId               = tChk.id;
           turnoData.ventas             = [];
-          turnoData.egresos            = [];
-          turnoData.ingresos           = [];
+          const _recEI2 = (typeof reconstruirEgresosIngresosDesdeSupabase === 'function')
+            ? await reconstruirEgresosIngresosDesdeSupabase(tChk.id)
+            : { egresos: [], ingresos: [] };
+          turnoData.egresos            = _recEI2.egresos;
+          turnoData.ingresos           = _recEI2.ingresos;
           turnoGuardar();
           goTo('scSale'); renderCatPills(); filterP();
           toast('Ya había un turno abierto — se retomó en vez de abrir uno nuevo');
