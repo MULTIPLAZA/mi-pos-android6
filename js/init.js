@@ -319,7 +319,7 @@ async function iniciarApp(){
           + '&licencia_email=eq.' + encodeURIComponent(email)
           + '&terminal=eq.' + encodeURIComponent(terminal)
           + '&order=fecha_apertura.desc&limit=1'
-          + '&select=id,terminal,fecha_apertura,efectivo_inicial';
+          + '&select=id,terminal,fecha_apertura,efectivo_inicial,efectivo_inicial_brl';
         const rows = await supaGet('pos_turno', query);
         {
                   const t = rows && rows[0];
@@ -327,6 +327,7 @@ async function iniciarApp(){
                       // Reconstruir turnoData desde Supabase
             turnoData.fechaApertura  = new Date(t.fecha_apertura);
             turnoData.efectivoInicial = t.efectivo_inicial || 0;
+            turnoData.efectivoInicialBRL = t.efectivo_inicial_brl || 0;
             turnoData.supaId         = t.id;
             turnoData.dbId           = t.id;
             turnoData.ventas         = [];

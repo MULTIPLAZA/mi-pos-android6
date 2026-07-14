@@ -681,13 +681,13 @@ async function doOpenShift(){
           + '&licencia_email=eq.' + encodeURIComponent(emailChk)
           + '&terminal=eq.' + encodeURIComponent(terminalChk)
           + '&order=fecha_apertura.desc&limit=1'
-          + '&select=id,fecha_apertura,efectivo_inicial';
+          + '&select=id,fecha_apertura,efectivo_inicial,efectivo_inicial_brl';
         const rowsChk = await supaGet('pos_turno', query);
         const tChk = rowsChk && rowsChk[0];
         if(tChk){
           turnoData.fechaApertura      = new Date(tChk.fecha_apertura);
           turnoData.efectivoInicial    = tChk.efectivo_inicial || 0;
-          turnoData.efectivoInicialBRL = 0;
+          turnoData.efectivoInicialBRL = tChk.efectivo_inicial_brl || 0;
           turnoData.supaId             = tChk.id;
           turnoData.dbId               = tChk.id;
           turnoData.ventas             = [];
@@ -711,11 +711,11 @@ async function doOpenShift(){
   turnoData.supaId          = null;
   turnoData.dbId            = null;
   // Guardar apertura en Supabase (background, no bloquea)
-  supaInsertTurno('abierto', v);
+  supaInsertTurno('abierto', v, turnoData.efectivoInicialBRL);
   // Esperar a que IndexedDB asigne el dbId ANTES de guardar en localStorage
   // para que turnoData.dbId quede persistido correctamente
   if(db){
-    try { await dbAbrirTurno(v); } catch(e){ console.warn('[Turno] Error al abrir turno en IndexedDB:', e.message); }
+    try { await dbAbrirTurno(v, turnoData.efectivoInicialBRL); } catch(e){ console.warn('[Turno] Error al abrir turno en IndexedDB:', e.message); }
   }
   // Persistir en localStorage DESPUÉS de tener el dbId
   turnoGuardar();
@@ -786,12 +786,16 @@ function sincronizarFechaServidor(){
   obtenerFechaServidor().catch(function(e){ console.warn('[FechaServidor] Error en sincronización background:', e.message); });
 }
 
-function supaInsertTurno(estado, efectivoInicial){
+function supaInsertTurno(estado, efectivoInicial, efectivoInicialBRL){
   const email = localStorage.getItem('lic_email');
   if(!email) return;
   const data = {
     fecha_apertura:   new Date().toISOString(),
     efectivo_inicial: efectivoInicial || 0,
+    // Sin esto, el monto declarado en Reales al abrir la caja de dos
+    // monedas solo vivía en turnoData/localStorage — se perdía apenas el
+    // dispositivo recargaba la app (caso real: Hotel Nico Palace).
+    efectivo_inicial_brl: efectivoInicialBRL || 0,
     estado:           estado,
     terminal:         localStorage.getItem('pos_terminal') || 'Terminal 1',
     licencia_email:   email,

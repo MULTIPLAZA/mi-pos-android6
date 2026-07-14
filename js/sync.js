@@ -235,12 +235,13 @@ async function dbSaveVenta(data){
 }
 
 // ── TURNO ─────────────────────────────────────────────────
-async function dbAbrirTurno(efectivoInicial){
+async function dbAbrirTurno(efectivoInicial, efectivoInicialBRL){
   if(!db) return null;
   const email = localStorage.getItem('lic_email') || '';
   const turno = {
     fecha_apertura:   new Date().toISOString(),
     efectivo_inicial: efectivoInicial,
+    efectivo_inicial_brl: efectivoInicialBRL || 0,
     estado:           'abierto',
     terminal:         (typeof configData !== 'undefined' ? configData.terminal : null) || 'Principal',
     licencia_email:   email,
