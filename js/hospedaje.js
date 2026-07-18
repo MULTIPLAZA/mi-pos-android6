@@ -18,18 +18,19 @@ var _hospReservaSel  = null; // reserva abierta en el modal de reserva
 
 // ── Catálogo de precios por tipo de habitación ────────────────────────
 // Cada tipo define un precio fijo (aplicado a TODAS las habitaciones de
-// ese tipo al guardar — ver hospGuardarPreciosTipo), un precio de fin de
-// semana opcional (viernes/sábado, ver _hospTarifaParaNoche) y la
-// capacidad por defecto que se autocompleta al elegir el tipo en el
-// formulario de habitación. "Otro" queda sin precio fijo (variable,
-// se carga a mano por habitación).
+// ese tipo al guardar — ver hospGuardarPreciosTipo) y la capacidad por
+// defecto que se autocompleta al elegir el tipo en el formulario de
+// habitación. "Otro" queda sin precio fijo (variable, se carga a mano
+// por habitación). No hay recargo de fin de semana — la tarifa que se
+// tipea en el check-in (o el precio fijo del tipo, si no se cambia) es
+// la que vale, siempre, sin excepciones ni pisadas automáticas.
 var HOSP_PRECIOS_TIPO_DEFAULT = {
-  individual:  { precio:200000, precioFinde:null, capacidad:1 },
-  matrimonial: { precio:350000, precioFinde:null, capacidad:2 },
-  triplo:      { precio:350000, precioFinde:null, capacidad:3 },
-  quadruplo:   { precio:450000, precioFinde:null, capacidad:4 },
-  quintuplo:   { precio:500000, precioFinde:null, capacidad:5 },
-  otro:        { precio:null,   precioFinde:null, capacidad:null },
+  individual:  { precio:200000, capacidad:1 },
+  matrimonial: { precio:350000, capacidad:2 },
+  triplo:      { precio:350000, capacidad:3 },
+  quadruplo:   { precio:450000, capacidad:4 },
+  quintuplo:   { precio:500000, capacidad:5 },
+  otro:        { precio:null,   capacidad:null },
 };
 var hospPreciosTipo = {}; // se llena en hospCargarPreciosTipo()
 
@@ -85,9 +86,8 @@ function _hospPreciosTipoConDefaults(parcial){
     var base = HOSP_PRECIOS_TIPO_DEFAULT[tipo];
     var pers = (parcial && parcial[tipo]) || {};
     out[tipo] = {
-      precio:      pers.precio      !== undefined ? pers.precio      : base.precio,
-      precioFinde: pers.precioFinde !== undefined ? pers.precioFinde : base.precioFinde,
-      capacidad:   pers.capacidad   !== undefined ? pers.capacidad   : base.capacidad,
+      precio:    pers.precio    !== undefined ? pers.precio    : base.precio,
+      capacidad: pers.capacidad !== undefined ? pers.capacidad : base.capacidad,
     };
   }
   return out;
@@ -154,28 +154,6 @@ async function hospGuardarPreciosTipo(nuevoCatalogo){
   _hospRefrescarVista();
 }
 
-/** ¿La fecha (YYYY-MM-DD) cae en viernes o sábado? */
-function _hospEsFinde(fechaStr){
-  if(!fechaStr) return false;
-  const d = new Date(fechaStr+'T00:00:00');
-  const dow = d.getDay(); // 0=domingo..6=sábado
-  return dow === 5 || dow === 6;
-}
-
-/**
- * Precio a cobrar por LA NOCHE de una fecha puntual: si cae en fin de
- * semana y el tipo de esa habitación tiene precioFinde configurado, se
- * usa ese; si no, se usa la tarifa base (la acordada/frozen en el check-in).
- */
-function _hospTarifaParaNoche(habId, fechaStr, tarifaBase){
-  if(_hospEsFinde(fechaStr)){
-    const h = hospHabitaciones.find(function(x){ return x.id === habId; });
-    const cat = h && hospPreciosTipo[h.tipo];
-    if(cat && cat.precioFinde != null && cat.precioFinde > 0) return cat.precioFinde;
-  }
-  return tarifaBase;
-}
-
 // ── NIGHT AUDIT: cargo automático de noches vencidas ──────────────────
 // Regla del hotel: el "día" cierra a las HOSP_CUTOFF_HORA (11:00 por
 // default). Un huésped que sigue en_estadia después de ese horario ya
@@ -214,16 +192,10 @@ async function hospAutoCargarNochesVencidas(){
     const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
     const tarifa = est.tarifa_noche || (h && h.precio_noche) || 0;
     const hoyIso = _hospFechaISO(new Date());
-    const checkinDate = new Date(est.checkin+'T00:00:00');
     for(let i=0;i<faltantes;i++){
-      // Fecha real de esta noche faltante (checkin + su posición en la
-      // estadía) — necesaria para saber si cae en fin de semana, aunque
-      // el registro del cargo se siga fechando "hoy" (día en que se auditó).
-      const nocheFecha = _hospFechaISO(new Date(checkinDate.getTime() + (cargadas+i)*86400000));
-      const tarifaNoche = est.tarifa_personalizada ? tarifa : _hospTarifaParaNoche(est.habitacion_id, nocheFecha, tarifa);
       est.cargos.push({
         fecha: hoyIso, descripcion: 'Noche — Hab. ' + (h ? h.numero : ''),
-        cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
+        cantidad: 1, precio_unitario: tarifa, monto: tarifa, iva: '10',
       });
     }
     est.total = est.cargos.reduce(function(s,c){ return s + (c.monto || 0); }, 0);
@@ -806,18 +778,14 @@ async function confirmarCheckIn(modo){
   }
 
   const esMensual = _hospCkModalidad === 'mes';
+  // La tarifa que tipea el recepcionista (moneda ya convertida a Gs) es
+  // la que vale, siempre — sin recargos automáticos de fin de semana ni
+  // ninguna otra pisada silenciosa (caso real: Hotel Nico Palace, se le
+  // cobró de menos a una huésped porque el sistema pisaba la tarifa
+  // pactada con un precio de fin de semana que nadie veía).
   const tarifa = hospCkTarifaEnGs();
-  // Mensual: tarifa fija por mes, sin recargo de fin de semana (eso es
-  // exclusivo del cobro por noche).
-  const tarifaPrimeraNoche = (esReserva || esMensual) ? tarifa : _hospTarifaParaNoche(_hospHabSel.id, checkin, tarifa);
-  // Si el recepcionista tipeó una tarifa distinta a la normal de la
-  // habitación (ej. un precio especial pactado en R$ con el huésped), esa
-  // tarifa vale para TODA la estadía — sin esto, "+ NOCHE" en un día que
-  // cae viernes/sábado pisaba la tarifa pactada con el recargo de fin de
-  // semana de la habitación sin que nadie se diera cuenta (caso real:
-  // Hotel Nico Palace, huésped a R$350/noche, la 2da noche saltó a la
-  // tarifa de finde de la habitación).
   const tarifaPersonalizada = tarifa !== (_hospHabSel.precio_noche || 0);
+  const tarifaPrimeraNoche = tarifa;
   const descCargo = esMensual ? 'Mes — Hab. ' + _hospHabSel.numero : 'Noche — Hab. ' + _hospHabSel.numero;
 
   const email = localStorage.getItem('lic_email');
@@ -1001,7 +969,7 @@ async function hospConvertirReservaEnCheckin(){
   const esMensual = res.modalidad === 'mes';
   const tarifa = res.tarifa_noche || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
-  const tarifaNoche = (esMensual || res.tarifa_personalizada) ? tarifa : _hospTarifaParaNoche(res.habitacion_id, fechaHoy, tarifa);
+  const tarifaNoche = tarifa;
   const cargos = [{
     fecha: fechaHoy,
     descripcion: (esMensual ? 'Mes — Hab. ' : 'Noche — Hab. ') + (hospHabitaciones.find(function(h){ return h.id === res.habitacion_id; })||{}).numero,
@@ -1317,13 +1285,7 @@ function hospAgregarNoche(){
   const h = hospHabitaciones.find(function(x){ return x.id === _hospEstadiaSel.habitacion_id; });
   const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
-  // Mensual: tarifa fija, sin recargo de fin de semana. Si esta estadía
-  // tiene una tarifa pactada distinta a la normal de la habitación, esa
-  // tarifa vale para todas las noches — no se le pisa con el recargo de
-  // fin de semana de la habitación (ver check-in).
-  const tarifaNoche = (esMensual || _hospEstadiaSel.tarifa_personalizada)
-    ? tarifa
-    : _hospTarifaParaNoche(_hospEstadiaSel.habitacion_id, fechaHoy, tarifa);
+  const tarifaNoche = tarifa;
   hospAgregarCargo({
     fecha: fechaHoy,
     descripcion: (esMensual ? 'Mes — Hab. ' : 'Noche — Hab. ') + (h ? h.numero : ''),
@@ -1644,13 +1606,10 @@ function abrirPreciosTipo(){
         + '<span style="font-size:14px;font-weight:700;color:#fff;">' + _hospLabelTipo(tipo) + '</span>'
         + '<span style="font-size:11px;color:#666;">' + cantHabs + ' habitación' + (cantHabs!==1?'es':'') + '</span>'
       + '</div>'
-      + '<div style="display:grid;grid-template-columns:1fr 1fr 0.7fr;gap:8px;">'
+      + '<div style="display:grid;grid-template-columns:1fr 0.7fr;gap:8px;">'
         + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Precio</label>'
           + '<input id="hospPT_precio_' + tipo + '" type="number" min="0" value="' + (cat.precio != null ? cat.precio : '') + '" placeholder="' + (esOtro ? 'variable' : '0') + '" oninput="_hospActualizarEquivBRL(\'' + tipo + '\')" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">'
           + '<div id="hospPT_precioBRL_' + tipo + '" style="font-size:10.5px;color:#4caf50;margin-top:3px;min-height:13px;"></div></div>'
-        + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Precio finde</label>'
-          + '<input id="hospPT_finde_' + tipo + '" type="number" min="0" value="' + (cat.precioFinde != null ? cat.precioFinde : '') + '" placeholder="= normal" oninput="_hospActualizarEquivBRL(\'' + tipo + '\')" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;">'
-          + '<div id="hospPT_findeBRL_' + tipo + '" style="font-size:10.5px;color:#4caf50;margin-top:3px;min-height:13px;"></div></div>'
         + '<div><label style="font-size:10px;color:#888;text-transform:uppercase;font-weight:700;display:block;margin-bottom:3px;">Capac.</label>'
           + '<input id="hospPT_capacidad_' + tipo + '" type="number" min="1" value="' + (cat.capacidad != null ? cat.capacidad : '') + '" placeholder="' + (esOtro ? '—' : '1') + '" style="width:100%;background:#111;border:1.5px solid #333;border-radius:8px;color:#fff;font-size:13px;padding:9px 10px;outline:none;box-sizing:border-box;"></div>'
       + '</div>'
@@ -1660,21 +1619,17 @@ function abrirPreciosTipo(){
   document.getElementById('hospPreciosTipoOv').style.display = 'flex';
 }
 
-/** Muestra "≈ R$ X" bajo el precio/precio finde de un tipo, usando la
- * cotización de Reales configurada en Multi-moneda (si hay una cargada). */
+/** Muestra "≈ R$ X" bajo el precio de un tipo, usando la cotización de
+ * Reales configurada en Multi-moneda (si hay una cargada). */
 function _hospActualizarEquivBRL(tipo){
   const cotBRL = mmCotizacion('BRL');
   const elPrecio = document.getElementById('hospPT_precioBRL_' + tipo);
-  const elFinde = document.getElementById('hospPT_findeBRL_' + tipo);
   if(!cotBRL){
     if(elPrecio) elPrecio.textContent = '';
-    if(elFinde) elFinde.textContent = '';
     return;
   }
   const precio = parseInt((document.getElementById('hospPT_precio_' + tipo) || {}).value) || 0;
-  const finde = parseInt((document.getElementById('hospPT_finde_' + tipo) || {}).value) || 0;
   if(elPrecio) elPrecio.textContent = precio > 0 ? '≈ R$ ' + mmGsAExtranjera(precio, cotBRL, 2).toFixed(2) : '';
-  if(elFinde) elFinde.textContent = finde > 0 ? '≈ R$ ' + mmGsAExtranjera(finde, cotBRL, 2).toFixed(2) : '';
 }
 
 function cerrarPreciosTipo(){
@@ -1686,12 +1641,10 @@ async function guardarPreciosTipoDesdeForm(){
   const nuevo = {};
   tipos.forEach(function(tipo){
     const pEl = document.getElementById('hospPT_precio_' + tipo);
-    const fEl = document.getElementById('hospPT_finde_' + tipo);
     const cEl = document.getElementById('hospPT_capacidad_' + tipo);
     nuevo[tipo] = {
-      precio:      pEl.value !== '' ? parseInt(pEl.value) || 0 : null,
-      precioFinde: fEl.value !== '' ? parseInt(fEl.value) || 0 : null,
-      capacidad:   cEl.value !== '' ? parseInt(cEl.value) || null : null,
+      precio:    pEl.value !== '' ? parseInt(pEl.value) || 0 : null,
+      capacidad: cEl.value !== '' ? parseInt(cEl.value) || null : null,
     };
   });
   cerrarPreciosTipo();
