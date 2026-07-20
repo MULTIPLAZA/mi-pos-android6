@@ -2686,7 +2686,7 @@
 <script src="js/turno.js?v=20260413106"></script>
 <script src="js/productos.js?v=20260604001"></script>
 <script src="js/sync.js?v=20260412103"></script>
-<script src="js/licencia.js?v=20260720002"></script>
+<script src="js/licencia.js?v=20260720003"></script>
 <script src="js/mesas.js?v=20260412103"></script>
 <script src="js/hospedaje.js?v=20260705001"></script>
 <script src="js/rubro.js?v=20260604002"></script>
@@ -2954,9 +2954,13 @@ window.addEventListener('appinstalled', function(){
 });
 
 // ── MANEJO DEL BOTÓN ATRÁS ──────────────────────────────
-// Pantallas desde las que NO se puede retroceder con el botón Atrás
-// porque el proceso ya fue completado (cobro confirmado, turno cerrado)
-window._screenBloqueadas = ['scClosed', 'scRecibo', 'scPreviewCierre'];
+// Pantallas desde las que NO se puede retroceder con el botón Atrás.
+// scClosed/scRecibo/scPreviewCierre: el proceso ya fue completado (cobro
+// confirmado, turno cerrado). scSale/scMesas: son la pantalla principal
+// (según rubro) — sin esto, al llegar al fondo de la pila de navegación
+// el siguiente Atrás salía de la app entera (kiosk que queda abierto todo
+// el día no debe poder cerrarse así).
+window._screenBloqueadas = ['scClosed', 'scRecibo', 'scPreviewCierre', 'scSale', 'scMesas'];
 window._screenActual = null;
 
 // goTo se llama desde ui.js — lo interceptamos aquí definiendo un wrapper
