@@ -1443,8 +1443,10 @@ function openDivMethodSheet(i) {
   const sheet = document.getElementById('catSheetContent');
   let html = '';
   var metodos = PAY_METHODS.slice();
-  if (localStorage.getItem('mm_use_PIX') !== '0') metodos.push('Pix');
-  if (localStorage.getItem('mm_use_MP') !== '0') metodos.push('Mercado Pago');
+  if (localStorage.getItem('mm_activo') === '1') {
+    if (localStorage.getItem('mm_use_PIX') !== '0') metodos.push('Pix');
+    if (localStorage.getItem('mm_use_MP') !== '0') metodos.push('Mercado Pago');
+  }
   metodos.forEach(m => {
     const sel = divPagos[i].metodo === m ? 'sel' : '';
     html += '<div class="cat-item ' + sel + '" onclick="pickDivMethod(this)">' + m + '</div>';
