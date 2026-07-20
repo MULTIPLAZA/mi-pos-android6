@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.112 (2026-07-20)';
+var APP_VERSION = 'v1.15.113 (2026-07-20)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -456,7 +456,17 @@ async function doActivar(){
       configData.negocio=''; configData.ciudad=''; configData.ruc='';
       configData.direccion=''; configData.telefono='';
     }
-    _log('[Activar] Licencia distinta a la anterior en este dispositivo — cache de negocio limpiada por completo');
+    // Mismo problema con el catálogo de productos: además de en IndexedDB
+    // (db.productos), quedaba vivo en el array PRODS en memoria de la
+    // cuenta anterior y se seguía mostrando en la grilla mezclado con el
+    // de la cuenta nueva. Limpiar ambos.
+    try {
+      if(typeof db !== 'undefined' && db){
+        await Promise.all([ db.productos.clear(), db.categorias.clear() ]);
+      }
+    } catch(e){}
+    if(typeof PRODS !== 'undefined') PRODS.length = 0;
+    _log('[Activar] Licencia distinta a la anterior en este dispositivo — cache de negocio y catálogo limpiados por completo');
   }
   licGuardar(res);
   document.getElementById('scActivacion').style.display='none';
@@ -897,7 +907,7 @@ function doContactarSoporte(){
   window.open('https://wa.me/595XXXXXXXXX?text='+msg,'_blank');
 }
 
-function doDesactivar(){
+async function doDesactivar(){
   if(!confirm('Desactivar esta licencia en este dispositivo?')) return;
   Object.values(SK).forEach(k=>localStorage.removeItem(k));
   // Estas claves de negocio viven FUERA de SK (legacy) — sin esto, "Cambiar
@@ -906,16 +916,22 @@ function doDesactivar(){
    'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
    'pos_logo','pos_sucursal','pos_deposito_id','pos_terminal']
     .forEach(function(k){ localStorage.removeItem(k); });
-  // Limpiar IndexedDB para que no queden datos de la cuenta anterior
+  // Limpiar IndexedDB para que no queden datos de la cuenta anterior —
+  // esperar a que termine antes de recargar (si no, la recarga puede
+  // alcanzar a leer la IndexedDB todavía no vaciada).
   try {
     if(typeof db !== 'undefined' && db){
-      Promise.all([
+      await Promise.all([
         db.productos.clear(),
         db.categorias.clear(),
         db.config.clear(),
-      ]).catch(function(){});
+      ]);
     }
   } catch(e){}
-  document.getElementById('scBloqueado').style.display='none';
-  document.getElementById('scActivacion').style.display='flex';
+  // Recargar la app entera — PRODS/CATS y demás estado en memoria de la
+  // cuenta anterior quedaban vivos en la sesión JS aunque la base local ya
+  // estuviera vacía, así que la lista de productos vieja seguía viéndose
+  // hasta que alguien forzaba un refresh manual. Con reload() arranca de
+  // cero y ve directo la pantalla de activación para la licencia nueva.
+  window.location.reload();
 }
