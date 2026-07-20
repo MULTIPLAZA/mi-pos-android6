@@ -2734,11 +2734,11 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
     : 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.75);display:flex;align-items:flex-end;justify-content:center;';
   var cardStyle = isLandscape
     ? 'background:#1a1a1a;border-radius:16px;width:100%;max-width:480px;padding:18px 20px 20px;font-family:Barlow,sans-serif;overflow-y:auto;max-height:96vh;'
-    : 'background:#1a1a1a;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 32px;font-family:Barlow,sans-serif;';
+    : 'background:#1a1a1a;border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:24px 20px 32px;font-family:Barlow,sans-serif;overflow-y:auto;max-height:92vh;';
 
   // Numpad para precio — mismo estilo que precioModalOv
   var nb = 'background:#2a2a2a;border:1px solid #3a3a3a;border-radius:8px;color:#fff;font-family:\'Barlow\',sans-serif;font-weight:600;padding:15px 0;cursor:pointer;width:100%;';
-  var numpadHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;">';
+  var numpadHtml = '<div id="_mnpNumpadWrap" style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px;">';
   var numKeys = ['1','2','3','4','5','6','7','8','9','000','0','⌫'];
   for (var ki = 0; ki < numKeys.length; ki++) {
     var d = numKeys[ki];
@@ -2773,6 +2773,7 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
       ) +
       '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Nombre</div>' +
       '<input id="_mnpNombre" autocomplete="off" autocapitalize="characters" placeholder="Ej: COCA COLA 500ML" value="' + valNombre + '" ' +
+        'onfocus="_mnpOcultarNumpad()" onblur="_mnpMostrarNumpad()" ' +
         'style="width:100%;box-sizing:border-box;background:#2a2a2a;border:1.5px solid #3a3a3a;border-radius:12px;' +
         'color:#fff;font-family:Barlow,sans-serif;font-size:16px;font-weight:600;padding:14px 16px;margin-bottom:12px;outline:none;letter-spacing:.3px;">' +
       '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:.8px;text-transform:uppercase;margin-bottom:6px;">Precio (Gs)</div>' +
@@ -2788,9 +2789,14 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
     '</div>';
   document.body.appendChild(m);
 
-  // Estado del numpad (raw dígitos)
+  // Estado del numpad (raw dígitos). _mnpPrecioTouched=false mientras el valor
+  // en pantalla sea el precio sugerido sin tocar — el primer dígito lo borra
+  // y arranca de cero, en vez de pegarse al final (antes había que borrar
+  // todo el precio sugerido a mano para cargar el propio).
   window._mnpNumVal = valPrecio || '';
+  window._mnpPrecioTouched = !valPrecio;
   window._mnpNum = function(d) {
+    if (!window._mnpPrecioTouched) { window._mnpNumVal = ''; window._mnpPrecioTouched = true; }
     var v = window._mnpNumVal + d;
     if (v.length > 10) return;
     window._mnpNumVal = v;
@@ -2801,6 +2807,7 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
     if (inp)  inp.value = n ? String(n) : '';
   };
   window._mnpNumDel = function() {
+    window._mnpPrecioTouched = true;
     window._mnpNumVal = window._mnpNumVal.slice(0, -1);
     var n = parseInt(window._mnpNumVal) || 0;
     var disp = document.getElementById('_mnpPrecioDisp');
@@ -2808,11 +2815,23 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
     if (disp) disp.textContent = window._mnpNumVal ? gs(n) : '₲ 0';
     if (inp)  inp.value = window._mnpNumVal ? String(n) : '';
   };
+  // Oculta/muestra el numpad de precio al enfocar/desenfocar el nombre —
+  // así el teclado nativo no compite por espacio vertical con el numpad y
+  // el campo de texto no queda tapado/empujado fuera de pantalla.
+  window._mnpOcultarNumpad = function() {
+    var w = document.getElementById('_mnpNumpadWrap');
+    if (w) w.style.display = 'none';
+  };
+  window._mnpMostrarNumpad = function() {
+    var w = document.getElementById('_mnpNumpadWrap');
+    if (w) w.style.display = 'grid';
+  };
   // Exponer helper para el botón de teclado nombre
   window._mnpFocusNombre = function() {
     var el  = document.getElementById('_mnpNombre');
     var btn = document.getElementById('_mnpTeclado');
     if (btn) btn.style.display = 'none';
+    window._mnpOcultarNumpad();
     if (el) { el.focus(); el.click(); }
   };
   // Auto-focus solo cuando no hay prefill (producto manual sin datos)
@@ -2824,6 +2843,8 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
         if (document.activeElement === el) {
           var btn = document.getElementById('_mnpTeclado');
           if (btn) btn.style.display = 'none';
+          window._mnpOcultarNumpad();
+          el.scrollIntoView({ block: 'center' });
         }
       }
     }, 120);
