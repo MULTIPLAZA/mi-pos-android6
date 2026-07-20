@@ -85,6 +85,15 @@ window.addEventListener('popstate', function(e) {
     precioOv.classList.remove('open');
     return;
   }
+  // Modal "Nuevo producto" (escaneo de código no encontrado) — se crea con
+  // appendChild/remove() en vez del patrón classList 'open' de los de
+  // arriba, así que sin este chequeo el botón Atrás lo dejaba abierto para
+  // siempre (la pantalla de fondo quedaba "atrapada" y el modal ni se enteraba).
+  const nuevoProdOv = document.getElementById('_modalNuevoProd');
+  if(nuevoProdOv){
+    nuevoProdOv.remove();
+    return;
+  }
   const screen = e.state && e.state.screen;
   if (screen) {
     // Navegar a la pantalla anterior sin pushear al historial
