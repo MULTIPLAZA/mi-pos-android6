@@ -290,7 +290,12 @@ async function dbCerrarTurno(turnoDbId, totalContado, diferencia, extra){
 
 async function dbSaveEgreso(egreso){
   const data = {
-    turno_id:       turnoData.dbId || null,
+    // turno_id termina en Supabase (vía dbQueueSync, que reenvía este mismo
+    // objeto tal cual) — tiene que ser turnoData.supaId, no turnoData.dbId
+    // (id local de IndexedDB, un contador aparte). Nada consulta este campo
+    // en la copia local de db.egresos, así que usar supaId acá es seguro
+    // para ambos lados (ver mismo fix en supaInsertVenta, turno.js).
+    turno_id:       turnoData.supaId || null,
     descripcion:    egreso.desc,
     monto:          egreso.monto,
     // monto_original/moneda_original: si el egreso se tipeó en R$ (toggle
@@ -346,7 +351,9 @@ async function dbSaveIngreso(ingreso){
   if(typeof USAR_DEMO !== 'undefined' && USAR_DEMO) return;
   if(!navigator.onLine) return;
   const data = {
-    turno_id:        turnoData.dbId || null,
+    // turno_id va directo a Supabase (supaPost más abajo) — turnoData.supaId,
+    // no turnoData.dbId. Ver mismo fix en supaInsertVenta (turno.js).
+    turno_id:        turnoData.supaId || null,
     descripcion:     ingreso.desc,
     monto:           ingreso.monto,
     metodo:          ingreso.metodo || null,

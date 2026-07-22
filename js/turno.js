@@ -169,7 +169,13 @@ function supaInsertVenta(data){
 
   const venta = {
     fecha:          (data.fecha || new Date()).toISOString(),
-    turno_id:       turnoData.dbId || null,
+    // turno_id va a Supabase — tiene que ser turnoData.supaId (el id real de
+    // pos_turno), NUNCA turnoData.dbId (el id local de IndexedDB, un
+    // contador aparte por dispositivo). Mezclarlos hace que las ventas
+    // queden atadas a un turno de Supabase que no tiene nada que ver con el
+    // que está realmente abierto en pantalla (caso real: Hotel Nico Palace,
+    // meses de ventas atadas a un turno viejo "fantasma" por este bug).
+    turno_id:       turnoData.supaId || null,
     terminal:       licGetTerminal(),
     sucursal:       localStorage.getItem('pos_sucursal') || 'Principal',
     licencia_email: email,
