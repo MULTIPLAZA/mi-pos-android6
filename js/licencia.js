@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.118 (2026-07-23)';
+var APP_VERSION = 'v1.15.119 (2026-07-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -488,6 +488,13 @@ async function doActivar(){
   if(emailAnterior && emailAnterior.toLowerCase() !== email.toLowerCase()){
     await limpiarCacheTenantAnterior();
     _log('[Activar] Licencia distinta a la anterior en este dispositivo — cache de negocio, sucursal/depósito, turno y catálogo limpiados por completo');
+    // Aviso visible — antes este cambio de tenant era silencioso y el
+    // técnico/revendedor podía no darse cuenta de que este equipo traía
+    // datos de OTRA cuenta, cargar sucursal/productos pensando que arrancaba
+    // "limpio" y confundirse si algo no cuadraba después.
+    if(typeof toast === 'function'){
+      toast('Este equipo tenía otra cuenta cargada (' + emailAnterior + ') — se limpió todo su caché local');
+    }
   }
   licGuardar(res);
   document.getElementById('scActivacion').style.display='none';

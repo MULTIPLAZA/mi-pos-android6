@@ -617,19 +617,37 @@ async function updSyncBadge(){
     }
   };
 
-  if(!navigator.onLine){ setIcon('offline', 0); return; }
-  if(!db)               { setIcon('ok', 0);      return; }
+  // Cola de respaldo en localStorage (ventas cuando IndexedDB no abrió, y
+  // productos/categorías siempre) — sin esto, un fallo de sync ahí era
+  // INVISIBLE para el usuario: no aparecía en este badge ni en el panel, y
+  // el dato se perdía en silencio hasta que alguien notaba que faltaba
+  // (caso real: catálogo completo de Bodemarket, ver productos.js). El
+  // badge es la única señal que tiene el cajero de que algo no se guardó.
+  const pendLocal = _contarPendientesLocalStorage();
+
+  if(!navigator.onLine){ setIcon('offline', pendLocal); return; }
+  if(!db)               { setIcon(pendLocal>0?'pending':'ok', pendLocal); return; }
 
   try {
-    const pendientes = await db.sync_queue.where('sincronizado').equals(0).count();
+    const pendientes = await db.sync_queue.where('sincronizado').equals(0).count() + pendLocal;
     const errores    = await db.sync_queue.where('sincronizado').equals(2).count();
 
     if(errores > 0)         setIcon('error',   errores);
     else if(pendientes > 0) setIcon('pending', pendientes);
     else                    setIcon('ok',      0);
   } catch(e){
-    setIcon('ok', 0);
+    setIcon(pendLocal>0?'pending':'ok', pendLocal);
   }
+}
+
+/** Cuenta items pendientes en las colas de respaldo de localStorage (ventas
+ *  sin IndexedDB + productos/categorías) — ver FALLBACK_KEY en turno.js y
+ *  FALLBACK_KEY_PRODUCTOS en productos.js. */
+function _contarPendientesLocalStorage(){
+  var n = 0;
+  try { n += (JSON.parse(localStorage.getItem('pos_sync_fallback') || '[]')).length; } catch(e){}
+  try { n += (JSON.parse(localStorage.getItem('pos_productos_sync_fallback') || '[]')).length; } catch(e){}
+  return n;
 }
 
 /** Renderiza el panel completo de sincronización */
@@ -662,6 +680,14 @@ async function renderSyncPanel(){
   html += '<div class="sync-stat-row"><span class="sync-stat-label">Última sync exitosa</span><span class="sync-stat-value" style="font-size:11px;">' + ultimaSync + '</span></div>';
   html += '<div class="sync-stat-row"><span class="sync-stat-label">Ventas pendientes</span><span class="sync-stat-value" style="color:' + (pendientes > 0 ? '#ff9800' : 'var(--text)') + '">' + pendientes + '</span></div>';
   html += '<div class="sync-stat-row"><span class="sync-stat-label">Con error</span><span class="sync-stat-value" style="color:' + (errores > 0 ? '#e53935' : 'var(--text)') + '">' + errores + '</span></div>';
+  // Cola de respaldo en localStorage (ventas sin IndexedDB + productos/
+  // categorías) — ver _contarPendientesLocalStorage() en updSyncBadge().
+  // Antes esto no aparecía en ningún lado del panel: un fallo acá quedaba
+  // invisible hasta que el dato faltaba (caso real: catálogo de Bodemarket).
+  var pendLocalPanel = typeof _contarPendientesLocalStorage === 'function' ? _contarPendientesLocalStorage() : 0;
+  if(pendLocalPanel > 0){
+    html += '<div class="sync-stat-row"><span class="sync-stat-label">Productos/ventas sin subir</span><span class="sync-stat-value" style="color:#ff9800">' + pendLocalPanel + '</span></div>';
+  }
   html += '</div>';
 
   // Botón sync manual
@@ -742,6 +768,7 @@ async function syncManual(){
   try {
     await syncConSupabase();
     await syncVentasPendientes();
+    if(typeof drenarProductosFallback === 'function') await drenarProductosFallback();
     await limpiarSyncQueue();
     updSyncBadge();
     renderSyncPanel();
