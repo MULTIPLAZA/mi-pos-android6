@@ -264,12 +264,23 @@ async function iniciarApp(){
     // Bug conocido: si la app se cierra DESPUÉS de confirmarCierre() pero ANTES
     // de que location.reload() procese la limpieza del localStorage, el turno
     // cerrado puede quedar en caché. Esta verificación lo detecta y lo limpia.
-    if(turnoOk && navigator.onLine && !USAR_DEMO){
-      const supaIdCheck = turnoData.supaId || turnoData.dbId;
-      if(supaIdCheck){
+    //
+    // IMPORTANTE: usar SOLO turnoData.supaId (el id real de pos_turno), NUNCA
+    // turnoData.dbId como fallback — dbId es el autoincremental local de
+    // IndexedDB (1, 2, 3... por dispositivo) y pos_turno es una tabla GLOBAL
+    // compartida entre todos los tenants. Si se usaba dbId acá, un turno de
+    // OTRO cliente ya cerrado con ese mismo número borraba la caja recién
+    // abierta en este dispositivo (mismo anti-patrón que turno.js:172-178,
+    // ya documentado ahí por el caso real Hotel Nico Palace). Se filtra
+    // también por licencia_email como defensa adicional en profundidad.
+    if(turnoOk && navigator.onLine && !USAR_DEMO && turnoData.supaId){
+      const emailCheck = localStorage.getItem(SK.email);
+      if(emailCheck){
         try{
           const rows = await supaGet('pos_turno',
-            'id=eq.'+supaIdCheck+'&select=id,estado&limit=1');
+            'id=eq.'+turnoData.supaId
+            +'&licencia_email=eq.'+encodeURIComponent(emailCheck)
+            +'&select=id,estado&limit=1');
           {
             const row  = rows && rows[0];
             if(row && row.estado !== 'abierto'){

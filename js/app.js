@@ -804,7 +804,16 @@ function supaInsertTurno(estado, efectivoInicial, efectivoInicialBRL){
     licencia_email:   email,
   };
   supaPost('pos_turno', data).then(rows=>{
-    if(rows&&rows[0]) turnoData.supaId = rows[0].id;
+    if(rows&&rows[0]){
+      turnoData.supaId = rows[0].id;
+      // Sin esto, el supaId real quedaba solo en memoria: si la app se
+      // recargaba antes de la próxima venta/egreso, localStorage seguía
+      // con supaId=null y el chequeo de arranque (init.js) caía al dbId
+      // local (IndexedDB) para verificar el turno contra Supabase — un id
+      // que no tiene relación con pos_turno y puede coincidir con el de
+      // OTRO turno ya cerrado, borrando la caja recién abierta.
+      turnoGuardar();
+    }
     _log('[Turno] Guardado en Supabase id:', rows&&rows[0]&&rows[0].id);
   }).catch(e=>console.warn('[Turno] Error Supabase:', e.message));
 }

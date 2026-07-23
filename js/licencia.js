@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.115 (2026-07-22)';
+var APP_VERSION = 'v1.15.116 (2026-07-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -54,6 +54,44 @@ function cookieSet(name, val, days){
 function cookieGet(name){
   const m = document.cookie.match('(?:^|; )'+name+'=([^;]*)');
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+// ── Limpieza de caché de la licencia/tenant anterior en este dispositivo ──
+// Un mismo dispositivo se reutiliza entre licencias distintas (pruebas,
+// reventa, reasignación). Sin limpiar TODO lo que quedó cacheado de la
+// cuenta anterior, datos de otro cliente se filtran a la cuenta nueva.
+// Esta lista es compartida por doActivar (cambio de licencia sin reload) y
+// doDesactivar ("Cambiar licencia") — antes cada una tenía su propia lista
+// parcial y quedaban huecos: 'pos_sucursal_id' y 'ali' (licencia_id) nunca
+// se limpiaban, así que un ID numérico de la cuenta anterior seguía
+// escribiéndose en Supabase (sucursal, stock, turno) aunque la UI ya
+// mostrara el nombre de la cuenta nueva. Ya pasó dos veces antes con otros
+// campos (ver commits de datos de negocio y de catálogo de productos
+// filtrándose entre licencias) — de ahí centralizar esto en un solo lugar.
+async function limpiarCacheTenantAnterior(){
+  ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
+   'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
+   'pos_logo','pos_sucursal','pos_sucursal_id','pos_deposito','pos_deposito_id',
+   'pos_terminal','pos_modo_terminal','pos_turno_activo','ali',SK.negocio]
+    .forEach(function(k){ localStorage.removeItem(k); });
+  ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
+    .forEach(function(k){ cookieSet(k, '', -1); });
+  if(typeof configData !== 'undefined'){
+    configData.negocio=''; configData.ciudad=''; configData.ruc='';
+    configData.direccion=''; configData.telefono='';
+    configData.terminal=''; configData.sucursal=''; configData.deposito='';
+  }
+  if(typeof turnoData !== 'undefined'){
+    turnoData.fechaApertura=null; turnoData.efectivoInicial=0;
+    turnoData.ventas=[]; turnoData.egresos=[]; turnoData.ingresos=[];
+    turnoData.supaId=null; turnoData.dbId=null;
+  }
+  if(typeof PRODS !== 'undefined') PRODS.length = 0;
+  try {
+    if(typeof db !== 'undefined' && db){
+      await Promise.all([ db.productos.clear(), db.categorias.clear(), db.config.clear() ]);
+    }
+  } catch(e){}
 }
 
 function licGetDeviceId(){
@@ -448,25 +486,8 @@ async function doActivar(){
   // sobreviven indefinidamente entre licencias si no se limpian acá.
   var emailAnterior = localStorage.getItem(SK.email);
   if(emailAnterior && emailAnterior.toLowerCase() !== email.toLowerCase()){
-    ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
-     'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
-     'pos_logo','pos_sucursal','pos_deposito_id','pos_terminal',SK.negocio]
-      .forEach(function(k){ localStorage.removeItem(k); });
-    if(typeof configData !== 'undefined'){
-      configData.negocio=''; configData.ciudad=''; configData.ruc='';
-      configData.direccion=''; configData.telefono='';
-    }
-    // Mismo problema con el catálogo de productos: además de en IndexedDB
-    // (db.productos), quedaba vivo en el array PRODS en memoria de la
-    // cuenta anterior y se seguía mostrando en la grilla mezclado con el
-    // de la cuenta nueva. Limpiar ambos.
-    try {
-      if(typeof db !== 'undefined' && db){
-        await Promise.all([ db.productos.clear(), db.categorias.clear() ]);
-      }
-    } catch(e){}
-    if(typeof PRODS !== 'undefined') PRODS.length = 0;
-    _log('[Activar] Licencia distinta a la anterior en este dispositivo — cache de negocio y catálogo limpiados por completo');
+    await limpiarCacheTenantAnterior();
+    _log('[Activar] Licencia distinta a la anterior en este dispositivo — cache de negocio, sucursal/depósito, turno y catálogo limpiados por completo');
   }
   licGuardar(res);
   document.getElementById('scActivacion').style.display='none';
@@ -527,12 +548,30 @@ async function cargarSucursalesExistentes(email){
   }
 
   try {
-    // Obtener licencia_id del email
+    // Obtener licencia_id — PRIMERO por device_id (mismo criterio confiable
+    // que usa doEntrar()/crear_sucursal más abajo): la RPC activar_licencia
+    // ya dejó este device_id asociado a la licencia_id correcta en
+    // `activaciones`. Resolver por email (ilike, sin garantía de unicidad —
+    // ver rls_hardening.sql) traía las sucursales de OTRA licencia cuando
+    // dos cuentas comparten o se parecen en el email_cliente, y si esa
+    // consulta devolvía exactamente 1 sucursal se auto-seleccionaba sola
+    // más abajo (línea ~596) sin que el usuario eligiera nada — causa real
+    // de que al activar una licencia nueva se "heredara" la sucursal de un
+    // cliente distinto probado antes en este mismo dispositivo.
+    var deviceIdSuc = await licGetDeviceIdAsync();
+    var licId = null;
+    if(deviceIdSuc){
+      var activRowsSuc = await supaGet('activaciones',
+        'device_id=eq.' + encodeURIComponent(deviceIdSuc) + '&select=licencia_id&limit=1');
+      licId = (activRowsSuc && activRowsSuc[0] && activRowsSuc[0].licencia_id) || null;
+    }
     // NOTA: la tabla `licencias` NO tiene la columna `nombre_negocio`; el nombre del
     // negocio se pre-llena más abajo desde la tabla `activaciones` (fallback) que sí lo tiene.
-    var licRows = await supaGet('licencias',
-      'email_cliente=ilike.' + encodeURIComponent(email) + '&activa=eq.true&select=id&limit=1');
-    var licId = licRows && licRows[0] ? licRows[0].id : null;
+    if(!licId){
+      var licRows = await supaGet('licencias',
+        'email_cliente=ilike.' + encodeURIComponent(email) + '&activa=eq.true&select=id&limit=1');
+      licId = licRows && licRows[0] ? licRows[0].id : null;
+    }
     var negInput = document.getElementById('activadoNegocio');
 
     var sucursales = [];
@@ -910,24 +949,11 @@ function doContactarSoporte(){
 async function doDesactivar(){
   if(!confirm('Desactivar esta licencia en este dispositivo?')) return;
   Object.values(SK).forEach(k=>localStorage.removeItem(k));
-  // Estas claves de negocio viven FUERA de SK (legacy) — sin esto, "Cambiar
-  // licencia" no dejaba el equipo realmente limpio para la próxima cuenta.
-  ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
-   'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
-   'pos_logo','pos_sucursal','pos_deposito_id','pos_terminal']
-    .forEach(function(k){ localStorage.removeItem(k); });
-  // Limpiar IndexedDB para que no queden datos de la cuenta anterior —
-  // esperar a que termine antes de recargar (si no, la recarga puede
-  // alcanzar a leer la IndexedDB todavía no vaciada).
-  try {
-    if(typeof db !== 'undefined' && db){
-      await Promise.all([
-        db.productos.clear(),
-        db.categorias.clear(),
-        db.config.clear(),
-      ]);
-    }
-  } catch(e){}
+  // Estas claves de negocio (+ sucursal/depósito/turno/licencia_id) viven
+  // FUERA de SK (legacy) — sin limpiarlas, "Cambiar licencia" no dejaba el
+  // equipo realmente limpio para la próxima cuenta. Lista compartida con
+  // doActivar — ver limpiarCacheTenantAnterior().
+  await limpiarCacheTenantAnterior();
   // Recargar la app entera — PRODS/CATS y demás estado en memoria de la
   // cuenta anterior quedaban vivos en la sesión JS aunque la base local ya
   // estuviera vacía, así que la lista de productos vieja seguía viéndose
