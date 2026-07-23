@@ -469,6 +469,7 @@ async function iniciarApp(){
   setTimeout(sincronizarConfigNegocio, 3000);
   setTimeout(syncConSupabase, 5000);
   setTimeout(syncVentasPendientes, 8000);
+  setTimeout(drenarProductosFallback, 8500); // productos/categorías cargados sin conexión
   setTimeout(mesasCargar, 6000); // Cargar mesas en background
   setTimeout(updSyncBadge, 1500); // Actualizar badge de sync al iniciar
   setTimeout(cargarModificadores, 4000); // Cargar modificadores en background

@@ -1173,33 +1173,40 @@ async function supaUpsertProducto(prod){
   if(USAR_DEMO) return;
   const email = localStorage.getItem('lic_email') || localStorage.getItem(SK && SK.email);
   if(!email) return;
+  const payload = {
+    id:              prod.id,
+    nombre:          (prod.name || '').toUpperCase(),
+    precio:          prod.price || 0,
+    precio_variable: prod.precioVariable || false,
+    costo:           prod.costo || 0,
+    codigo:          prod.codigo || '',
+    codigos:         JSON.stringify(prod.codigos || []),
+    categoria:       prod.cat || 'Sin categoría',
+    iva:             prod.iva || '10',
+    color:           prod.color || '#546e7a',
+    color_propio:    prod.colorPropio || false,
+    mitad:           prod.mitad || false,
+    inventario:      prod.inventario || false,
+    comanda:         prod.comanda || false,
+    es_kilo:         prod.esKilo || false,
+    es_favorito:     prod.esFavorito || false,
+    activo:          prod.activo !== false,
+    imagen:          prod.imagen || null,
+    licencia_email:  email,
+    updated_at:      new Date().toISOString()
+  };
   try {
-    const payload = {
-      id:              prod.id,
-      nombre:          (prod.name || '').toUpperCase(),
-      precio:          prod.price || 0,
-      precio_variable: prod.precioVariable || false,
-      costo:           prod.costo || 0,
-      codigo:          prod.codigo || '',
-      codigos:         JSON.stringify(prod.codigos || []),
-      categoria:       prod.cat || 'Sin categoría',
-      iva:             prod.iva || '10',
-      color:           prod.color || '#546e7a',
-      color_propio:    prod.colorPropio || false,
-      mitad:           prod.mitad || false,
-      inventario:      prod.inventario || false,
-      comanda:         prod.comanda || false,
-      es_kilo:         prod.esKilo || false,
-      es_favorito:     prod.esFavorito || false,
-      activo:          prod.activo !== false,
-      imagen:          prod.imagen || null,
-      licencia_email:  email,
-      updated_at:      new Date().toISOString()
-    };
     await supaPost('pos_productos', payload, 'id', true);
   } catch(e){
     console.warn('[supaUpsertProducto]', e.message);
-    toast('Error al guardar producto en la nube');
+    // Sin cola de reintento acá, el producto quedaba SOLO en este
+    // dispositivo (PRODS + IndexedDB) si no había internet en el momento de
+    // cargarlo — y se perdía para siempre en cuanto se dejaba de usar ese
+    // aparato, sin ningún aviso claro (caso real: catálogo completo cargado
+    // offline, nunca llegó a Supabase). Mismo patrón que ya resuelve
+    // encolarVentaSync() para las ventas.
+    encolarProductoSync('pos_productos', payload);
+    toast('Sin conexión — se sincronizará solo cuando vuelva el internet');
   }
 }
 
@@ -1207,21 +1214,61 @@ async function supaUpsertCategoria(cat){
   if(USAR_DEMO) return;
   const email = localStorage.getItem('lic_email') || localStorage.getItem(SK && SK.email);
   if(!email) return;
+  const payload = {
+    id: cat.id,
+    nombre: cat.nombre,
+    color: cat.color || '#546e7a',
+    licencia_email: email,
+    updated_at: new Date().toISOString()
+  };
+  if(cat.activa === false) payload.activa = false;
   try {
-    const payload = {
-      id: cat.id,
-      nombre: cat.nombre,
-      color: cat.color || '#546e7a',
-      licencia_email: email,
-      updated_at: new Date().toISOString()
-    };
-    if(cat.activa === false) payload.activa = false;
     await supaPost('pos_categorias', payload, 'id', true);
   } catch(e){
     console.warn('[supaUpsertCategoria]', e.message);
-    toast('Error al guardar categoría en la nube');
+    encolarProductoSync('pos_categorias', payload);
+    toast('Sin conexión — se sincronizará solo cuando vuelva el internet');
   }
 }
+
+// ── Cola de respaldo para productos/categorías sin conexión ──────────────
+// A diferencia de las ventas (encolarVentaSync/FALLBACK_KEY en turno.js),
+// el guardado de productos no tenía NINGÚN reintento — ver comentario en
+// supaUpsertProducto. Mismo criterio que la cola de ventas: guardar en
+// localStorage y reintentar cuando vuelva la conexión. El POST es upsert
+// (on_conflict=id, merge-duplicates), así que reintentar un item ya
+// sincronizado no duplica ni pisa datos más nuevos por error.
+var FALLBACK_KEY_PRODUCTOS = 'pos_productos_sync_fallback';
+
+function encolarProductoSync(tabla, payload){
+  try {
+    var arr = JSON.parse(localStorage.getItem(FALLBACK_KEY_PRODUCTOS) || '[]');
+    arr.push({ tabla: tabla, payload: payload });
+    if(arr.length > 1000) arr = arr.slice(-1000); // tope defensivo
+    localStorage.setItem(FALLBACK_KEY_PRODUCTOS, JSON.stringify(arr));
+    _log('[Sync] Producto/categoría en cola local (sin conexión):', arr.length);
+  } catch(e){ console.warn('[Sync] Fallback productos lleno:', e.message); }
+}
+
+async function drenarProductosFallback(){
+  if(!navigator.onLine || USAR_DEMO) return;
+  var arr;
+  try { arr = JSON.parse(localStorage.getItem(FALLBACK_KEY_PRODUCTOS) || '[]'); } catch(e){ return; }
+  if(!arr.length) return;
+  var quedan = [];
+  for(var i=0;i<arr.length;i++){
+    try { await supaPost(arr[i].tabla, arr[i].payload, 'id', true); }
+    catch(e){ quedan.push(arr[i]); }
+  }
+  try { localStorage.setItem(FALLBACK_KEY_PRODUCTOS, JSON.stringify(quedan)); } catch(e){}
+  if(quedan.length < arr.length){
+    _log('[Sync] Fallback productos drenado:', (arr.length - quedan.length));
+    toast((arr.length - quedan.length) + ' producto(s) sincronizados que estaban pendientes');
+  }
+}
+
+// Reintentar apenas vuelve la conexión, sin esperar al próximo arranque
+window.addEventListener('online', function(){ drenarProductosFallback(); });
 
 // Sincroniza todas las CATEGORIAS a pos_categorias.
 // Necesario porque muchas categorías pueden venir del fallback
