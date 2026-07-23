@@ -83,17 +83,19 @@ window.mmMontoCaja = function(montoGs) {
 
 /**
  * true si esta cuenta lleva la caja en DOS monedas simultáneas (Gs Y R$
- * reales, no un equivalente convertido) — hoteles de frontera que cobran
- * parte en guaraníes (transferencia, efectivo) y parte en reales (efectivo,
- * Pix) y necesitan saber cuánto tienen de cada uno en la caja física.
- * Distinto de _cajaMonedaBRL() (que es "todo en R$ como preferencia de
- * visualización") — acá se muestran las DOS columnas a la vez.
+ * reales, no un equivalente convertido) — negocios de frontera (hoteles,
+ * kioscos/despensas) que cobran parte en guaraníes (transferencia,
+ * efectivo) y parte en reales (efectivo, Pix) y necesitan saber cuánto
+ * tienen de cada uno en la caja física. Distinto de _cajaMonedaBRL() (que
+ * es "todo en R$ como preferencia de visualización") — acá se muestran las
+ * DOS columnas a la vez.
+ *
+ * Originalmente restringido a rubro Hospedaje (pedido puntual de Hotel
+ * Nico) — se generalizó a cualquier rubro porque otros negocios de
+ * frontera (ej. kioscos) tienen la misma necesidad de manejar caja física
+ * en ambas monedas.
  */
 window._cajaDobleMoneda = function(){
-  // Solo cuentas de rubro Hospedaje pueden usar esta función — aunque el
-  // flag quedara en '1' en localStorage (config vieja, cuenta que cambió
-  // de rubro, etc.), no se activa fuera de Hospedaje.
-  if(typeof usaHabitaciones === 'function' && !usaHabitaciones()) return false;
   return localStorage.getItem('caja_doble_moneda') === '1';
 };
 

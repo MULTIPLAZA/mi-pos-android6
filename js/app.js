@@ -189,11 +189,12 @@ function loadGeneralConfigInputs(){
   }
   const chkCajaBRL = document.getElementById('cfgCajaMonedaBRL');
   if(chkCajaBRL) chkCajaBRL.checked = _cajaMonedaBRL();
-  // "Caja en dos monedas" — solo Hospedaje (pedido puntual de Hotel Nico).
+  // "Caja en dos monedas" — originalmente solo Hospedaje (pedido puntual de
+  // Hotel Nico), generalizada a cualquier rubro (ver lib/moneda.js).
   const rowCajaDoble = document.getElementById('cfgCajaDobleMonedaRow');
-  if(rowCajaDoble) rowCajaDoble.style.display = usaHosp ? 'flex' : 'none';
+  if(rowCajaDoble) rowCajaDoble.style.display = 'flex';
   const chkCajaDoble = document.getElementById('cfgCajaDobleMoneda');
-  if(chkCajaDoble) chkCajaDoble.checked = usaHosp && typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
+  if(chkCajaDoble) chkCajaDoble.checked = typeof _cajaDobleMoneda === 'function' && _cajaDobleMoneda();
 
   const set = (id, val) => { const el = document.getElementById(id); if(el!=null) el.value = val || ''; };
   set('cfgNegocio',   configData.negocio   || localStorage.getItem('an') || '');
