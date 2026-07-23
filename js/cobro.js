@@ -93,6 +93,14 @@ function _goCobrarSetup() {
   if (_btnPix) _btnPix.style.display = (!_mmActPixMp || localStorage.getItem('mm_use_PIX') === '0') ? 'none' : '';
   var _btnMp = document.querySelector('.pay-btn[onclick*="\'mp\'"]');
   if (_btnMp) _btnMp.style.display = (!_mmActPixMp || localStorage.getItem('mm_use_MP') === '0') ? 'none' : '';
+  // "EFECTIVO R$" (selPayEfectivoBRL) es un atajo para negocios de moneda
+  // extranjera (hoteles de frontera) que activa Multi-moneda en silencio al
+  // tocarlo — pero mostrarlo SIEMPRE, para cualquier rubro, confunde a
+  // cuentas que nunca usan más de una moneda (quedaba visible igual que
+  // Pix/MP quedaban antes de este mismo chequeo). Mismo criterio: solo
+  // visible si Multi-moneda ya está activada en Configuración.
+  var _btnEfeBRL = document.querySelector('.pay-btn[onclick*="selPayEfectivoBRL"]');
+  if (_btnEfeBRL) _btnEfeBRL.style.display = _mmActPixMp ? '' : 'none';
 
   // Multi-moneda: mostrar panel MM si esta activo, sino panel normal
   var _mmActivoSetup = localStorage.getItem('mm_activo') === '1';
