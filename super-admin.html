@@ -416,7 +416,8 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#f2f1ee;min-height
       <div>
         <label class="flabel">Tipo POS</label>
         <select id="mTipoPOS" class="fsel">
-          <option value="gastronomia">Gastronomia (default)</option>
+          <option value="">-- Seleccioná Tipo POS --</option>
+          <option value="gastronomia">Gastronomia</option>
           <option value="retail">Comercio / Retail</option>
           <option value="despensa">Despensa</option>
           <option value="autoservicio">Autoservicio / Supermercado</option>
@@ -820,7 +821,7 @@ function openM(){
   document.getElementById('mNotas').value='';
   document.getElementById('mRubro').value='';
   document.getElementById('mTipo').value='anual';
-  document.getElementById('mTipoPOS').value='gastronomia';
+  document.getElementById('mTipoPOS').value='';
   document.getElementById('mMonto').value='';
   document.getElementById('mPlan').value='2';
   const h=new Date(); h.setFullYear(h.getFullYear()+1);
@@ -892,10 +893,11 @@ async function guardarL(){
   const notas  =document.getElementById('mNotas').value.trim();
   const rubro    =document.getElementById('mRubro').value;
   const tipo     =document.getElementById('mTipo').value;
-  const tipoPOS  =document.getElementById('mTipoPOS').value||'gastronomia';
+  const tipoPOS  =document.getElementById('mTipoPOS').value;
   const monto    =parseInt(document.getElementById('mMonto').value)||0;
   if(!clave){toast('Generá una clave');return;}
   if(!vence){toast('Seleccioná la fecha de vencimiento');return;}
+  if(!tipoPOS){toast('Seleccioná el Tipo POS');return;}
 
   // tipo_negocio se guarda en DOS lugares:
   //  1. licencias.tipo_negocio — visible en la grilla, respaldo si falla el paso 2.
