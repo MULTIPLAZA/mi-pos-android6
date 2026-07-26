@@ -229,6 +229,8 @@
 <script src="js/config.js"></script>
 <!-- ARCH-001 compat: sin type=module para Android 6 / Chrome <61 -->
 <script src="js/lib/index-compat.js"></script>
+<!-- Fuente única de tipo de negocio/capacidades — compartida con el POS -->
+<script src="js/rubro.js"></script>
 <!-- Capa adaptadora FE — la usan admin-fe.js (config/estados) y el modal de timbrado -->
 <script src="js/factura-electronica.js?v=20260702001"></script>
 <!-- Solo se carga el dashboard up-front; el resto son lazy-loaded por goTo() (PERF-001) -->
@@ -432,6 +434,10 @@ async function doLogin(){
     // Login exitoso
     SE=email; SP=lic.plan; SV=lic.vence; SLI=lic.id||null;
     localStorage.setItem('ae',SE); localStorage.setItem('ap',SP); localStorage.setItem('av',SV); if(SLI) localStorage.setItem('ali',SLI);
+    // lic_email: clave que usa js/rubro.js (compartida con el POS) para
+    // saber de qué licencia leer/escribir tipo_negocio y capacidades.
+    localStorage.setItem('lic_email',SE);
+    await cargarConfigNegocioActual();
     showApp();
 
   }catch(e){
@@ -443,13 +449,53 @@ async function doLogin(){
 }
 
 function doLogout(){
-  // Limpiar TODO el estado de sesión, incluido 'ali' (licencia_id) y 'an'
-  // (negocio). Antes 'ali' quedaba pegado y podía dejar al usuario apuntando
-  // a una licencia vieja/equivocada tras re-loguear.
-  ['ae','ap','av','ali','an'].forEach(function(k){localStorage.removeItem(k);});
+  // Limpiar TODO el estado de sesión y de negocio, no solo 'ali'/'an'. Antes
+  // solo se limpiaban esos dos y RUC/dirección/teléfono/tipo de negocio/logo
+  // quedaban pegados en localStorage — al loguear otra cuenta en el mismo
+  // navegador (soporte a varios clientes desde el mismo Chrome) esos datos
+  // viejos se mostraban mezclados con el email nuevo. Ver también
+  // cargarConfigNegocioActual(), que además siempre re-trae del servidor.
+  ['ae','ap','av','ali','an','ar','ad','at','factura_formato','actividad_economica',
+   'factura_giro','habilitacion','logo_url','pos_tipo_negocio','pos_comandas','lic_email']
+    .concat((typeof RUBRO_CAPACIDADES !== 'undefined' ? RUBRO_CAPACIDADES : ['mesas','cocina','delivery','mitades']).map(function(c){ return 'pos_flag_' + c; }))
+    .forEach(function(k){localStorage.removeItem(k);});
   SE=null; SP=null; SV=null; SLI=null;
   document.getElementById('app').style.display='none';
   document.getElementById('loginWrap').style.display='flex';
+}
+
+// ── Config real del negocio para ESTE login ──────────────────────────────
+// Bug recurrente (reportado varias veces): nombre/RUC/dirección/tipo de
+// negocio de un cliente distinto quedaban en localStorage — que es
+// compartido por TODO lo que corre en este origen (POS y admin, todos los
+// tenants que se hayan logueado alguna vez en este navegador) — y se
+// mostraban pegados al email recién logueado aunque fuera de otro tenant.
+// Se limpia SIEMPRE antes de intentar traer del servidor los datos reales
+// del email actual (SE): si no hay conexión o el tenant es nuevo, queda en
+// blanco — nunca con el valor de otro cliente.
+async function cargarConfigNegocioActual(){
+  ['an','ar','ad','at','factura_formato','actividad_economica','factura_giro',
+   'habilitacion','logo_url','pos_tipo_negocio','pos_comandas']
+    .concat((typeof RUBRO_CAPACIDADES !== 'undefined' ? RUBRO_CAPACIDADES : ['mesas','cocina','delivery','mitades']).map(function(c){ return 'pos_flag_' + c; }))
+    .forEach(function(k){ localStorage.removeItem(k); });
+  if(!SE) return;
+  try{
+    var rows = await sg('pos_config','licencia_email=eq.'+encodeURIComponent(SE)+'&clave=eq.negocio_config&select=valor&limit=1');
+    if(rows && rows[0]){
+      var val = JSON.parse(rows[0].valor);
+      Object.entries(val).forEach(function(e){ if(e[1]!==undefined && e[1]!==null) localStorage.setItem(e[0], e[1]); });
+    }
+  }catch(e){ console.warn('[Config] No se pudo traer la config del negocio:', e.message); }
+  // Tipo de negocio + capacidades: misma función que usa el POS (lee
+  // licencias.tipo_negocio/capacidades primero, pos_config como
+  // compatibilidad) — ver js/rubro.js. Antes esta pantalla reimplementaba
+  // su propia versión parcial (solo 4 de 12 flags, solo pos_config), lo que
+  // llevaba a que guardar acá pisara en silencio las otras 8 capacidades
+  // que rubro.js sí guardaba (ver saveFlagRubro/onChangeTipoNegocio abajo).
+  if(typeof rubroCargarDesdeSupabase === 'function'){
+    try{ await rubroCargarDesdeSupabase(); }
+    catch(e){ console.warn('[Config] No se pudo traer el tipo de negocio:', e.message); }
+  }
 }
 
 function showApp(){
@@ -468,13 +514,14 @@ function showApp(){
   goTo('dashboard');
 }
 
-// Retail: ocultar accesos de comida en el menú lateral de admin-negocio.
-// Insumos = producción / recetas (productos es_insumo), sin sentido en retail.
-// Lee pos_tipo_negocio de localStorage (mismo patrón que renderConfig).
+// Ocultar accesos de comida en el menú lateral de admin-negocio para
+// cualquier rubro sin cocina (antes solo chequeaba 'retail' a mano; con el
+// catálogo completo de rubro.js, despensa/autoservicio/barbería/hospedaje
+// tampoco usan Insumos = producción/recetas).
 function aplicarRubroAdminUI(){
-  var esRetail = (localStorage.getItem('pos_tipo_negocio') === 'retail');
+  var ocultarInsumos = (typeof usaCocina === 'function') ? !usaCocina() : (localStorage.getItem('pos_tipo_negocio') === 'retail');
   var sbInsumos = document.getElementById('sbi-insumos');
-  if(sbInsumos) sbInsumos.style.display = esRetail ? 'none' : '';
+  if(sbInsumos) sbInsumos.style.display = ocultarInsumos ? 'none' : '';
 }
 
 // ── NAVIGATION ────────────────────────────────────────────
@@ -542,23 +589,35 @@ async function renderSucursalesTab(tc){
 }
 
 // ── CONFIG ────────────────────────────────────────────────
+// Etiquetas humanas para el catálogo real de rubro.js (6 tipos, 12
+// capacidades) — antes esta pantalla solo ofrecía 2 tipos y 4 flags,
+// desactualizada frente a lo que ya soporta el POS (hospedaje, barbería, etc).
+var _TIPO_NEGOCIO_LABELS = {
+  gastronomia:  'Gastronomía',
+  retail:       'Comercio (retail)',
+  despensa:     'Despensa',
+  autoservicio: 'Autoservicio / Supermercado',
+  barberia:     'Barbería / Peluquería',
+  hospedaje:    'Hospedaje (hotel/hostería)',
+};
+var _CAP_LABELS = {
+  mesas:          {t:'Mesas y salones',    s:'Gestionar mesas y asignar pedidos'},
+  cocina:         {t:'Comanda a cocina',   s:'Imprimir comanda al guardar pedido'},
+  delivery:       {t:'Delivery',           s:'Tipo de pedido delivery + cargo de envío'},
+  mitades:        {t:'Venta por mitades',  s:'Opción pizza mitad y mitad en productos'},
+  codigo_barras:  {t:'Código de barras',   s:'Buscar productos escaneando código'},
+  balanza:        {t:'Balanza',            s:'Productos vendidos por peso'},
+  stock_estricto: {t:'Stock estricto',     s:'Bloquear venta si no hay stock suficiente'},
+  agenda:         {t:'Agenda de turnos',   s:'Reservar horarios de atención'},
+  profesionales:  {t:'Profesionales',      s:'Asignar ventas a un profesional / comisión'},
+  es_servicio:    {t:'Venta como servicio',s:'Producto agendable sin control de stock'},
+  habitaciones:   {t:'Habitaciones',       s:'Gestión de estadías y habitaciones'},
+  folio:          {t:'Folio de estadía',   s:'Numeración de folio para hospedaje'},
+};
+
 async function renderConfig(){
   var v=function(k){return localStorage.getItem(k)||'';};
-  var tipo   = localStorage.getItem('pos_tipo_negocio') || 'gastronomia';
-  var fMesas    = localStorage.getItem('pos_flag_mesas');
-  var fCocina   = localStorage.getItem('pos_flag_cocina');
-  var fDelivery = localStorage.getItem('pos_flag_delivery');
-  var fMitades  = localStorage.getItem('pos_flag_mitades');
-  // defaults según tipo cuando el flag no está seteado explícitamente
-  function flagVal(stored, defGastro, defRetail){
-    if(stored === '1') return true;
-    if(stored === '0') return false;
-    return tipo === 'retail' ? defRetail : defGastro;
-  }
-  var vMesas    = flagVal(fMesas,    true,  false);
-  var vCocina   = flagVal(fCocina,   !!(localStorage.getItem('pos_comandas')==='1'), false);
-  var vDelivery = flagVal(fDelivery, true,  false);
-  var vMitades  = flagVal(fMitades,  true,  false);
+  var tipo = (typeof rubroGetTipo === 'function') ? rubroGetTipo() : (localStorage.getItem('pos_tipo_negocio') || 'gastronomia');
 
   function chk(val){ return val ? 'checked' : ''; }
   function selOpt(cur, val){ return cur===val ? 'selected' : ''; }
@@ -589,29 +648,27 @@ async function renderConfig(){
     '</div>',
   ].join('');
 
+  var _capList = (typeof RUBRO_CAPACIDADES !== 'undefined') ? RUBRO_CAPACIDADES : ['mesas','cocina','delivery','mitades'];
+  var tipoOptionsHtml = Object.keys(_TIPO_NEGOCIO_LABELS).map(function(k){
+    return '<option value="'+k+'" '+selOpt(tipo,k)+'>'+_TIPO_NEGOCIO_LABELS[k]+'</option>';
+  }).join('');
+  var capRowsHtml = _capList.map(function(cap){
+    var lbl = _CAP_LABELS[cap] || {t:cap, s:''};
+    var val = (typeof rubroFlag === 'function') ? rubroFlag(cap) : false;
+    return '<div class="cfg-r"><div><div class="cfg-rl">'+lbl.t+'</div><div class="cfg-rs">'+lbl.s+'</div></div>'+
+      '<label class="cfg-tog"><input type="checkbox" data-cap="'+cap+'" class="cfgCapChk" '+chk(val)+' onchange="saveFlagRubro(this)"><span class="cfg-tog-sl"></span></label></div>';
+  }).join('');
   var rubroSection = [
     '<div class="cfg-s">',
       '<div class="cfg-st">Tipo de negocio</div>',
       '<div class="cfg-r">',
         '<div><div class="cfg-rl">Tipo</div><div class="cfg-rs">Define comportamiento predeterminado de las funciones</div></div>',
-        '<select class="cfg-inp" id="cfgTipoNegocio" onchange="onChangeTipoNegocio()" style="max-width:200px;">',
-          '<option value="gastronomia" '+selOpt(tipo,'gastronomia')+'>Gastronomia</option>',
-          '<option value="retail" '+selOpt(tipo,'retail')+'>Comercio (retail)</option>',
+        '<select class="cfg-inp" id="cfgTipoNegocio" onchange="onChangeTipoNegocio()" style="max-width:220px;">',
+          tipoOptionsHtml,
         '</select>',
       '</div>',
       '<div class="cfg-st" style="margin-top:12px;font-size:11px;">Funciones activas</div>',
-      '<div class="cfg-r"><div><div class="cfg-rl">Mesas y salones</div><div class="cfg-rs">Gestionar mesas y asignar pedidos</div></div>',
-        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagMesas" '+chk(vMesas)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
-      '</div>',
-      '<div class="cfg-r"><div><div class="cfg-rl">Comanda a cocina</div><div class="cfg-rs">Imprimir comanda al guardar pedido</div></div>',
-        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagCocina" '+chk(vCocina)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
-      '</div>',
-      '<div class="cfg-r"><div><div class="cfg-rl">Delivery</div><div class="cfg-rs">Tipo de pedido delivery + cargo de envio</div></div>',
-        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagDelivery" '+chk(vDelivery)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
-      '</div>',
-      '<div class="cfg-r"><div><div class="cfg-rl">Venta por mitades</div><div class="cfg-rs">Opcion pizza mitad y mitad en productos</div></div>',
-        '<label class="cfg-tog"><input type="checkbox" id="cfgFlagMitades" '+chk(vMitades)+' onchange="saveFlagRubro()"><span class="cfg-tog-sl"></span></label>',
-      '</div>',
+      capRowsHtml,
     '</div>',
   ].join('');
 
@@ -633,59 +690,32 @@ async function renderConfig(){
     '</div>';
 }
 
-// Cambia el tipo y resetea los flags a los defaults del tipo nuevo
+// Cambia el tipo y resetea los flags a los defaults del tipo nuevo.
+// Delega en rubro.js (rubroSetTipo) en vez de reimplementar el reset de
+// overrides + guardado — antes esta pantalla tenía su propia versión
+// parcial (solo 4 flags, solo pos_config) que podía pisar en silencio las
+// otras 8 capacidades que rubro.js guarda para hospedaje/barbería/etc.
 function onChangeTipoNegocio(){
   var tipo = (document.getElementById('cfgTipoNegocio')||{}).value || 'gastronomia';
-  localStorage.setItem('pos_tipo_negocio', tipo);
-  // Limpiar overrides para que los defaults del tipo nuevo entren
-  localStorage.removeItem('pos_flag_mesas');
-  localStorage.removeItem('pos_flag_cocina');
-  localStorage.removeItem('pos_flag_delivery');
-  localStorage.removeItem('pos_flag_mitades');
-  // Sincronizar cocina con sistema legacy
-  var defCocina = tipo === 'retail' ? false : !!(localStorage.getItem('pos_comandas') === '1');
-  localStorage.setItem('pos_comandas', defCocina ? '1' : '0');
-  // Guardar en Supabase
-  _saveRubroSupabase(tipo, null, null, null, null);
-  // Actualizar el menú lateral en vivo (ocultar/mostrar Insumos)
+  rubroSetTipo(tipo);
+  // Sincronizar cocina con sistema legacy (rubroSetTipo ya llama a
+  // _rubroSyncCocinaLegacy, pero esa función depende de configData que no
+  // existe en admin-negocio.html — replicar el efecto sobre pos_comandas).
+  localStorage.setItem('pos_comandas', rubroFlag('cocina') ? '1' : '0');
   aplicarRubroAdminUI();
   toast('Tipo de negocio actualizado — los cambios se aplican al abrir el POS');
-  // Re-render para reflejar nuevos defaults
   renderConfig();
 }
 
-// Guarda un flag individual modificado por el toggle
-async function saveFlagRubro(){
-  var tipo     = localStorage.getItem('pos_tipo_negocio') || 'gastronomia';
-  var vMesas    = (document.getElementById('cfgFlagMesas')   ||{}).checked;
-  var vCocina   = (document.getElementById('cfgFlagCocina')  ||{}).checked;
-  var vDelivery = (document.getElementById('cfgFlagDelivery')||{}).checked;
-  var vMitades  = (document.getElementById('cfgFlagMitades') ||{}).checked;
-  localStorage.setItem('pos_flag_mesas',    vMesas    ? '1' : '0');
-  localStorage.setItem('pos_flag_cocina',   vCocina   ? '1' : '0');
-  localStorage.setItem('pos_flag_delivery', vDelivery ? '1' : '0');
-  localStorage.setItem('pos_flag_mitades',  vMitades  ? '1' : '0');
-  // Sincronizar cocina con sistema legacy pos_comandas
-  localStorage.setItem('pos_comandas', vCocina ? '1' : '0');
-  await _saveRubroSupabase(tipo, vMesas, vCocina, vDelivery, vMitades);
+// Guarda un flag individual modificado por el toggle (uno por checkbox,
+// vía data-cap) — delega en rubro.js (rubroSetFlag), que ya sabe guardar
+// tanto en pos_config como en licencias.capacidades.
+function saveFlagRubro(el){
+  var cap = el && el.getAttribute('data-cap');
+  if(!cap) return;
+  rubroSetFlag(cap, !!el.checked);
+  if(cap === 'cocina') localStorage.setItem('pos_comandas', el.checked ? '1' : '0');
   toast('Guardado');
-}
-
-async function _saveRubroSupabase(tipo, fMesas, fCocina, fDelivery, fMitades){
-  if(!SE) return;
-  try {
-    await supaPost('pos_config',{
-      licencia_email: SE,
-      clave: 'rubro_config',
-      valor: JSON.stringify({
-        tipo_negocio: tipo,
-        flag_mesas:    fMesas,
-        flag_cocina:   fCocina,
-        flag_delivery: fDelivery,
-        flag_mitades:  fMitades,
-      }),
-    },'licencia_email,clave',true);
-  } catch(e){ console.warn('[Rubro admin] Error guardando:', e.message); }
 }
 
 // Vista previa en vivo cuando se pega una URL de logo
@@ -760,17 +790,18 @@ async function saveConf(){
   var li=localStorage.getItem('ali');
   if(e&&p&&p!=='Demo'){
     SE=e.toLowerCase().trim();SP=p;SV=v;SLI=li?parseInt(li):null;
+    localStorage.setItem('lic_email',SE);
     // Verificar sesión contra Supabase (previene bypass por DevTools en localStorage)
     sg('licencias','email_cliente=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id&limit=1')
       .then(function(rows){
         if(rows&&rows.length){
-          showApp();
+          cargarConfigNegocioActual().then(showApp);
         } else {
           doLogout();
         }
       })
       .catch(function(){
-        showApp(); // Sin conexión — confiar en sesión cacheada
+        showApp(); // Sin conexión — no se puede refrescar, confiar en lo cacheado de ESTA sesión
       });
   }
 })();

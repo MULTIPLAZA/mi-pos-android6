@@ -136,10 +136,11 @@ function rubroSetTipo(tipo, keepOverrides){
   localStorage.setItem('pos_tipo_negocio', tipo);
   _rubroTipoCambiadoLocal = true;
   if(!keepOverrides){
-    localStorage.removeItem('pos_flag_mesas');
-    localStorage.removeItem('pos_flag_cocina');
-    localStorage.removeItem('pos_flag_delivery');
-    localStorage.removeItem('pos_flag_mitades');
+    // Limpiar TODAS las capacidades, no solo las 4 originales — antes un
+    // override explícito de un tipo anterior (ej. 'pos_flag_habitaciones'
+    // seteado en 0 al probar hospedaje) sobrevivía a un cambio de tipo y
+    // podía apagar una capacidad que el tipo nuevo sí trae por default.
+    RUBRO_CAPACIDADES.forEach(function(cap){ localStorage.removeItem('pos_flag_' + cap); });
   }
   // Sincronizar usa_cocina con el sistema legacy (pos_comandas / configData)
   _rubroSyncCocinaLegacy();
@@ -291,8 +292,14 @@ function _rubroLicenciaToTipo(rubro) {
 
 // ── Cargar desde Supabase al iniciar ─────────────────────
 // Cadena de prioridad (el servidor siempre gana sobre localStorage):
-//   1. pos_config.rubro_config → tipo + flags guardados por la app
-//   2. licencias.rubro         → derivación automática si no hay pos_config
+//   0. licencias.tipo_negocio/capacidades → fuente de verdad preferente,
+//      asignada por super-admin (ver add_licencia_tipo_negocio.sql). Esta
+//      columna existía desde esa migración pero el POS nunca la leía — todo
+//      quedaba resolviéndose por pos_config, que era el único lugar donde
+//      esta función y el panel admin en realidad escribían.
+//   1. pos_config.rubro_config → compatibilidad con licencias que aún no
+//      tienen licencias.tipo_negocio poblado.
+//   2. licencias.rubro         → derivación automática si no hay ninguna de las anteriores
 //   3. 'gastronomia'           → default en rubroGetTipo()
 //
 // NOTA: tipo_negocio SIEMPRE se sobreescribe desde el servidor para evitar
@@ -302,7 +309,37 @@ async function rubroCargarDesdeSupabase(){
   var email = localStorage.getItem('lic_email');
   if(!email || (typeof USAR_DEMO !== 'undefined' && USAR_DEMO)) return;
   try {
-    // 1. pos_config — fuente de verdad principal
+    // 0. licencias — se trae una sola vez y se reusa abajo (tipo_negocio,
+    // capacidades y rubro) para no repetir la consulta.
+    var licRows = await supaGet('licencias',
+      'email_cliente=eq.' + encodeURIComponent(email) +
+      '&activa=eq.true&select=tipo_negocio,capacidades,rubro&limit=1');
+    var lic = licRows && licRows[0] ? licRows[0] : null;
+
+    if(lic && lic.tipo_negocio){
+      if(_RUBRO_CAPS[lic.tipo_negocio]){
+        localStorage.setItem('pos_tipo_negocio', lic.tipo_negocio);
+        _rubroTipoDesdeServidor = lic.tipo_negocio; // cache: ver _rubroGuardarSupabase()
+        var caps = lic.capacidades || {};
+        RUBRO_CAPACIDADES.forEach(function(f){
+          if(caps[f] !== undefined && caps[f] !== null && localStorage.getItem('pos_flag_' + f) === null){
+            localStorage.setItem('pos_flag_' + f, caps[f] ? '1' : '0');
+          }
+        });
+        _log('[Rubro] Config cargada desde licencias.tipo_negocio:', lic.tipo_negocio);
+        return; // fuente preferente encontrada, no hace falta seguir
+      }
+      // Valor presente pero no reconocido — no pisar silenciosamente con
+      // gastronomia. Se avisa fuerte (no solo consola) y se sigue con las
+      // fuentes de compatibilidad de abajo.
+      console.warn('[Rubro] licencias.tipo_negocio no reconocido:', lic.tipo_negocio);
+      if(typeof toast === 'function'){
+        toast('Tipo de negocio "' + lic.tipo_negocio + '" no reconocido — avisá a soporte');
+      }
+    }
+
+    // 1. pos_config — compatibilidad con licencias activadas antes de que
+    // existiera licencias.tipo_negocio, o mientras ese campo no esté poblado.
     var rows = await supaGet('pos_config',
       'licencia_email=eq.' + encodeURIComponent(email) +
       '&clave=eq.rubro_config&select=valor&limit=1');
@@ -321,14 +358,11 @@ async function rubroCargarDesdeSupabase(){
         }
       });
       _log('[Rubro] Config cargada desde pos_config:', cfg.tipo_negocio);
-      return; // pos_config encontrada, no necesitamos consultar licencias
+      return;
     }
 
-    // 2. Sin pos_config → derivar tipo desde licencias.rubro
-    var licRows = await supaGet('licencias',
-      'email_cliente=eq.' + encodeURIComponent(email) +
-      '&activa=eq.true&select=rubro&limit=1');
-    var rubroLic = licRows && licRows[0] ? licRows[0].rubro : null;
+    // 2. Sin licencias.tipo_negocio ni pos_config → derivar tipo desde licencias.rubro
+    var rubroLic = lic ? lic.rubro : null;
     var tipoDesdeRubro = _rubroLicenciaToTipo(rubroLic);
     if(tipoDesdeRubro){
       localStorage.setItem('pos_tipo_negocio', tipoDesdeRubro);
@@ -350,23 +384,41 @@ async function _rubroGuardarSupabase(){
   var email = localStorage.getItem('lic_email');
   if(!email || (typeof USAR_DEMO !== 'undefined' && USAR_DEMO)) return;
   if(typeof supaPost !== 'function') return;
+  // Persistir tipo + solo los flags con override explícito (null = usar
+  // default del tipo). Cubre todas las capacidades del catálogo.
+  // tipo_negocio: si el usuario NO lo cambió acá mismo esta sesión, se
+  // reenvía el último valor confirmado por el servidor (no el de
+  // localStorage) — así un flag cualquiera guardado en un dispositivo
+  // con datos viejos nunca pisa un cambio de rubro hecho desde
+  // súper-admin mientras ese dispositivo seguía abierto.
+  var tipoAEnviar = _rubroTipoCambiadoLocal ? rubroGetTipo() : (_rubroTipoDesdeServidor || rubroGetTipo());
+  var cfg = { tipo_negocio: tipoAEnviar };
+  var capsAEnviar = {};
+  RUBRO_CAPACIDADES.forEach(function(cap){
+    var explicito = (localStorage.getItem('pos_flag_' + cap) !== null) ? rubroFlag(cap) : null;
+    cfg['flag_' + cap] = explicito;
+    capsAEnviar[cap] = explicito;
+  });
   try {
-    // Persistir tipo + solo los flags con override explícito (null = usar
-    // default del tipo). Cubre todas las capacidades del catálogo.
-    // tipo_negocio: si el usuario NO lo cambió acá mismo esta sesión, se
-    // reenvía el último valor confirmado por el servidor (no el de
-    // localStorage) — así un flag cualquiera guardado en un dispositivo
-    // con datos viejos nunca pisa un cambio de rubro hecho desde
-    // súper-admin mientras ese dispositivo seguía abierto.
-    var tipoAEnviar = _rubroTipoCambiadoLocal ? rubroGetTipo() : (_rubroTipoDesdeServidor || rubroGetTipo());
-    var cfg = { tipo_negocio: tipoAEnviar };
-    RUBRO_CAPACIDADES.forEach(function(cap){
-      cfg['flag_' + cap] = (localStorage.getItem('pos_flag_' + cap) !== null) ? rubroFlag(cap) : null;
-    });
     var payload = { licencia_email: email, clave: 'rubro_config', valor: JSON.stringify(cfg) };
     await supaPost('pos_config', payload, 'licencia_email,clave', true);
-    _log('[Rubro] Config guardada en Supabase');
+    _log('[Rubro] Config guardada en Supabase (pos_config)');
   } catch(e){
-    console.warn('[Rubro] Error guardando config:', e.message);
+    console.warn('[Rubro] Error guardando en pos_config:', e.message);
+  }
+  // licencias.tipo_negocio/capacidades: mantenerla sincronizada en cada
+  // escritura, no solo cuando super-admin edita la licencia. Sin esto, un
+  // cambio de rubro hecho desde el POS o admin-negocio.html solo llegaba a
+  // pos_config, y licencias.tipo_negocio quedaba stale — que es justo la
+  // columna que ahora se lee primero (ver rubroCargarDesdeSupabase), así
+  // que un dispositivo nuevo o una reinstalación volvía a ver el tipo VIEJO.
+  if(typeof supaPatch === 'function'){
+    try {
+      await supaPatch('licencias', 'email_cliente=eq.' + encodeURIComponent(email),
+        { tipo_negocio: tipoAEnviar, capacidades: capsAEnviar }, true);
+      _log('[Rubro] Config guardada en Supabase (licencias)');
+    } catch(e){
+      console.warn('[Rubro] Error guardando en licencias:', e.message);
+    }
   }
 }

@@ -715,7 +715,10 @@ const TIPOS={anual:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" 
 async function loadL(){
   try{
     allL=await sg('licencias','select=*,planes(nombre)&order=created_at.desc');
-    // Decorar con tipo_negocio desde pos_config (fuente de verdad real)
+    // Decorar con tipo_negocio desde pos_config SOLO como fallback — desde
+    // que rubro.js lee licencias.tipo_negocio primero (ver
+    // js/rubro.js rubroCargarDesdeSupabase), esa columna es la fuente real;
+    // pos_config queda para licencias viejas activadas antes de esa fuente.
     // Tolerante: si falla pos_config, allL queda sin decorar y el badge simplemente no muestra
     try{
       var rcRows=await sg('pos_config','clave=eq.rubro_config&select=licencia_email,valor');
@@ -728,7 +731,7 @@ async function loadL(){
       });
       allL.forEach(function(l){
         var em=(l.email_cliente||'').toLowerCase();
-        if(rcMap[em]) l._tipo_negocio=rcMap[em];
+        if(!l.tipo_negocio && rcMap[em]) l._tipo_negocio=rcMap[em];
       });
     }catch(e){}
   }catch(e){
@@ -900,10 +903,13 @@ async function guardarL(){
   if(!tipoPOS){toast('Seleccioná el Tipo POS');return;}
 
   // tipo_negocio se guarda en DOS lugares:
-  //  1. licencias.tipo_negocio — visible en la grilla, respaldo si falla el paso 2.
-  //  2. pos_config clave='rubro_config' — ESTE es el que rubro.js realmente lee
-  //     hoy en el POS (ver js/rubro.js rubroCargarDesdeSupabase). No se puede
-  //     sacar el paso 2 todavía aunque exista la columna: el POS no la consulta.
+  //  1. licencias.tipo_negocio — desde que rubro.js la lee primero (ver
+  //     js/rubro.js rubroCargarDesdeSupabase), ESTA es la fuente real que
+  //     usa el POS.
+  //  2. pos_config clave='rubro_config' — se mantiene por compatibilidad
+  //     con dispositivos que todavía corran una versión del POS anterior a
+  //     ese cambio. Se puede retirar este paso una vez confirmado que todos
+  //     los dispositivos activos actualizaron.
   const data={clave,plan_id:planId,nombre_cliente:nombre||null,email_cliente:email||null,
     fecha_vence:vence,notas:notas||null,rubro:rubro||null,tipo_pago:tipo,
     tipo_negocio:tipoPOS,
