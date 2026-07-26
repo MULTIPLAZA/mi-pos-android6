@@ -133,8 +133,8 @@ async function iniciarApp(){
   // Mantener pantalla encendida
   solicitarWakeLock();
 
-  // Iniciar BT Print Server (verificar y reconectar si hay MAC guardada)
-  setTimeout(() => { BTPrinter.iniciar(); btpsCargarMacGuardada(); USBPrinter.iniciar(); }, 2000);
+  // Iniciar BT Print Server (verificar y reconectar si hay MAC o IP guardada)
+  setTimeout(() => { BTPrinter.iniciar(); btpsCargarMacGuardada(); btpsCargarRedGuardada(); USBPrinter.iniciar(); }, 2000);
 
   // Reconectar automáticamente cuando la app vuelve al foco
   document.addEventListener('visibilitychange', function(){

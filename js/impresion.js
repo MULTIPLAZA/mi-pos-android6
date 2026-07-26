@@ -2235,6 +2235,7 @@ async function btpsConectar(){
     toast('MAC inv\u00e1lida \u2014 formato: AA:BB:CC:DD:EE:FF'); return;
   }
   localStorage.setItem('btps_mac', mac);
+  localStorage.setItem('btps_transport', 'bt');
   localStorage.setItem('printerType_ticket', 'btps');
   localStorage.setItem('printerName_ticket', mac);
   toast('Conectando a ' + mac + '...');
@@ -2248,26 +2249,60 @@ async function btpsConectar(){
   }
 }
 
+// \u2500\u2500 BT Print Server \u2014 impresora de RED (comandera de cocina, etc.) \u2500\u2500\u2500\u2500\u2500\u2500
+async function btpsConectarRed(){
+  const inpIp  = document.getElementById('btpsIpInput');
+  const ip     = (inpIp ? inpIp.value.trim() : '');
+  const puerto = 9100; // Puerto estandar RAW/JetDirect de impresoras de red — fijo, no se pide en la UI
+  if (!ip.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/)) {
+    toast('IP inv\u00e1lida \u2014 formato: 192.168.1.50'); return;
+  }
+  localStorage.setItem('btps_red_ip', ip);
+  localStorage.setItem('btps_red_puerto', String(puerto));
+  localStorage.setItem('btps_transport', 'red');
+  localStorage.setItem('printerType_ticket', 'btps');
+  localStorage.setItem('printerName_ticket', ip + ':' + puerto);
+  toast('Conectando a ' + ip + ':' + puerto + '...');
+  const r = await BTPrinter.connectRed(ip, puerto);
+  if (r.status === 'ok') {
+    BTPrinter._updUI(true, r.device);
+    toast('\u2713 Impresora de red conectada: ' + r.device);
+  } else {
+    toast('\u274c ' + (r.message || 'Error al conectar'));
+    BTPrinter._updUI(false, null);
+  }
+}
+
 async function btpsVerEstado(){
   const s = await BTPrinter.status();
   if (!s) { toast('Servidor no disponible \u2014 abre BT Print Server'); return; }
-  BTPrinter._updUI(s.connected, s.device);
+  BTPrinter._updUI(s.connected, s.device || s.target);
   if (s.connected) {
     // Guardar tipo btps para que al cobrar use BTPrinter
     localStorage.setItem('printerType_ticket', 'btps');
-    toast('Conectada: ' + (s.device || ''));
+    toast('Conectada: ' + (s.device || s.target || ''));
 
-    // Guardar MAC automáticamente desde la respuesta del servidor
-    const inp = document.getElementById('btpsMacInput');
-    if (s.deviceMac) {
+    if (s.tipo === 'red' && s.target) {
+      // Guardar IP:puerto automáticamente desde la respuesta del servidor
+      const partes = String(s.target).split(':');
+      localStorage.setItem('btps_red_ip', partes[0] || '');
+      localStorage.setItem('btps_red_puerto', partes[1] || '9100');
+      localStorage.setItem('btps_transport', 'red');
+      const inpIp = document.getElementById('btpsIpInput');
+      if (inpIp) inpIp.value = partes[0] || '';
+    } else if (s.deviceMac) {
+      // Guardar MAC automáticamente desde la respuesta del servidor
       localStorage.setItem('btps_mac', s.deviceMac);
+      localStorage.setItem('btps_transport', 'bt');
+      const inp = document.getElementById('btpsMacInput');
       if (inp) inp.value = s.deviceMac;
     } else {
       const macGuardada = localStorage.getItem('btps_mac');
+      const inp = document.getElementById('btpsMacInput');
       if (inp && macGuardada) inp.value = macGuardada;
     }
   } else {
-    toast('Desconectada \u2014 MAC guardada: ' + (localStorage.getItem('btps_mac') || 'ninguna'));
+    toast('Desconectada \u2014 config. guardada: ' + (localStorage.getItem('btps_mac') || localStorage.getItem('btps_red_ip') || 'ninguna'));
   }
 }
 
@@ -2290,6 +2325,12 @@ function btpsCargarMacGuardada(){
   const mac = localStorage.getItem('btps_mac');
   const inp = document.getElementById('btpsMacInput');
   if (mac && inp) inp.value = mac;
+}
+
+function btpsCargarRedGuardada(){
+  const ip    = localStorage.getItem('btps_red_ip');
+  const inpIp = document.getElementById('btpsIpInput');
+  if (ip && inpIp) inpIp.value = ip;
 }
 
 function desconectarImpresora(tipo){
@@ -3454,6 +3495,45 @@ var BTPrinter = {
     }
   },
 
+  // Conectar a una impresora de RED (comandera de cocina, etc.) en vez de Bluetooth.
+  // Mismo endpoint /connect del BT Print Server, body distinto: {ip, puerto}.
+  async connectRed(ip, puerto) {
+    try {
+      const r = await this._fetch('/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip: ip, puerto: puerto })
+      });
+      return await r.json();
+    } catch(e) {
+      return { status: 'error', message: 'Abri la app BT Print Server en tu dispositivo' };
+    }
+  },
+
+  // Devuelve el transporte configurado localmente para reconectar:
+  // {tipo:'bt', mac} | {tipo:'red', ip, puerto} | null.
+  // 'btps_transport' es la fuente de verdad cuando existe; si no (config
+  // vieja, previa a soportar red), se infiere de qué haya guardado.
+  _targetConfigurado() {
+    const transporte = localStorage.getItem('btps_transport');
+    const mac        = localStorage.getItem('btps_mac');
+    const ip         = localStorage.getItem('btps_red_ip');
+    const puerto     = parseInt(localStorage.getItem('btps_red_puerto'), 10) || 9100;
+    if (transporte === 'red' && ip)  return { tipo:'red', ip: ip, puerto: puerto };
+    if (transporte === 'bt'  && mac) return { tipo:'bt', mac: mac };
+    if (mac) return { tipo:'bt', mac: mac };
+    if (ip)  return { tipo:'red', ip: ip, puerto: puerto };
+    return null;
+  },
+
+  // Reconecta usando lo que esté configurado (MAC o IP), sin que el llamador
+  // tenga que distinguir cuál es.
+  async _reconectar() {
+    const t = this._targetConfigurado();
+    if (!t) return { status: 'error', message: 'Sin impresora configurada' };
+    return t.tipo === 'red' ? await this.connectRed(t.ip, t.puerto) : await this.connect(t.mac);
+  },
+
   async print(text) {
     try {
       const r = await this._fetch('/print', {
@@ -3473,14 +3553,14 @@ var BTPrinter = {
   },
 
   async iniciar() {
-    const mac = localStorage.getItem('btps_mac');
-    if (!mac) return;
+    const target = this._targetConfigurado();
+    if (!target) return;
     const s = await this.status();
     if (!s) { this._updUI(false, null); return; }
-    this._updUI(s.connected, s.device);
+    this._updUI(s.connected, s.device || s.target);
     if (!s.connected) {
       toast('Reconectando impresora...');
-      const r = await this.connect(mac);
+      const r = await this._reconectar();
       if (r.status === 'ok') { this._updUI(true, r.device); toast('Impresora conectada: ' + r.device); }
     }
   },
@@ -3723,9 +3803,9 @@ var BTPrinter = {
   },
 
   async imprimirRecibo(data) {
-    var size = localStorage.getItem('printerSize_ticket') || '58';
-    var cols = size === '58' ? 32 : 42;
-    var mac  = localStorage.getItem('btps_mac');
+    var size   = localStorage.getItem('printerSize_ticket') || '58';
+    var cols   = size === '58' ? 32 : 42;
+    var target = this._targetConfigurado();
 
     toast('Conectando a impresora...');
 
@@ -3747,22 +3827,22 @@ var BTPrinter = {
       return false;
     }
 
-    // Si no está conectado, reconectar con MAC guardada
+    // Si no está conectado, reconectar con lo guardado (MAC o IP de red)
     if (!s.connected) {
-      if (!mac) {
-        // Sin MAC no podemos reconectar — pedir al usuario que conecte desde config
+      if (!target) {
+        // Sin nada configurado no podemos reconectar — pedir al usuario que conecte desde config
         this._showError(
           'La impresora se desconecto.\n\n' +
           'Para reconectar:\n' +
           '1. Ir a Configuracion > Impresoras\n' +
-          '2. Ingresar la MAC de tu impresora\n' +
+          '2. Ingresar la MAC (Bluetooth) o la IP (Red) de tu impresora\n' +
           '3. Tocar CONECTAR\n\n' +
           'O bien tocar VER ESTADO si el BT Print Server ya tiene la impresora conectada.'
         );
         return false;
       }
       toast('Reconectando impresora...');
-      var cr = await this.connect(mac);
+      var cr = await this._reconectar();
       if (cr.status !== 'ok') {
         toast('Error: ' + (cr.message || 'No se pudo conectar'));
         return false;
@@ -3780,9 +3860,9 @@ var BTPrinter = {
     }
 
     // Si falló porque se desconectó, reintentar una vez
-    if (r.message && r.message.includes('desconectada') && mac) {
+    if (r.message && r.message.includes('desconectada') && target) {
       toast('Reintentando...');
-      var cr2 = await this.connect(mac);
+      var cr2 = await this._reconectar();
       if (cr2.status === 'ok') {
         await new Promise(function(res){ setTimeout(res, 500); });
         var r2 = await this.print(ticket);

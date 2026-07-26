@@ -242,6 +242,15 @@
       <div style="margin-top:8px;font-size:11px;color:var(--muted);">
         Instalá <strong>BT Print Server</strong> en tu celular. El servidor corre en 127.0.0.1:8080 y se conecta a tu impresora Bluetooth automáticamente.
       </div>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border2);font-size:11px;color:var(--muted);">
+        ...o impresora de RED (comandera de cocina compartida):
+      </div>
+      <div style="margin-top:6px;display:flex;gap:8px;align-items:center;">
+        <input id="btpsIpInput" type="text" placeholder="IP: 192.168.1.50"
+          value=""
+          style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;padding:10px 12px;color:var(--text);font-size:13px;font-family:monospace;">
+        <button onclick="btpsConectarRed()" style="background:var(--green);border:none;border-radius:8px;color:#fff;font-weight:800;font-size:13px;padding:10px 14px;cursor:pointer;white-space:nowrap;">CONECTAR RED</button>
+      </div>
       <div style="margin-top:8px;display:flex;gap:8px;">
         <button onclick="btpsVerEstado()" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-weight:700;padding:8px;cursor:pointer;">VER ESTADO</button>
         <button onclick="btpsTestImprimir()" style="flex:1;background:var(--card2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-size:12px;font-weight:700;padding:8px;cursor:pointer;">TEST IMPRESIÓN</button>
