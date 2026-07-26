@@ -401,7 +401,10 @@ function feColaAgregar(doc) {
   var cola = _feColaLeer(FE_COLA_KEY);
   // No duplicar el mismo número
   if (cola.some(function(j){ return j.numeroFmt === doc._feNumeroFmt; })) return;
-  cola.push({ doc: doc, numeroFmt: doc._feNumeroFmt, fe: null, intentos: 0, creado: new Date().toISOString() });
+  // licenciaEmail: guardado para que feProcesarCola() pueda detectar y
+  // descartar jobs de un tenant anterior si el dispositivo se reasignó
+  // antes de vaciar la cola (ver [[project_mipos_reactivacion_colas_offline]]).
+  cola.push({ doc: doc, numeroFmt: doc._feNumeroFmt, fe: null, intentos: 0, creado: new Date().toISOString(), licenciaEmail: localStorage.getItem('lic_email') || null });
   _feColaEscribir(FE_COLA_KEY, cola);
   _log('[FE] Encolado para emisión diferida:', doc._feNumeroFmt);
 }
@@ -429,6 +432,14 @@ async function feProcesarCola() {
 
   for (var i = 0; i < cola.length; i++) {
     var job = cola[i];
+    // Job de otra licencia (el dispositivo se reasignó antes de vaciar la
+    // cola) — descartar SIN emitir. Emitir esto sería generar un DE real
+    // ante SIFEN con datos de un cliente distinto bajo el timbrado actual.
+    if (job.licenciaEmail && job.licenciaEmail.toLowerCase() !== email.toLowerCase()) {
+      console.warn('[FE] Cola: job ' + job.numeroFmt + ' pertenece a otra licencia (' + job.licenciaEmail + '), se descarta sin emitir');
+      job.listo = true;
+      continue;
+    }
     try {
       if (!job.fe) {
         job.fe = await feEmitirVenta(job.doc);       // emitir UNA sola vez

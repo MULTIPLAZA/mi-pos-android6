@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.123 (2026-07-25)';
+var APP_VERSION = 'v1.15.124 (2026-07-26)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -72,7 +72,14 @@ async function limpiarCacheTenantAnterior(){
   ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
    'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
    'pos_logo','pos_sucursal','pos_sucursal_id','pos_deposito','pos_deposito_id',
-   'pos_terminal','pos_modo_terminal','pos_turno_activo','ali',SK.negocio]
+   'pos_terminal','pos_modo_terminal','pos_turno_activo','ali',SK.negocio,
+   // Colas de reintento offline — sin esto, ventas/egresos/productos/facturas
+   // electrónicas sin sincronizar del tenant anterior seguían drenándose en
+   // segundo plano (syncConSupabase, drenarProductosFallback, feProcesarCola)
+   // usando la conexión del dispositivo ya reasignado a la cuenta nueva.
+   // Caso mas grave: fe_cola podia terminar emitiendo un DE real ante SIFEN
+   // con datos del cliente viejo bajo el timbrado del cliente nuevo.
+   'pos_sync_fallback','pos_productos_sync_fallback','fe_cola','fe_pend_cdcs']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });
@@ -89,7 +96,14 @@ async function limpiarCacheTenantAnterior(){
   if(typeof PRODS !== 'undefined') PRODS.length = 0;
   try {
     if(typeof db !== 'undefined' && db){
-      await Promise.all([ db.productos.clear(), db.categorias.clear(), db.config.clear() ]);
+      // productos/categorias/config ya se limpiaban; turno/ventas/egresos/
+      // sync_queue/mesas_cache quedaban con datos del tenant anterior en el
+      // dispositivo reasignado (ver [[project_mipos_reactivacion_colas_offline]]).
+      await Promise.all([
+        db.productos.clear(), db.categorias.clear(), db.config.clear(),
+        db.turno.clear(), db.ventas.clear(), db.egresos.clear(),
+        db.sync_queue.clear(), db.mesas_cache.clear(),
+      ]);
     }
   } catch(e){}
 }
@@ -568,8 +582,12 @@ async function cargarSucursalesExistentes(email){
     var deviceIdSuc = await licGetDeviceIdAsync();
     var licId = null;
     if(deviceIdSuc){
+      // activa=eq.true + order por fecha_activacion desc: si este device_id
+      // llegara a tener más de una fila (p.ej. activar_licencia inserta en
+      // vez de upsertear al reactivar), un limit=1 sin estos filtros podía
+      // traer de vuelta la licencia_id VIEJA de forma no determinística.
       var activRowsSuc = await supaGet('activaciones',
-        'device_id=eq.' + encodeURIComponent(deviceIdSuc) + '&select=licencia_id&limit=1');
+        'device_id=eq.' + encodeURIComponent(deviceIdSuc) + '&activa=eq.true&select=licencia_id&order=fecha_activacion.desc&limit=1');
       licId = (activRowsSuc && activRowsSuc[0] && activRowsSuc[0].licencia_id) || null;
     }
     // NOTA: la tabla `licencias` NO tiene la columna `nombre_negocio`; el nombre del
