@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.126 (2026-07-26)';
+var APP_VERSION = 'v1.15.127 (2026-07-28)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -979,6 +979,17 @@ async function doDesactivar(){
   // equipo realmente limpio para la próxima cuenta. Lista compartida con
   // doActivar — ver limpiarCacheTenantAnterior().
   await limpiarCacheTenantAnterior();
+  // BUG: el device_id (cookie 'pos_device_id' + sessionStorage) sobrevive
+  // a propósito a un localStorage.clear() accidental (ver licGetDeviceId),
+  // pero eso mismo hacía que "Cambiar licencia" NO cambiara nada: al
+  // recargar, licInit() (CASO 2, auto-recuperación) encontraba el MISMO
+  // device_id, lo buscaba en `activaciones` de Supabase, lo hallaba todavía
+  // activo con la licencia VIEJA, y la restauraba solo — el usuario nunca
+  // llegaba a ver la pantalla de activación para cargar la licencia nueva.
+  // Al desactivar explícitamente hay que forzar un device_id NUEVO.
+  sessionStorage.removeItem(SK.deviceId);
+  cookieSet('pos_device_id', '', -1);
+  cookieSet('pos_email_bk', '', -1);
   // Recargar la app entera — PRODS/CATS y demás estado en memoria de la
   // cuenta anterior quedaban vivos en la sesión JS aunque la base local ya
   // estuviera vacía, así que la lista de productos vieja seguía viéndose
