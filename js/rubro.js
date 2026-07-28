@@ -311,10 +311,21 @@ async function rubroCargarDesdeSupabase(){
   try {
     // 0. licencias — se trae una sola vez y se reusa abajo (tipo_negocio,
     // capacidades y rubro) para no repetir la consulta.
-    var licRows = await supaGet('licencias',
-      'email_cliente=eq.' + encodeURIComponent(email) +
-      '&activa=eq.true&select=tipo_negocio,capacidades,rubro&limit=1');
-    var lic = licRows && licRows[0] ? licRows[0] : null;
+    // Try/catch propio: si esta consulta falla (ej. columna todavía no
+    // migrada en Supabase, error de red puntual), antes tiraba directo al
+    // catch de abajo y se saltaba POR COMPLETO los pasos 1 y 2 — ningún
+    // dispositivo recibía nunca el rubro real mientras esto fallara, sin
+    // aviso. Ahora un fallo acá solo pierde la fuente preferente y sigue
+    // con pos_config / derivación por licencias.rubro.
+    var lic = null;
+    try {
+      var licRows = await supaGet('licencias',
+        'email_cliente=eq.' + encodeURIComponent(email) +
+        '&activa=eq.true&select=tipo_negocio,capacidades,rubro&limit=1');
+      lic = licRows && licRows[0] ? licRows[0] : null;
+    } catch(eLic){
+      console.warn('[Rubro] Error leyendo licencias.tipo_negocio/capacidades (¿falta la migración add_licencia_tipo_negocio.sql?):', eLic.message);
+    }
 
     if(lic && lic.tipo_negocio){
       if(_RUBRO_CAPS[lic.tipo_negocio]){
