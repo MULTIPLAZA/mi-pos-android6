@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.127 (2026-07-28)';
+var APP_VERSION = 'v1.15.128 (2026-07-28)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -79,7 +79,22 @@ async function limpiarCacheTenantAnterior(){
    // usando la conexión del dispositivo ya reasignado a la cuenta nueva.
    // Caso mas grave: fe_cola podia terminar emitiendo un DE real ante SIFEN
    // con datos del cliente viejo bajo el timbrado del cliente nuevo.
-   'pos_sync_fallback','pos_productos_sync_fallback','fe_cola','fe_pend_cdcs']
+   'pos_sync_fallback','pos_productos_sync_fallback','fe_cola','fe_pend_cdcs',
+   // Rubro/tipo de negocio (ver rubro.js) — sin esto, una licencia nueva de
+   // OTRO rubro en este mismo dispositivo heredaba el tipo_negocio y los
+   // overrides de flags (mesas/cocina/delivery/etc.) del tenant anterior,
+   // porque rubroCargarDesdeSupabase() solo pisa 'pos_tipo_negocio' cuando
+   // encuentra licencias.tipo_negocio/pos_config/licencias.rubro pobladas
+   // para la cuenta nueva; si esa licencia todavía no tiene nada seteado,
+   // se queda con el valor viejo en localStorage en vez de arrancar en el
+   // default 'gastronomia'. Bug real: licencia nueva de pizzería en un
+   // dispositivo que antes tuvo una cuenta de despensa no mostraba mesas
+   // ni delivery.
+   'pos_tipo_negocio','pos_comandas',
+   'pos_flag_mesas','pos_flag_cocina','pos_flag_delivery','pos_flag_mitades',
+   'pos_flag_codigo_barras','pos_flag_balanza','pos_flag_stock_estricto',
+   'pos_flag_agenda','pos_flag_profesionales','pos_flag_es_servicio',
+   'pos_flag_habitaciones','pos_flag_folio']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });
