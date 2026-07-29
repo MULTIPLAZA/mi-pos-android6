@@ -823,15 +823,27 @@ async function saveConf(){
   </div>
 </div>
 <script>
-// Admin panel no necesita SW — limpiar cualquier SW previo y todos los caches
+// Admin panel no necesita SW — limpiar SU PROPIO SW/caché previo, sin tocar
+// los de otras apps del mismo origen (POS, SuperAdmin). getRegistrations()
+// y caches.keys() son por ORIGEN, no por app: sin filtrar por scope/nombre,
+// esto desregistraba el service worker del POS y borraba su caché offline
+// completo cada vez que se abría admin-negocio.html en el mismo dispositivo
+// (ej. probando POS + Admin en la misma PC/terminal) -- el POS quedaba sin
+// SW y sin caché hasta el próximo reload con internet.
 if('serviceWorker' in navigator){
   navigator.serviceWorker.getRegistrations().then(function(regs){
-    regs.forEach(function(r){ r.unregister().then(function(ok){ if(ok) console.log('[Admin] SW desregistrado:', r.scope); }); });
+    regs.forEach(function(r){
+      if(r.scope.indexOf('/admin-negocio') === -1) return;
+      r.unregister().then(function(ok){ if(ok) console.log('[Admin] SW desregistrado:', r.scope); });
+    });
   });
 }
 if('caches' in window){
   caches.keys().then(function(keys){
-    keys.forEach(function(k){ caches.delete(k).then(function(){ console.log('[Admin] Caché eliminado:', k); }); });
+    keys.forEach(function(k){
+      if(k.indexOf('ampersand-admin') !== 0) return;
+      caches.delete(k).then(function(){ console.log('[Admin] Caché eliminado:', k); });
+    });
   });
 }
 </script>
