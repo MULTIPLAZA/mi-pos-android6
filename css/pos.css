@@ -739,6 +739,17 @@
   .libre-desc-input::placeholder { color:var(--border2); font-weight:400; }
   .libre-desc-label { font-size:12px; color:var(--muted); display:block; margin-bottom:5px; }
   .precio-modal-sub { font-size:12px; color:var(--muted); margin-bottom:16px; }
+  /* Terminales con pantalla chica: el sheet queda anclado abajo del viewport
+     completo (sin achicar), así que al abrirse el teclado para escribir la
+     descripción del ítem libre, el numpad + botón de precio (grandes) tapan
+     justo el campo de texto de arriba, que termina invisible detrás del
+     teclado. Mientras se está escribiendo la descripción no hace falta ver
+     el numpad (se llena con botones, no con el teclado), así que se oculta
+     para que el sheet quede corto y el campo de texto siga visible arriba
+     del teclado. Vuelve a aparecer al tocar "listo"/perder foco. */
+  .precio-modal.desc-focus .np-lbl,
+  .precio-modal.desc-focus .np-disp,
+  .precio-modal.desc-focus .np-grid { display:none; }
 
   /* ── FACTURA ── */
   .factura-sec {

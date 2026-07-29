@@ -1440,7 +1440,9 @@
       <label class="libre-desc-label">Descripción del ítem</label>
       <input class="libre-desc-input" id="libreDescInput" type="text"
         placeholder="Ej: Torta personalizada, Servicio especial..."
-        maxlength="60">
+        maxlength="60" enterkeyhint="done"
+        onfocus="libreDescFocus()" onblur="libreDescBlur()"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}">
     </div>
     <div class="np-lbl" style="margin-bottom:4px;">Precio</div>
     <div class="np-disp" id="precioModalDisp">₲0</div>

@@ -923,6 +923,18 @@ function closePrecioModal(e){
     document.getElementById('precioModalOv').classList.remove('open');
 }
 
+// Pantallas chicas (terminales físicas): mientras se escribe la descripción
+// del ítem libre se oculta el numpad de precio (ver .desc-focus en pos.css)
+// para que el campo de texto no quede tapado detrás del teclado on-screen.
+function libreDescFocus(){
+  const m = document.querySelector('#precioModalOv .precio-modal');
+  if(m) m.classList.add('desc-focus');
+}
+function libreDescBlur(){
+  const m = document.querySelector('#precioModalOv .precio-modal');
+  if(m) m.classList.remove('desc-focus');
+}
+
 function pmP(d){
   if(pmVal==='0'&&d!=='000') pmVal=d; else pmVal+=d;
   if(pmVal.length>10) pmVal=pmVal.slice(0,10);
