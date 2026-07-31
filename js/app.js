@@ -2029,6 +2029,7 @@ function buildCierreTicket(size){
     lines += rowLabel('CONTEO DEL CAJERO');
     lines += sep();
     // Arqueo multi-moneda
+    var _mmActCierre = localStorage.getItem('mm_activo') === '1';
     if(_mmActCierre && (cierreArqueoGS > 0 || cierreArqueoBRL > 0 || cierreArqueoARS > 0)){
       var _cotBRLc = parseFloat(localStorage.getItem('mm_cotBRL')) || 0;
       var _cotARSc = parseFloat(localStorage.getItem('mm_cotARS')) || 0;
