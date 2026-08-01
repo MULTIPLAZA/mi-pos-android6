@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Instalación NODO POS — Tablet Android 6</title>
+<style>
+  :root{
+    --bg:#2e2e2e; --card:#3a3a3a; --card2:#333; --border:#444; --border2:#555;
+    --text:#fff; --muted:#999; --green:#4caf50; --green-dark:#2e7d32; --amber:#ffb300;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text);
+    padding:24px 16px 60px;
+  }
+  .wrap{max-width:720px;margin:0 auto;}
+  h1{font-size:22px;margin:0 0 4px;}
+  .subtitle{color:var(--muted);font-size:14px;margin:0 0 20px;}
+  .warning{
+    background:rgba(255,179,0,.12); border:1px solid rgba(255,179,0,.4); border-radius:10px;
+    padding:14px 16px; font-size:13px; line-height:1.5; margin-bottom:24px;
+  }
+  .warning strong{color:var(--amber);}
+  .step{
+    background:var(--card); border:1px solid var(--border); border-radius:12px;
+    padding:18px 18px 20px; margin-bottom:16px;
+  }
+  .step-head{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .step-num{
+    flex-shrink:0; width:26px; height:26px; border-radius:50%; background:var(--green);
+    color:#fff; font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:center;
+  }
+  .step h2{font-size:15px; margin:0;}
+  .step p{font-size:13px; color:#ccc; line-height:1.6; margin:6px 0 12px;}
+  .step p.why{color:var(--muted); font-size:12px; margin-top:-4px;}
+  ol.instr{margin:0 0 12px; padding-left:20px; font-size:13px; color:#ccc; line-height:1.7;}
+  .btn-dl{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    background:var(--green); border:none; border-radius:8px; color:#fff; text-decoration:none;
+    font-weight:700; font-size:13px; padding:12px 16px; margin-top:4px;
+  }
+  .btn-dl:active{background:var(--green-dark);}
+  .btn-dl .meta{font-weight:400; font-size:11px; opacity:.85;}
+  .btn-dl2{
+    display:inline-block; background:var(--card2); border:1px solid var(--border2); border-radius:8px;
+    color:var(--text); text-decoration:none; font-weight:700; font-size:13px; padding:11px 16px; margin-top:4px;
+  }
+  code{
+    background:var(--card2); border:1px solid var(--border2); border-radius:4px;
+    padding:1px 6px; font-size:12px; color:#9ccc65;
+  }
+  .checklist{list-style:none; margin:0; padding:0;}
+  .checklist li{
+    display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#ccc;
+    padding:6px 0; border-bottom:1px solid var(--border);
+  }
+  .checklist li:last-child{border-bottom:none;}
+  .checklist li::before{content:"☐"; color:var(--green); font-size:15px; flex-shrink:0;}
+  footer{margin-top:28px; text-align:center; font-size:11px; color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Instalación NODO POS — Tablet Android 6</h1>
+  <p class="subtitle">Guía para el técnico. Preparar el equipo antes de entregarlo al cliente.</p>
+
+  <div class="warning">
+    <strong>Importante:</strong> esta página se abre en tu PC o celular, <strong>no en la tablet</strong> que estás preparando. Android 6 no reconoce los certificados TLS actuales (Let's Encrypt / GTS), así que su navegador de fábrica no puede abrir sitios HTTPS como este. Descargá los archivos acá y pasalos a la tablet por cable USB.
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <h2>Instalar Chrome 88</h2>
+    </div>
+    <p class="why">Necesario porque el navegador de fábrica de Android 6 tampoco puede abrir la PWA del POS (mismo problema de certificados). Chrome 88 sí la reconoce.</p>
+    <a class="btn-dl" href="chrome-88-android6.apk" download>
+      <span>⬇ Descargar Chrome 88 (APK)</span>
+      <span class="meta">~12 MB</span>
+    </a>
+    <ol class="instr">
+      <li>Copiá el .apk a la tablet (cable USB, carpeta <code>Download</code>).</li>
+      <li>En la tablet, abrí el explorador de archivos y tocá el .apk.</li>
+      <li>Si pide permiso, activá <em>"Instalar apps de fuentes desconocidas"</em> para esa app y confirmá.</li>
+      <li>Abrí Chrome una vez para completar la configuración inicial.</li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <h2>Instalar BT Print Server</h2>
+    </div>
+    <p class="why">Corre en segundo plano y conecta la impresora Bluetooth o de red con el POS (servidor local en <code>127.0.0.1:8080</code>).</p>
+    <a class="btn-dl" href="https://nodo-utils.pages.dev/descargas/BTPrintServer-latest.apk" download target="_blank" rel="noopener">
+      <span>⬇ Descargar BT Print Server (APK)</span>
+    </a>
+    <ol class="instr">
+      <li>Mismo procedimiento: pasar por USB e instalar desde el explorador de archivos.</li>
+      <li>Anotá la MAC de la impresora Bluetooth (o la IP si es de red) — se piden al conectar dentro del POS.</li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <h2>Abrir NODO POS</h2>
+    </div>
+    <p>Con Chrome 88 ya instalado, abrí la URL del sistema y agregala a la pantalla de inicio para que funcione como app.</p>
+    <ol class="instr">
+      <li>Abrí Chrome → entrá a la URL del POS del cliente.</li>
+      <li>Menú (⋮) → <em>"Agregar a pantalla de inicio"</em>.</li>
+      <li>Iniciá sesión con las credenciales del negocio y configurá impresoras (paso 2).</li>
+    </ol>
+  </div>
+
+  <div class="step">
+    <div class="step-head">
+      <div class="step-num">✓</div>
+      <h2>Checklist antes de entregar</h2>
+    </div>
+    <ul class="checklist">
+      <li>Chrome 88 instalado y abierto al menos una vez</li>
+      <li>BT Print Server instalado</li>
+      <li>Impresora conectada y test de impresión OK</li>
+      <li>PWA agregada a pantalla de inicio</li>
+      <li>Sesión iniciada con el usuario del negocio</li>
+    </ul>
+  </div>
+
+  <footer>NODO POS — kit de instalación para dispositivos Android 6</footer>
+</div>
+</body>
+</html>
