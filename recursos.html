@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Recursos — Tablet Android 6 | NODO</title>
+<meta name="description" content="Todo lo necesario para preparar una tablet Android 6 para NODO POS: Chrome 88 y BT Print Server.">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d0d14; --card:#15151f; --card2:#1f1f2e;
+    --green:#4caf50; --g2:rgba(76,175,80,.15);
+    --amber:#ffb300; --a2:rgba(255,179,0,.12);
+    --border:#28283a; --muted:#66668a;
+    --text:#f0f0ff; --text2:#b0b0cc;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    font-family:'Barlow',sans-serif; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{ max-width:640px; margin:0 auto; padding:48px 20px 80px; }
+  header{ text-align:center; margin-bottom:28px; }
+  .brand{ display:inline-flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .brand-dot{ width:10px; height:10px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px var(--g2); }
+  .brand-name{ font-size:13px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); }
+  h1{ font-size:26px; font-weight:800; margin:0 0 8px; letter-spacing:-.01em; }
+  .sub{ font-size:14px; color:var(--text2); margin:0; }
+
+  .notice{
+    background:var(--a2); border:1px solid rgba(255,179,0,.35); border-radius:12px;
+    padding:14px 16px; font-size:13px; color:var(--text2); line-height:1.6; margin-bottom:24px;
+  }
+  .notice b{ color:var(--amber); }
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:14px;
+    padding:22px; margin-bottom:18px;
+  }
+  .card-top{ display:flex; align-items:flex-start; gap:14px; }
+  .card-icon{
+    width:46px; height:46px; border-radius:12px; background:var(--g2);
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .card-title{ font-size:16px; font-weight:800; margin:0 0 3px; }
+  .card-desc{ font-size:13px; color:var(--text2); margin:2px 0 0; line-height:1.5; }
+
+  .steps{
+    margin:18px 0 0; padding:14px 16px; background:var(--card2);
+    border-radius:10px; font-size:12.5px; color:var(--text2); line-height:1.7;
+  }
+  .steps b{ color:var(--text); }
+  .steps ol{ margin:6px 0 0; padding-left:18px; }
+
+  .btn{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    width:100%; margin-top:16px; background:var(--green); border:none;
+    border-radius:10px; color:#fff; font-family:'Barlow',sans-serif;
+    font-size:14px; font-weight:800; letter-spacing:.3px; text-decoration:none;
+    padding:14px; cursor:pointer; box-shadow:0 3px 14px rgba(76,175,80,.28);
+  }
+  .btn:active{ transform:translateY(1px); }
+  .meta-row{
+    display:flex; justify-content:space-between; margin-top:10px;
+    font-size:11px; color:var(--muted);
+  }
+
+  .checklist{ list-style:none; margin:0; padding:0; }
+  .checklist li{
+    display:flex; align-items:flex-start; gap:8px; font-size:13px; color:var(--text2);
+    padding:7px 0; border-bottom:1px solid var(--border);
+  }
+  .checklist li:last-child{ border-bottom:none; }
+  .checklist li::before{ content:"☐"; color:var(--green); font-size:15px; flex-shrink:0; }
+
+  footer{ text-align:center; margin-top:40px; font-size:11.5px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand"><span class="brand-dot"></span><span class="brand-name">NODO</span></div>
+    <h1>Recursos — Tablet Android 6</h1>
+    <p class="sub">Todo lo necesario para dejar una tablet Android 6 lista para NODO POS.</p>
+  </header>
+
+  <div class="notice">
+    <b>Importante:</b> abrí esta página en tu PC o celular, no en la tablet que estás preparando. Android 6 no reconoce los certificados TLS actuales (Let's Encrypt / GTS), así que su navegador de fábrica no puede abrir sitios HTTPS. Descargá los archivos acá y pasalos a la tablet por cable USB.
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div class="card-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+      </div>
+      <div>
+        <div class="card-title">Chrome 88</div>
+        <p class="card-desc">Necesario porque el navegador de fábrica de Android 6 tampoco puede abrir la PWA del POS (mismo problema de certificados). Chrome 88 sí la reconoce.</p>
+      </div>
+    </div>
+    <div class="steps">
+      <b>Instalación</b>
+      <ol>
+        <li>Copiá el .apk a la tablet (cable USB, carpeta <b>Download</b>).</li>
+        <li>En la tablet, abrí el explorador de archivos y tocá el .apk.</li>
+        <li>Si pide permiso, activá <b>"Instalar apps de fuentes desconocidas"</b> para esa app y confirmá.</li>
+        <li>Abrí Chrome una vez para completar la configuración inicial.</li>
+      </ol>
+    </div>
+    <a class="btn" href="https://github.com/MULTIPLAZA/mi-pos-android6/releases/download/chrome88-android6/com.android.chrome_88.0.4324.93-432409310_minAPI21_maxAPI23.armeabi-v7a.nodpi._apkmirror.com.1.apk" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar APK
+    </a>
+    <div class="meta-row">
+      <span>~92 MB · Chrome 88.0.4324.93 (arm-v7a)</span>
+      <span>Android 5.0–6.0</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-top">
+      <div class="card-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/></svg>
+      </div>
+      <div>
+        <div class="card-title">BT Print Server</div>
+        <p class="card-desc">Servidor local que conecta el POS NODO con una impresora térmica Bluetooth o de red. Corre en segundo plano en la misma tablet que hace de caja.</p>
+      </div>
+    </div>
+    <div class="steps">
+      <b>Instalación</b>
+      <ol>
+        <li>Mismo procedimiento: pasar el .apk por USB e instalar desde el explorador de archivos.</li>
+        <li>Anotá la MAC de la impresora Bluetooth (o la IP si es de red) — se piden al conectar dentro del POS.</li>
+      </ol>
+    </div>
+    <a class="btn" href="https://nodo-utils.pages.dev/descargas/BTPrintServer-latest.apk" rel="noopener">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar APK
+    </a>
+    <div class="meta-row">
+      <span>~6 MB · Android 6+</span>
+      <span>Versión anterior: <a href="https://nodo-utils.pages.dev/descargas/BTPrintServer-v1.0.3.apk" rel="noopener" style="color:var(--muted);">v1.0.3</a></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px;">Checklist antes de entregar</div>
+    <ul class="checklist">
+      <li>Chrome 88 instalado y abierto al menos una vez</li>
+      <li>BT Print Server instalado</li>
+      <li>Impresora conectada y test de impresión OK</li>
+      <li>PWA del POS agregada a pantalla de inicio (Chrome → ⋮ → "Agregar a pantalla de inicio")</li>
+      <li>Sesión iniciada con el usuario del negocio</li>
+    </ul>
+  </div>
+
+  <footer>NODO Informática · kit de instalación para dispositivos Android 6</footer>
+
+</div>
+</body>
+</html>
