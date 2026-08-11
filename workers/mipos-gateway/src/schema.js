@@ -1,4 +1,11 @@
-// Fuente: workers/mipos-gateway/docs/columnas-inferidas-core.md (BORRADOR, ver ese doc).
+// Fuente: information_schema.columns real de Supabase (CSV entregado por el usuario,
+// 2026-08-10) para: licencias, activaciones, pos_config, pos_categorias, pos_productos,
+// pos_mesas, pos_pedidos. `pos_salones` esta confirmada hasta la columna `activo`
+// inclusive pero el export se cortó ahí — puede faltarle `orden` u otras, ver
+// docs/fase0-inventario.md. `pos_ventas`, `pos_turno` y `sucursales` TODAVIA SON
+// BORRADOR (docs/columnas-inferidas-core.md) — el export se cortó antes de llegar a
+// ellas, no aplicar 0001_init_mvp.sql a un D1 real hasta confirmarlas.
+//
 // Cada tabla D1-nativa soportada declara: su columna de tenant (y de que tipo es -
 // email o licencia_id numerico, la inconsistencia es real, ver docs/fase0-inventario.md),
 // y el allowlist de columnas legibles/escribibles. El Worker NUNCA acepta un nombre
@@ -8,51 +15,64 @@ export const TENANT_EMAIL = 'email';
 export const TENANT_LICENCIA_ID = 'licencia_id';
 
 export const TABLES = {
+  // CONFIRMADA contra Supabase real.
   licencias: {
     tenant: null, // tabla raiz, no se filtra por si misma
     pk: 'id',
     columns: [
       'id', 'clave', 'plan_id', 'nombre_cliente', 'email_cliente', 'fecha_vence',
-      'notas', 'rubro', 'tipo_pago', 'tipo_negocio', 'capacidades', 'monto',
-      'monto_soporte', 'precio_terminal', 'activa', 'created_at',
+      'activa', 'notas', 'created_at', 'rubro', 'tipo_pago', 'monto', 'monto_soporte',
+      'precio_terminal', 'tipo_negocio', 'capacidades',
     ],
     booleans: ['activa'],
   },
+  // CONFIRMADA. Nota: real tiene `direccion` e `ip_activacion` que no estaban en el
+  // borrador, y NO tiene `nombre_negocio` con ese orden... si las tiene, confirmado.
   activaciones: {
     tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
     pk: 'id',
     columns: [
-      'id', 'device_id', 'email', 'licencia_id', 'nombre_negocio', 'nombre_terminal',
-      'sucursal', 'modo', 'activa', 'fecha_activacion', 'ultima_consulta', 'deleted_at',
+      'id', 'licencia_id', 'device_id', 'email', 'nombre_negocio', 'direccion',
+      'fecha_activacion', 'ultima_consulta', 'activa', 'ip_activacion', 'sucursal',
+      'nombre_terminal', 'deleted_at', 'modo',
     ],
     booleans: ['activa'],
   },
+  // CONFIRMADA.
   pos_config: {
     tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
     pk: 'id',
-    columns: ['id', 'licencia_email', 'clave', 'valor'],
+    columns: ['id', 'licencia_email', 'clave', 'valor', 'updated_at'],
     booleans: [],
   },
+  // CONFIRMADA. OJO: la real NO tiene columna `activa`/`activo` — el borrador anterior
+  // la inventaba, se saca del allowlist.
   pos_categorias: {
     tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
     pk: 'id',
-    columns: ['id', 'nombre', 'color', 'licencia_email', 'activa', 'updated_at'],
-    booleans: ['activa'],
+    columns: ['id', 'nombre', 'color', 'licencia_email', 'updated_at'],
+    booleans: [],
   },
+  // CONFIRMADA. Varias columnas nuevas contra el borrador (item_libre, terminal,
+  // deleted_at, es_descuento, desc_tipo, desc_valor) y `stock`/`stock_min` NO EXISTEN
+  // (se sacan del allowlist).
   pos_productos: {
     tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
     pk: 'id',
     columns: [
-      'id', 'nombre', 'precio', 'precio_variable', 'costo', 'codigo', 'codigos',
-      'categoria', 'iva', 'color', 'color_propio', 'mitad', 'inventario', 'comanda',
-      'es_kilo', 'es_favorito', 'es_insumo', 'activo', 'imagen', 'foto_url',
-      'licencia_email', 'updated_at', 'stock', 'stock_min',
+      'id', 'nombre', 'precio', 'precio_variable', 'costo', 'codigo', 'categoria',
+      'iva', 'color', 'color_propio', 'mitad', 'inventario', 'comanda', 'item_libre',
+      'activo', 'terminal', 'licencia_email', 'updated_at', 'deleted_at', 'es_descuento',
+      'desc_tipo', 'desc_valor', 'imagen', 'es_insumo', 'foto_url', 'codigos',
+      'es_kilo', 'es_favorito',
     ],
     booleans: [
       'precio_variable', 'color_propio', 'mitad', 'inventario', 'comanda',
-      'es_kilo', 'es_favorito', 'es_insumo', 'activo',
+      'item_libre', 'activo', 'es_descuento', 'es_insumo', 'es_kilo', 'es_favorito',
     ],
   },
+  // BORRADOR — el export real se cortó antes de llegar a esta tabla. Ver
+  // docs/columnas-inferidas-core.md. NO aplicar a D1 real sin confirmar.
   pos_ventas: {
     tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
     pk: 'id',
@@ -66,6 +86,7 @@ export const TABLES = {
     ],
     booleans: ['tiene_factura', 'anulada'],
   },
+  // BORRADOR — mismo motivo que pos_ventas.
   pos_turno: {
     tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
     pk: 'id',
@@ -76,38 +97,42 @@ export const TABLES = {
     ],
     booleans: [],
   },
+  // CONFIRMADA hasta `activo` inclusive — el export se corta ahí, puede faltar `orden`
+  // u otras columnas (pos_mesas sí tiene `orden`, es razonable que pos_salones también).
   pos_salones: {
     tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
     pk: 'id',
-    columns: ['id', 'licencia_id', 'sucursal_id', 'nombre', 'color', 'activo', 'orden'],
+    columns: ['id', 'licencia_id', 'sucursal_id', 'nombre', 'color', 'activo'],
     booleans: ['activo'],
   },
+  // CONFIRMADA.
   pos_mesas: {
     tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
     pk: 'id',
     columns: [
-      'id', 'salon_id', 'licencia_id', 'sucursal_id', 'nombre', 'capacidad', 'activo', 'orden',
+      'id', 'salon_id', 'licencia_id', 'sucursal_id', 'nombre', 'capacidad',
+      'activo', 'orden', 'created_at',
     ],
     booleans: ['activo'],
   },
+  // BORRADOR — el export real se cortó antes de llegar a esta tabla.
   sucursales: {
     tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
     pk: 'id',
     columns: ['id', 'licencia_id', 'nombre', 'direccion', 'activa', 'created_at'],
     booleans: ['activa'],
   },
-  // Fuente confiable: supabase-migrations/pos_pedidos_setup.sql (unico CREATE TABLE
-  // real de las tablas MVP - no es un borrador inferido como las demas). Clave
-  // primaria UUID en Postgres (gen_random_uuid()) -> generada en el Worker con
-  // crypto.randomUUID() antes del INSERT (ver uuidPk abajo y postgrestShim.js).
+  // CONFIRMADA. Columnas nuevas contra el borrador: observaciones, venta_id (FK a
+  // pos_ventas.id, uuid). uuidPk: la real usa gen_random_uuid() en Postgres ->
+  // crypto.randomUUID() en el Worker antes del INSERT (ver postgrestShim.js).
   pos_pedidos: {
     tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
     pk: 'id',
     uuidPk: true,
     columns: [
-      'id', 'licencia_email', 'licencia_id', 'terminal_origen', 'numero_orden', 'mesa',
-      'sucursal', 'tipo_pedido', 'estado', 'items', 'total', 'descuento_ticket',
-      'mesero_id', 'created_at', 'updated_at',
+      'id', 'licencia_email', 'licencia_id', 'sucursal', 'terminal_origen', 'mesero_id',
+      'numero_orden', 'mesa', 'tipo_pedido', 'estado', 'items', 'total',
+      'observaciones', 'venta_id', 'created_at', 'updated_at', 'descuento_ticket',
     ],
     booleans: [],
   },

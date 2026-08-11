@@ -63,19 +63,22 @@ La mayoría de las tablas operativas del POS (`pos_productos`, `pos_ventas`, `po
   - `js/admin-productos.js:917` — URL de Supabase **Storage** (fotos de producto). D1 no tiene equivalente; migrar fotos requeriría Cloudflare R2, fuera del alcance de esta migración de base de datos.
   - `js/app.js` (paneles de diagnóstico/configuración, líneas ~169, ~761-764, ~904-916) — muestran URL/latencia de Supabase a modo informativo; cosmético, no mueve datos de negocio.
 
-## Acción pendiente del usuario (bloquea Fase 1 de schema definitivo)
+## Estado del schema real (actualizado 2026-08-10)
 
-No tengo acceso a la base Supabase real. Para reemplazar el borrador best-effort por el schema autoritativo, correr esto en el SQL Editor de Supabase Studio y pegarme el resultado:
+El usuario corrió la query de abajo en Supabase Studio y pasó el CSV. **Confirmadas contra el schema real:** `licencias`, `activaciones`, `pos_config`, `pos_categorias`, `pos_productos`, `pos_mesas`, `pos_pedidos` — ya reflejadas en `src/schema.js` y `d1-migrations/0001_init_mvp.sql`. Hubo varias diferencias reales contra el borrador original (ver comentarios en esos dos archivos): `pos_categorias` NO tiene columna `activa`, `pos_productos` tiene columnas que no estaban en el borrador (`item_libre`, `terminal`, `deleted_at`, `es_descuento`, `desc_tipo`, `desc_valor`) y NO tiene `stock`/`stock_min`, `licencias.email_cliente` es nullable (no NOT NULL como se asumía), etc.
+
+**`pos_salones` quedó confirmada solo hasta la columna `activo`** — el export se cortó ahí, puede faltarle `orden` u otra columna (`pos_mesas` sí tiene `orden`, es razonable que `pos_salones` también). **`pos_turno`, `pos_ventas` y `sucursales` siguen siendo BORRADOR** — el export se cortó antes de llegar a ellas (corte alfabético justo después de `pos_salones`).
+
+### Acción pendiente del usuario
+
+Correr esta query acotada (o la misma de siempre completa, prestando atención a que Supabase Studio a veces trunca el preview/export a 100 filas) y pasar el resultado:
 
 ```sql
 select table_name, column_name, data_type, is_nullable, column_default
 from information_schema.columns
 where table_schema = 'public'
-  and table_name in (
-    'licencias','activaciones','pos_config','pos_categorias','pos_productos',
-    'pos_ventas','pos_turno','pos_mesas','pos_salones','sucursales'
-  )
+  and table_name in ('pos_salones','pos_turno','pos_ventas','sucursales')
 order by table_name, ordinal_position;
 ```
 
-Hasta entonces, `d1-migrations/0001_init_mvp.sql` queda marcado como BORRADOR — no aplicar a un D1 real sin validar antes.
+Hasta entonces, esas 3 tablas (y el resto de `pos_salones`) quedan marcadas BORRADOR en `d1-migrations/0001_init_mvp.sql` — no aplicar a un D1 real sin confirmarlas.

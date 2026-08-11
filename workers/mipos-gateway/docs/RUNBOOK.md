@@ -4,7 +4,7 @@ No tengo credenciales de Cloudflare ni de la Supabase real de producción, así 
 
 ## 0. Validar el schema antes de tocar nada (bloquea el paso 2)
 
-Correr en el SQL Editor de Supabase Studio la query de `docs/fase0-inventario.md` y pegarme el resultado (o revisar vos mismo `docs/columnas-inferidas-core.md` línea por línea contra la Supabase real). El `0001_init_mvp.sql` actual es un borrador — tiene varias columnas marcadas `-- validar`.
+Estado 2026-08-10: ya confirmamos `licencias`, `activaciones`, `pos_config`, `pos_categorias`, `pos_productos`, `pos_mesas` y `pos_pedidos` contra el schema real. Falta `pos_turno`, `pos_ventas`, `sucursales` (todavía borrador) y completar `pos_salones` (cortada en `activo`) — correr la query acotada de `docs/fase0-inventario.md` (sección "Estado del schema real") y pasarme el resultado. `0001_init_mvp.sql` tiene esas 3 tablas + el resto de `pos_salones` marcadas como borrador en comentarios.
 
 ## 1. Instalar wrangler y loguearte
 
