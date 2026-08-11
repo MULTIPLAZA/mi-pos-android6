@@ -25,10 +25,22 @@ function log(env, entry) {
   console.log(JSON.stringify({ t: new Date().toISOString(), ...entry }));
 }
 
+// Sin esto, TODA llamada desde el navegador (super-admin.html, index.html del POS) falla
+// con "Failed to fetch" - el browser bloquea la respuesta (y el preflight OPTIONS) por
+// falta de headers CORS, aunque el Worker haya contestado bien. curl/Postman no lo
+// detectan porque no aplican CORS - por eso pasó desapercibido en los smoke tests previos.
+// '*' esta bien acá: no se usan cookies (Authorization es un header explícito, no
+// credentials:'include'), así que no hace falta reflejar el Origin.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key, Prefer',
+};
+
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...CORS_HEADERS },
   });
 }
 
@@ -90,7 +102,7 @@ async function handleRest(request, env, url, table) {
     }
     if (request.method === 'DELETE') {
       await runDelete(env.DB, table, url.searchParams, tenantValue);
-      return new Response(null, { status: 204 });
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
     return jsonResponse({ error: 'metodo no soportado' }, 405);
   } catch (err) {
@@ -106,29 +118,29 @@ async function handleRest(request, env, url, table) {
 async function handleRpc(request, env, fn) {
   const body = await request.json().catch(() => ({}));
 
-  if (BOOTSTRAP_RPCS.has(fn)) {
-    // Bootstrap: intenta D1 primero (tenant nuevo); si no existe, passthrough a Supabase.
-    if (fn === 'activar_licencia') {
-      const r = await activarLicencia(env.DB, env.TOKEN_SECRET, body);
-      if (r.ok || r.error !== 'clave invalida o licencia inactiva') return jsonResponse(r);
-    } else {
-      const tenantGuess = await requireTenant(request, env);
-      if (tenantGuess) {
-        const r = await verificarLicencia(env.DB, env.TOKEN_SECRET, body);
-        if (r.ok) return jsonResponse(r);
-      }
-    }
-    const resp = await passthroughRpc(env, fn, { method: 'POST', headers: request.headers, body: JSON.stringify(body) });
-    const data = await resp.json().catch(() => null);
-    if (data && typeof data === 'object') data.backend = 'supabase';
-    return jsonResponse(data, resp.status);
-  }
-
-  const tenant = await requireTenant(request, env);
-  if (!tenant) return jsonResponse({ error: 'no autorizado' }, 401);
-  const handler = RPC_HANDLERS[fn];
-  if (!handler) return jsonResponse({ error: `rpc no soportada: ${fn}` }, 501);
   try {
+    if (BOOTSTRAP_RPCS.has(fn)) {
+      // Bootstrap: intenta D1 primero (tenant nuevo); si no existe, passthrough a Supabase.
+      if (fn === 'activar_licencia') {
+        const r = await activarLicencia(env.DB, env.TOKEN_SECRET, body);
+        if (r.ok || r.error !== 'clave invalida o licencia inactiva') return jsonResponse(r);
+      } else {
+        const tenantGuess = await requireTenant(request, env);
+        if (tenantGuess) {
+          const r = await verificarLicencia(env.DB, env.TOKEN_SECRET, body);
+          if (r.ok) return jsonResponse(r);
+        }
+      }
+      const resp = await passthroughRpc(env, fn, { method: 'POST', headers: request.headers, body: JSON.stringify(body) });
+      const data = await resp.json().catch(() => null);
+      if (data && typeof data === 'object') data.backend = 'supabase';
+      return jsonResponse(data, resp.status);
+    }
+
+    const tenant = await requireTenant(request, env);
+    if (!tenant) return jsonResponse({ error: 'no autorizado' }, 401);
+    const handler = RPC_HANDLERS[fn];
+    if (!handler) return jsonResponse({ error: `rpc no soportada: ${fn}` }, 501);
     const r = await handler(env.DB, env.TOKEN_SECRET, tenant, body);
     return jsonResponse(r);
   } catch (err) {
@@ -142,6 +154,11 @@ export default {
   async fetch(request, env, ctx) {
     const start = Date.now();
     const url = new URL(request.url);
+    // Preflight CORS: el browser lo manda ANTES del POST/PATCH/DELETE real (por el
+    // Content-Type/Authorization custom) y espera 2xx + headers CORS, sin body.
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: CORS_HEADERS });
+    }
     let response;
     try {
       const restMatch = url.pathname.match(/^\/rest\/v1\/([a-zA-Z_]+)$/);
