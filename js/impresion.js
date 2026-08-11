@@ -952,7 +952,10 @@ function generarHTMLComanda(data, size){
   lineas += '<p class="hr"></p>';
 
   // Items — cantidad en grande, nombre en negrita con word-wrap
-  data.items.filter(i=>!i.esDescuento).forEach(item=>{
+  // i.comanda !== false: el producto (ver ficha "Comanda - va a cocina") decide si
+  // va a esta impresion. undefined (items viejos sin el flag) sigue imprimiendo por
+  // compatibilidad - solo se excluye lo marcado EXPLICITAMENTE false (ej. bebidas).
+  data.items.filter(i=>!i.esDescuento && i.comanda !== false).forEach(item=>{
     const maxNom = w - 3;
 
     if(item._esMitad){
@@ -1761,9 +1764,10 @@ function imprimirComanda(data){
     if(data.obs) txt += '[BOLD]OBS: ' + data.obs + '[/BOLD]' + n;
     if(cliente || data.obs) txt += sep2 + n;
 
-    // Items
+    // Items — mismo criterio que generarHTMLComanda: item.comanda===false excluye
+    // (ej. bebidas), undefined imprime igual por compatibilidad con items viejos.
     (data.items||[]).forEach(function(item){
-      if(item.esDescuento) return;
+      if(item.esDescuento || item.comanda === false) return;
       const maxNom = cols - 3;
       const nombre = wrapLine(item.name, maxNom, '   ');
       txt += '[BOLD]' + item.qty + ' ' + nombre + '[/BOLD]' + n;
