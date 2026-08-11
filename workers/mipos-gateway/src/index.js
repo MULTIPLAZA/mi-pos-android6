@@ -37,7 +37,17 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Admin-Key, Prefer',
 };
 
+// Los status 101/204/205/304 NO PUEDEN tener body - Response(bodyString, {status:204})
+// tira TypeError en el runtime de Workers, aunque el bodyString sea "[]". Esto rompía
+// en produccion CUALQUIER guardado con Prefer: return=minimal (POST/PATCH con
+// returnMinimal) - confirmado 2026-08-11 con un simple guardado de config del negocio,
+// pero afectaba a TODOS los guardados "silenciosos" (pos_config, pos_productos,
+// pos_ventas, etc.) para tenants cloudflare, no solo esa pantalla.
+const SIN_BODY = new Set([101, 204, 205, 304]);
 function jsonResponse(body, status = 200) {
+  if (SIN_BODY.has(status)) {
+    return new Response(null, { status, headers: CORS_HEADERS });
+  }
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json', ...CORS_HEADERS },
