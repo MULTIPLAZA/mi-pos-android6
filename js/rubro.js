@@ -129,6 +129,27 @@ function _hospAplicarCatDefaultSiCorresponde(){
 var _rubroTipoDesdeServidor = null;
 var _rubroTipoCambiadoLocal = false;
 
+// ── Aplicar tipo_negocio/capacidades que mandó el servidor ────
+// Fuente compartida por los dos caminos que traen esta config:
+//   - Tenants Supabase: rubroCargarDesdeSupabase() los lee directo de `licencias`.
+//   - Tenants Cloudflare: `licencias` es admin-only en el Worker (ningún dispositivo
+//     puede leerla directo), así que llegan ya adentro de la respuesta de
+//     activar_licencia/verificar_licencia — ver licGuardar()/licVerificarServidor()
+//     en licencia.js, que llaman a esta función con lo que devolvió el Worker.
+// Devuelve true si el tipo era reconocido y se aplicó.
+function rubroAplicarDesdeServidor(tipoNegocio, capacidades){
+  if(!tipoNegocio || !_RUBRO_CAPS[tipoNegocio]) return false;
+  localStorage.setItem('pos_tipo_negocio', tipoNegocio);
+  _rubroTipoDesdeServidor = tipoNegocio; // cache: ver _rubroGuardarSupabase()
+  var caps = capacidades || {};
+  RUBRO_CAPACIDADES.forEach(function(f){
+    if(caps[f] !== undefined && caps[f] !== null && localStorage.getItem('pos_flag_' + f) === null){
+      localStorage.setItem('pos_flag_' + f, caps[f] ? '1' : '0');
+    }
+  });
+  return true;
+}
+
 // ── Setear tipo de negocio ────────────────────────────────
 // Al cambiar el tipo se limpian los overrides para que los defaults entren.
 // Si se quiere conservar overrides explícitos pasar keepOverrides=true.
@@ -308,44 +329,43 @@ function _rubroLicenciaToTipo(rubro) {
 async function rubroCargarDesdeSupabase(){
   var email = localStorage.getItem('lic_email');
   if(!email || (typeof USAR_DEMO !== 'undefined' && USAR_DEMO)) return;
+  // Tenants Cloudflare: `licencias` es admin-only en el Worker, así que este paso 0
+  // SIEMPRE daría 401 — ni vale la pena intentarlo. Para esos tenants tipo_negocio/
+  // capacidades ya se aplicaron via rubroAplicarDesdeServidor() en licGuardar()/
+  // licVerificarServidor() (licencia.js), con datos frescos de cada activar/verificar.
+  var esCloudflare = (typeof usaGateway === 'function') && usaGateway();
   try {
-    // 0. licencias — se trae una sola vez y se reusa abajo (tipo_negocio,
-    // capacidades y rubro) para no repetir la consulta.
-    // Try/catch propio: si esta consulta falla (ej. columna todavía no
-    // migrada en Supabase, error de red puntual), antes tiraba directo al
-    // catch de abajo y se saltaba POR COMPLETO los pasos 1 y 2 — ningún
-    // dispositivo recibía nunca el rubro real mientras esto fallara, sin
-    // aviso. Ahora un fallo acá solo pierde la fuente preferente y sigue
-    // con pos_config / derivación por licencias.rubro.
     var lic = null;
-    try {
-      var licRows = await supaGet('licencias',
-        'email_cliente=eq.' + encodeURIComponent(email) +
-        '&activa=eq.true&select=tipo_negocio,capacidades,rubro&limit=1');
-      lic = licRows && licRows[0] ? licRows[0] : null;
-    } catch(eLic){
-      console.warn('[Rubro] Error leyendo licencias.tipo_negocio/capacidades (¿falta la migración add_licencia_tipo_negocio.sql?):', eLic.message);
-    }
-
-    if(lic && lic.tipo_negocio){
-      if(_RUBRO_CAPS[lic.tipo_negocio]){
-        localStorage.setItem('pos_tipo_negocio', lic.tipo_negocio);
-        _rubroTipoDesdeServidor = lic.tipo_negocio; // cache: ver _rubroGuardarSupabase()
-        var caps = lic.capacidades || {};
-        RUBRO_CAPACIDADES.forEach(function(f){
-          if(caps[f] !== undefined && caps[f] !== null && localStorage.getItem('pos_flag_' + f) === null){
-            localStorage.setItem('pos_flag_' + f, caps[f] ? '1' : '0');
-          }
-        });
-        _log('[Rubro] Config cargada desde licencias.tipo_negocio:', lic.tipo_negocio);
-        return; // fuente preferente encontrada, no hace falta seguir
+    if(!esCloudflare){
+      // 0. licencias — se trae una sola vez y se reusa abajo (tipo_negocio,
+      // capacidades y rubro) para no repetir la consulta.
+      // Try/catch propio: si esta consulta falla (ej. columna todavía no
+      // migrada en Supabase, error de red puntual), antes tiraba directo al
+      // catch de abajo y se saltaba POR COMPLETO los pasos 1 y 2 — ningún
+      // dispositivo recibía nunca el rubro real mientras esto fallara, sin
+      // aviso. Ahora un fallo acá solo pierde la fuente preferente y sigue
+      // con pos_config / derivación por licencias.rubro.
+      try {
+        var licRows = await supaGet('licencias',
+          'email_cliente=eq.' + encodeURIComponent(email) +
+          '&activa=eq.true&select=tipo_negocio,capacidades,rubro&limit=1');
+        lic = licRows && licRows[0] ? licRows[0] : null;
+      } catch(eLic){
+        console.warn('[Rubro] Error leyendo licencias.tipo_negocio/capacidades (¿falta la migración add_licencia_tipo_negocio.sql?):', eLic.message);
       }
-      // Valor presente pero no reconocido — no pisar silenciosamente con
-      // gastronomia. Se avisa fuerte (no solo consola) y se sigue con las
-      // fuentes de compatibilidad de abajo.
-      console.warn('[Rubro] licencias.tipo_negocio no reconocido:', lic.tipo_negocio);
-      if(typeof toast === 'function'){
-        toast('Tipo de negocio "' + lic.tipo_negocio + '" no reconocido — avisá a soporte');
+
+      if(lic && lic.tipo_negocio){
+        if(rubroAplicarDesdeServidor(lic.tipo_negocio, lic.capacidades)){
+          _log('[Rubro] Config cargada desde licencias.tipo_negocio:', lic.tipo_negocio);
+          return; // fuente preferente encontrada, no hace falta seguir
+        }
+        // Valor presente pero no reconocido — no pisar silenciosamente con
+        // gastronomia. Se avisa fuerte (no solo consola) y se sigue con las
+        // fuentes de compatibilidad de abajo.
+        console.warn('[Rubro] licencias.tipo_negocio no reconocido:', lic.tipo_negocio);
+        if(typeof toast === 'function'){
+          toast('Tipo de negocio "' + lic.tipo_negocio + '" no reconocido — avisá a soporte');
+        }
       }
     }
 
@@ -423,7 +443,17 @@ async function _rubroGuardarSupabase(){
   // pos_config, y licencias.tipo_negocio quedaba stale — que es justo la
   // columna que ahora se lee primero (ver rubroCargarDesdeSupabase), así
   // que un dispositivo nuevo o una reinstalación volvía a ver el tipo VIEJO.
-  if(typeof supaPatch === 'function'){
+  // Cloudflare: `licencias` es admin-only en el Worker (supaPatch daría 401 —
+  // el dispositivo no tiene la ADMIN_SECRET), así que va por la RPC
+  // actualizar_rubro, que solo puede tocar la fila del propio tenant (ver rpc.js).
+  if(typeof usaGateway === 'function' && usaGateway()){
+    try {
+      await supaRPC('actualizar_rubro', { tipo_negocio: tipoAEnviar, capacidades: capsAEnviar });
+      _log('[Rubro] Config guardada en Cloudflare (licencias vía RPC)');
+    } catch(e){
+      console.warn('[Rubro] Error guardando rubro en Cloudflare:', e.message);
+    }
+  } else if(typeof supaPatch === 'function'){
     try {
       await supaPatch('licencias', 'email_cliente=eq.' + encodeURIComponent(email),
         { tipo_negocio: tipoAEnviar, capacidades: capsAEnviar }, true);

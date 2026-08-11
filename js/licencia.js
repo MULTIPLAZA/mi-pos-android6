@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.139 (2026-08-10)';
+var APP_VERSION = 'v1.15.140 (2026-08-11)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -215,7 +215,10 @@ async function licActivar(email,clave){
     // nueva y vive en D1, 'supabase' si es un tenant existente (passthrough). Este
     // flag decide, de ahora en mas, si el dispositivo le pega al Worker o directo a
     // Supabase para TODO su trafico — ver licGuardar() y js/config.js:backendBaseUrl().
-    return {ok:true,token:data.token,email,plan:data.plan,vence:data.vence,backend:data.backend||'supabase'};
+    // tipo_negocio/capacidades: solo vienen pobladas cuando backend==='cloudflare' (ver
+    // rpc.js activarLicencia) — para 'supabase' rubroCargarDesdeSupabase() las lee aparte.
+    return {ok:true,token:data.token,email,plan:data.plan,vence:data.vence,backend:data.backend||'supabase',
+      tipo_negocio:data.tipo_negocio,capacidades:data.capacidades};
   } catch(e){
     console.error('[Licencia] Error Supabase:', e.message);
     return {ok:false,error:'Error de conexion: '+e.message};
@@ -235,6 +238,13 @@ function licGuardar(data){
   localStorage.setItem(SK.backend, data.backend || 'supabase');
   if(data.backend === 'cloudflare' && data.token) localStorage.setItem(SK.gatewayToken, data.token);
   else localStorage.removeItem(SK.gatewayToken);
+  // Tenants Cloudflare: tipo_negocio/capacidades llegan en esta misma respuesta porque
+  // el dispositivo no puede leer `licencias` directo (admin-only en el Worker, ver
+  // rubro.js:rubroAplicarDesdeServidor). Sin esto, un tenant nuevo arrancaba siempre en
+  // 'gastronomia' sin importar el rubro elegido al crear la licencia en super-admin.html.
+  if(data.backend === 'cloudflare' && typeof rubroAplicarDesdeServidor === 'function'){
+    rubroAplicarDesdeServidor(data.tipo_negocio, data.capacidades);
+  }
   // Guardar email en cookie como backup para auto-recuperación offline.
   // Si se borra el localStorage, licInit puede leer el email desde aquí
   // y usarlo como fallback mientras no haya internet.
@@ -260,6 +270,12 @@ async function licVerificarServidor(){
   // renueva en cada verificación exitosa — sin este refresh el dispositivo quedaría
   // bloqueado solo, aunque la licencia siga vigente.
   if(data.backend==='cloudflare' && data.token) localStorage.setItem(SK.gatewayToken, data.token);
+  // Refrescar tipo_negocio/capacidades en cada verificación (no solo al activar) —
+  // así un cambio de rubro hecho por super-admin.html después de la activación
+  // también llega al dispositivo, sin esperar una reinstalación. Ver licGuardar().
+  if(data.backend==='cloudflare' && typeof rubroAplicarDesdeServidor === 'function'){
+    rubroAplicarDesdeServidor(data.tipo_negocio, data.capacidades);
+  }
   return data.activa===true;
 }
 

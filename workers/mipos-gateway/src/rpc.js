@@ -1,16 +1,26 @@
-// Reimplementacion en JS/D1 de las 6 RPCs de Postgres detectadas en docs/fase0-inventario.md.
+// Reimplementacion en JS/D1 de las 6 RPCs de Postgres detectadas en docs/fase0-inventario.md,
+// mas actualizar_rubro (nueva, sin equivalente en Supabase - ver comentario mas abajo).
 // Las 2 primeras (activar_licencia, verificar_licencia) son las criticas para el MVP -
-// sin ellas ningun dispositivo nuevo puede activarse. Las otras 4 quedan documentadas
-// con su contrato de entrada/salida pero marcadas como pendientes de completar una vez
-// que se conozca el comportamiento exacto de la funcion Postgres original (no esta en
-// el repo - hay que leerla en Supabase Studio > Database > Functions antes de darla
-// por terminada, sobre todo avanzar_correlativo y descontar_stock_venta que necesitan
-// ser atomicas para no duplicar comprobantes / desincronizar stock).
+// sin ellas ningun dispositivo nuevo puede activarse. avanzar_correlativo y
+// descontar_stock_venta quedan documentadas con su contrato de entrada/salida pero
+// marcadas como pendientes de completar una vez que se conozca el comportamiento exacto
+// de la funcion Postgres original (no esta en el repo - hay que leerla en Supabase
+// Studio > Database > Functions antes de darla por terminada, tienen que ser atomicas
+// para no duplicar comprobantes / desincronizar stock).
 
 import { ShimError } from './postgrestShim.js';
 import { signToken } from './token.js';
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 dias, se renueva en cada verificar_licencia
+
+// `licencias` es admin-only (ver index.js: requiere X-Admin-Key) - ningun dispositivo
+// puede leerla directo. tipo_negocio/capacidades viajan entonces DENTRO de la respuesta
+// de activar_licencia/verificar_licencia, que ya tienen la fila leida en memoria.
+// capacidades se guarda como TEXT (JSON) en D1 - parsear con tolerancia a datos corruptos.
+function parseCapacidades(raw) {
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
 
 export async function activarLicencia(db, secret, params) {
   const { p_clave, p_email, p_device_id } = params;
@@ -50,7 +60,11 @@ export async function activarLicencia(db, secret, params) {
     { lid: lic.id, em: lic.email_cliente, be: 'cloudflare', did: p_device_id, exp },
     secret,
   );
-  return { ok: true, token, plan: lic.plan_id, vence: lic.fecha_vence, backend: 'cloudflare' };
+  return {
+    ok: true, token, plan: lic.plan_id, vence: lic.fecha_vence, backend: 'cloudflare',
+    tipo_negocio: lic.tipo_negocio || null,
+    capacidades: parseCapacidades(lic.capacidades),
+  };
 }
 
 export async function verificarLicencia(db, secret, params) {
@@ -76,7 +90,11 @@ export async function verificarLicencia(db, secret, params) {
   );
   // OJO: js/licencia.js:249 chequea `data.activa===true` (no `data.ok`) - hay que
   // devolver ambos campos para que el contrato sea compatible con el cliente actual.
-  return { ok: true, activa: true, token, plan: act.plan_id, vence: act.fecha_vence, backend: 'cloudflare' };
+  return {
+    ok: true, activa: true, token, plan: act.plan_id, vence: act.fecha_vence, backend: 'cloudflare',
+    tipo_negocio: act.tipo_negocio || null,
+    capacidades: parseCapacidades(act.capacidades),
+  };
 }
 
 export async function actualizarActivacion(db, tenant, params) {
@@ -107,6 +125,23 @@ export async function crearSucursal(db, tenant, params) {
   return { ok: true, sucursal: results[0] };
 }
 
+// El dueño del negocio puede cambiar su propio rubro desde admin-negocio.html (Configuración),
+// no solo desde el super-admin. Esa pantalla llama a rubro.js -> _rubroGuardarSupabase(), que
+// para tenants Supabase escribe directo en `licencias` (RLS desactivado, ver docs internos).
+// Para tenants Cloudflare esa tabla es admin-only, así que hace falta esta RPC: deja que el
+// dispositivo actualice SOLO su propia fila (scoped a tenant.lid, nunca a un id del body) sin
+// pedirle la ADMIN_SECRET. Sin esto, el cambio de rubro se guardaría en pos_config pero
+// licencias.tipo_negocio quedaría stale, y el próximo verificar_licencia pisaría el cambio local.
+export async function actualizarRubro(db, tenant, params) {
+  const { tipo_negocio, capacidades } = params;
+  if (!tipo_negocio) throw new ShimError('actualizar_rubro: falta tipo_negocio', 400);
+  await db
+    .prepare('UPDATE licencias SET tipo_negocio = ?, capacidades = ? WHERE id = ?')
+    .bind(tipo_negocio, capacidades ? JSON.stringify(capacidades) : null, tenant.lid)
+    .run();
+  return { ok: true };
+}
+
 export async function avanzarCorrelativo(db, tenant, params) {
   // NO IMPLEMENTADO todavia - necesita leerse la funcion Postgres original para saber
   // en que tabla/columna vive el correlativo (no hay tabla de correlativos en el MVP
@@ -127,6 +162,7 @@ export const RPC_HANDLERS = {
   verificar_licencia: (db, secret, _tenant, params) => verificarLicencia(db, secret, params),
   actualizar_activacion: (db, _secret, tenant, params) => actualizarActivacion(db, tenant, params),
   crear_sucursal: (db, _secret, tenant, params) => crearSucursal(db, tenant, params),
+  actualizar_rubro: (db, _secret, tenant, params) => actualizarRubro(db, tenant, params),
   avanzar_correlativo: (db, _secret, tenant, params) => avanzarCorrelativo(db, tenant, params),
   descontar_stock_venta: (db, _secret, tenant, params) => descontarStockVenta(db, tenant, params),
 };
