@@ -1,4 +1,6 @@
-# Columnas inferidas — 10 tablas MVP (BORRADOR, no autoritativo)
+# Columnas inferidas — 10 tablas MVP (SUPERADO, ver docs/fase0-inventario.md)
+
+**Este documento quedó obsoleto el 2026-08-10** — las 11 tablas MVP ya están confirmadas contra el schema real de Supabase en `src/schema.js` y `d1-migrations/0001_init_mvp.sql`, que son la fuente de verdad ahora. Se deja este archivo solo como referencia histórica del borrador original; no usarlo para nada nuevo.
 
 Reconstruido por grep de payloads (`supaPost`/`supaPatch`), filtros de query string y lecturas `row.campo` en `js/*.js` y `super-admin.html`. Confianza: **alta** (aparece en INSERT/UPDATE) / **media** (solo en filtro o `select=`) / **baja** (solo lectura, nunca escrito por este código). Cualquier columna con confianza media/baja lleva comentario `-- validar` en el DDL de `0001_init_mvp.sql`.
 

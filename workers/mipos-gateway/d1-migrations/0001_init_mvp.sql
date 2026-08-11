@@ -1,9 +1,5 @@
--- licencias, activaciones, pos_config, pos_categorias, pos_productos, pos_mesas,
--- pos_salones (parcial) y pos_pedidos estan CONFIRMADAS contra information_schema.columns
--- real de Supabase (CSV entregado 2026-08-10). pos_ventas, pos_turno y sucursales
--- TODAVIA SON BORRADOR (el export se cortó antes de llegar a ellas) — ver
--- docs/fase0-inventario.md y docs/columnas-inferidas-core.md. NO aplicar contra un D1
--- de produccion hasta confirmar esas 3 (y el resto de columnas de pos_salones).
+-- Las 11 tablas MVP estan CONFIRMADAS contra information_schema.columns real de
+-- Supabase (CSV entregado por el usuario, confirmado 2026-08-10). Sin borrador.
 --
 -- Nota: uniqueness (UNIQUE, FK reales) no se puede leer de information_schema.columns
 -- -- son constraints, no columnas. `clave` UNIQUE y `(licencia_email,clave)` UNIQUE en
@@ -112,20 +108,90 @@ CREATE TABLE pos_mesas (
 CREATE INDEX ix_pos_mesas_tenant ON pos_mesas(licencia_id);
 CREATE INDEX ix_pos_mesas_salon ON pos_mesas(salon_id);
 
--- CONFIRMADA solo hasta `activo` inclusive (ver docs/fase0-inventario.md) - puede
--- faltarle `orden` u otra columna, cotejar antes de aplicar a un D1 real.
 CREATE TABLE pos_salones (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   licencia_id  INTEGER NOT NULL,
   sucursal_id  INTEGER,
   nombre       TEXT NOT NULL,
   color        TEXT NOT NULL DEFAULT '#1565c0',
-  activo       INTEGER DEFAULT 1
+  activo       INTEGER DEFAULT 1,
+  orden        INTEGER DEFAULT 0,
+  created_at   TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX ix_pos_salones_tenant ON pos_salones(licencia_id);
 
+CREATE TABLE sucursales (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  licencia_id INTEGER REFERENCES licencias(id),
+  nombre      TEXT NOT NULL,
+  direccion   TEXT,
+  telefono    TEXT,
+  activa      INTEGER DEFAULT 1,
+  created_at  TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX ix_sucursales_tenant ON sucursales(licencia_id);
+
+CREATE TABLE pos_turno (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha_apertura        TEXT NOT NULL,
+  fecha_cierre          TEXT,
+  efectivo_inicial      REAL DEFAULT 0,
+  estado                TEXT DEFAULT 'abierto',
+  terminal              TEXT NOT NULL,
+  total_contado         REAL,
+  diferencia            REAL,
+  licencia_email        TEXT NOT NULL,
+  created_at            TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  total_vendido         REAL DEFAULT 0,
+  total_egresos         REAL DEFAULT 0,
+  cantidad_ventas       INTEGER DEFAULT 0,
+  resumen_pagos         TEXT,
+  efectivo_inicial_brl  REAL DEFAULT 0
+);
+CREATE INDEX ix_pos_turno_tenant ON pos_turno(licencia_email);
+
+CREATE TABLE pos_ventas (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  fecha             TEXT NOT NULL,
+  turno_id          INTEGER REFERENCES pos_turno(id),
+  terminal          TEXT,
+  total             REAL NOT NULL,
+  metodo_pago       TEXT,
+  comprobante       TEXT,
+  items             TEXT,
+  tiene_factura     INTEGER DEFAULT 0,
+  factura_ruc       TEXT,
+  factura_nombre    TEXT,
+  licencia_email    TEXT NOT NULL,
+  created_at        TEXT DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  sucursal          TEXT,
+  id_transaccion    TEXT,
+  anulada           INTEGER NOT NULL DEFAULT 0,
+  fecha_anulacion   TEXT,
+  motivo_anulacion  TEXT,
+  div_pagos         TEXT,
+  cliente_nombre    TEXT,
+  fe_cdc            TEXT,
+  fe_estado         TEXT,
+  fe_numero         TEXT,
+  fe_qr             TEXT,
+  fe_lote_id        TEXT,
+  fe_error          TEXT,
+  fe_respuesta      TEXT,
+  fe_fecha_emision  TEXT,
+  fe_nc_cdc         TEXT,
+  fe_nc_numero      TEXT,
+  fe_nc_estado      TEXT,
+  mm_pagos          TEXT,
+  pix_mp_pagos      TEXT
+);
+CREATE INDEX ix_pos_ventas_tenant ON pos_ventas(licencia_email);
+CREATE INDEX ix_pos_ventas_turno ON pos_ventas(turno_id);
+
+-- uuid en Postgres (gen_random_uuid()) -> TEXT en D1, generado por el Worker con
+-- crypto.randomUUID() antes del INSERT (ver src/postgrestShim.js:runInsert).
 CREATE TABLE pos_pedidos (
-  id                TEXT PRIMARY KEY, -- uuid, generado por el Worker con crypto.randomUUID()
+  id                TEXT PRIMARY KEY,
   licencia_email    TEXT NOT NULL,
   licencia_id       INTEGER,
   sucursal          TEXT NOT NULL DEFAULT 'Principal',
@@ -138,78 +204,9 @@ CREATE TABLE pos_pedidos (
   items             TEXT NOT NULL,
   total             INTEGER NOT NULL DEFAULT 0,
   observaciones     TEXT,
-  venta_id          TEXT,
+  venta_id          TEXT REFERENCES pos_ventas(id),
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   descuento_ticket  REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX ix_pos_pedidos_licencia_estado ON pos_pedidos(licencia_email, estado, created_at DESC);
-
--- ═══════════════════════════════════════════════════════════════════════════
--- A PARTIR DE ACA: BORRADOR (docs/columnas-inferidas-core.md), NO CONFIRMADO.
--- El export real se cortó antes de llegar a pos_turno / pos_ventas / sucursales.
--- ═══════════════════════════════════════════════════════════════════════════
-
-CREATE TABLE pos_ventas (
-  id                INTEGER PRIMARY KEY AUTOINCREMENT,
-  fecha             TEXT NOT NULL,
-  turno_id          INTEGER,
-  terminal          TEXT,
-  sucursal          TEXT NOT NULL DEFAULT 'Principal',
-  licencia_email    TEXT NOT NULL,
-  total             REAL NOT NULL DEFAULT 0,
-  metodo_pago       TEXT NOT NULL,
-  comprobante       TEXT,
-  items             TEXT NOT NULL,
-  div_pagos         TEXT,
-  mm_pagos          TEXT,
-  pix_mp_pagos      TEXT,
-  cliente_nombre    TEXT,
-  tiene_factura     INTEGER NOT NULL DEFAULT 0,
-  factura_ruc       TEXT NOT NULL DEFAULT '',
-  factura_nombre    TEXT NOT NULL DEFAULT '',
-  anulada           INTEGER NOT NULL DEFAULT 0,
-  fecha_anulacion   TEXT,
-  motivo_anulacion  TEXT,
-  fe_numero         TEXT,
-  fe_cdc            TEXT,
-  fe_qr             TEXT,
-  fe_estado         TEXT,
-  fe_respuesta      TEXT,
-  fe_error          TEXT,
-  fe_fecha_emision  TEXT, -- validar (confianza baja)
-  fe_nc_cdc         TEXT,
-  fe_nc_numero      TEXT,
-  fe_nc_estado      TEXT,
-  FOREIGN KEY (turno_id) REFERENCES pos_turno(id)
-);
-CREATE INDEX ix_pos_ventas_tenant ON pos_ventas(licencia_email);
-CREATE INDEX ix_pos_ventas_turno ON pos_ventas(turno_id);
-
-CREATE TABLE pos_turno (
-  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-  fecha_apertura        TEXT NOT NULL,
-  fecha_cierre          TEXT,
-  efectivo_inicial      REAL NOT NULL DEFAULT 0,
-  efectivo_inicial_brl  REAL NOT NULL DEFAULT 0,
-  estado                TEXT NOT NULL,
-  terminal              TEXT NOT NULL,
-  licencia_email        TEXT NOT NULL,
-  total_contado         REAL,
-  diferencia            REAL,
-  total_vendido         REAL,
-  total_egresos         REAL,
-  cantidad_ventas       REAL,
-  resumen_pagos         TEXT
-);
-CREATE INDEX ix_pos_turno_tenant ON pos_turno(licencia_email);
-
-CREATE TABLE sucursales (
-  id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  licencia_id INTEGER NOT NULL REFERENCES licencias(id),
-  nombre      TEXT NOT NULL,
-  direccion   TEXT, -- validar
-  activa      INTEGER NOT NULL DEFAULT 1,
-  created_at  TEXT -- validar
-);
-CREATE INDEX ix_sucursales_tenant ON sucursales(licencia_id);

@@ -2,9 +2,9 @@
 
 No tengo credenciales de Cloudflare ni de la Supabase real de producción, así que estos pasos quedan para vos. Ejecutar en orden — cada uno es chico y reversible.
 
-## 0. Validar el schema antes de tocar nada (bloquea el paso 2)
+## 0. Schema — CERRADO (2026-08-10)
 
-Estado 2026-08-10: ya confirmamos `licencias`, `activaciones`, `pos_config`, `pos_categorias`, `pos_productos`, `pos_mesas` y `pos_pedidos` contra el schema real. Falta `pos_turno`, `pos_ventas`, `sucursales` (todavía borrador) y completar `pos_salones` (cortada en `activo`) — correr la query acotada de `docs/fase0-inventario.md` (sección "Estado del schema real") y pasarme el resultado. `0001_init_mvp.sql` tiene esas 3 tablas + el resto de `pos_salones` marcadas como borrador en comentarios.
+Las 11 tablas MVP están confirmadas contra `information_schema.columns` real de Supabase. `0001_init_mvp.sql` ya no tiene nada marcado BORRADOR — se puede pasar directo al paso 2.
 
 ## 1. Instalar wrangler y loguearte
 
@@ -64,6 +64,5 @@ Ver logs en vivo durante cualquier prueba: `npm run tail`.
 ## Pendiente conocido antes de un piloto real
 
 - `avanzar_correlativo` y `descontar_stock_venta` (en `src/rpc.js`) están sin implementar — tiran 501 a propósito. Hace falta leer la función Postgres original en Supabase Studio → Database → Functions para replicar el comportamiento exacto antes de que un cliente Cloudflare las necesite (número de comprobante y descuento de stock son datos financieros, no vale la pena adivinar).
-- Columnas marcadas `-- validar` en `d1-migrations/0001_init_mvp.sql`.
-- Solo están las 11 tablas MVP (las 10 originales + `pos_pedidos`) — si el primer cliente piloto necesita hospedaje, stock, factura electrónica avanzada, gastos, créditos o modificadores de producto, esas tablas todavía no existen en D1 (ver `docs/fase0-inventario.md` para la lista completa de 33 tablas usadas por el POS).
+- Solo están las 11 tablas MVP — si el primer cliente piloto necesita hospedaje, stock, factura electrónica avanzada, gastos, créditos o modificadores de producto, esas tablas todavía no existen en D1 (ver `docs/fase0-inventario.md` para la lista completa de 33 tablas usadas por el POS).
 - Fotos de producto (Supabase Storage) y el lookup de `contribuyentes` (RUC) siguen yendo a Supabase para todos los tenants a propósito — ver el addendum en `docs/fase0-inventario.md`.

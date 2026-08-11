@@ -63,22 +63,18 @@ La mayoría de las tablas operativas del POS (`pos_productos`, `pos_ventas`, `po
   - `js/admin-productos.js:917` — URL de Supabase **Storage** (fotos de producto). D1 no tiene equivalente; migrar fotos requeriría Cloudflare R2, fuera del alcance de esta migración de base de datos.
   - `js/app.js` (paneles de diagnóstico/configuración, líneas ~169, ~761-764, ~904-916) — muestran URL/latencia de Supabase a modo informativo; cosmético, no mueve datos de negocio.
 
-## Estado del schema real (actualizado 2026-08-10)
+## Estado del schema real (cerrado 2026-08-10)
 
-El usuario corrió la query de abajo en Supabase Studio y pasó el CSV. **Confirmadas contra el schema real:** `licencias`, `activaciones`, `pos_config`, `pos_categorias`, `pos_productos`, `pos_mesas`, `pos_pedidos` — ya reflejadas en `src/schema.js` y `d1-migrations/0001_init_mvp.sql`. Hubo varias diferencias reales contra el borrador original (ver comentarios en esos dos archivos): `pos_categorias` NO tiene columna `activa`, `pos_productos` tiene columnas que no estaban en el borrador (`item_libre`, `terminal`, `deleted_at`, `es_descuento`, `desc_tipo`, `desc_valor`) y NO tiene `stock`/`stock_min`, `licencias.email_cliente` es nullable (no NOT NULL como se asumía), etc.
+Las 11 tablas MVP están **todas confirmadas** contra `information_schema.columns` real de Supabase (2 CSV del usuario: uno con 7 tablas + `pos_salones` parcial, otro con las 4 restantes acotadas para esquivar el límite de 100 filas del preview de Supabase Studio). `src/schema.js` y `d1-migrations/0001_init_mvp.sql` ya no tienen nada marcado BORRADOR. `docs/columnas-inferidas-core.md` queda como referencia histórica del borrador original — no usarlo como fuente, `schema.js` manda.
 
-**`pos_salones` quedó confirmada solo hasta la columna `activo`** — el export se cortó ahí, puede faltarle `orden` u otra columna (`pos_mesas` sí tiene `orden`, es razonable que `pos_salones` también). **`pos_turno`, `pos_ventas` y `sucursales` siguen siendo BORRADOR** — el export se cortó antes de llegar a ellas (corte alfabético justo después de `pos_salones`).
+Diferencias reales relevantes contra el borrador original inferido del código (ya corregidas):
+- `pos_categorias` **no tiene** columna `activa`/`activo`.
+- `pos_productos` tenía columnas no detectadas (`item_libre`, `terminal`, `deleted_at`, `es_descuento`, `desc_tipo`, `desc_valor`) y **no tiene** `stock`/`stock_min`.
+- `pos_ventas` tenía columnas no detectadas (`created_at`, `id_transaccion`, `fe_lote_id`) y varias columnas que yo había puesto `NOT NULL` (`metodo_pago`, `items`, `factura_ruc`, `factura_nombre`) son en realidad nullable.
+- `pos_turno` le faltaba `created_at`.
+- `pos_salones` le faltaban `orden` y `created_at`.
+- `sucursales.licencia_id` es nullable (no `NOT NULL` como se asumía) y le faltaba `telefono`.
+- `licencias.email_cliente` es nullable (no `NOT NULL` como se asumía).
+- `activaciones` tenía `direccion` e `ip_activacion` no detectadas.
 
-### Acción pendiente del usuario
-
-Correr esta query acotada (o la misma de siempre completa, prestando atención a que Supabase Studio a veces trunca el preview/export a 100 filas) y pasar el resultado:
-
-```sql
-select table_name, column_name, data_type, is_nullable, column_default
-from information_schema.columns
-where table_schema = 'public'
-  and table_name in ('pos_salones','pos_turno','pos_ventas','sucursales')
-order by table_name, ordinal_position;
-```
-
-Hasta entonces, esas 3 tablas (y el resto de `pos_salones`) quedan marcadas BORRADOR en `d1-migrations/0001_init_mvp.sql` — no aplicar a un D1 real sin confirmarlas.
+Lo único que sigue siendo supuesto (no verificable desde `information_schema.columns`, que solo lista columnas, no constraints): `licencias.clave` UNIQUE y `pos_config` UNIQUE(licencia_email, clave) — coinciden con cómo el código los usa (clave de activación única, upsert por `on_conflict`), pero no están confirmados constraint por constraint.
