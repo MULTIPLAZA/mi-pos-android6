@@ -6,40 +6,21 @@ No tengo credenciales de Cloudflare ni de la Supabase real de producción, así 
 
 Las 11 tablas MVP están confirmadas contra `information_schema.columns` real de Supabase. `0001_init_mvp.sql` ya no tiene nada marcado BORRADOR — se puede pasar directo al paso 2.
 
-## 1. Instalar wrangler y loguearte
+## 1. Instalar wrangler y loguearte — HECHO (2026-08-10)
 
-```
-cd workers/mipos-gateway
-npm install
-npx wrangler login
-```
+## 2. Crear la D1 y correr la migración — HECHO (2026-08-10)
 
-## 2. Crear la D1 y correr la migración (una sola vez)
+D1 `mipos_cf` creada en Cloudflare (region ENAM), `database_id` ya cargado en `wrangler.toml`. Migración `0001_init_mvp.sql` aplicada tanto local (`--local`) como remota (`--remote`) — 11 tablas creadas en la D1 real, 0 errores.
 
-```
-npx wrangler d1 create mipos_cf
-```
+Nota: `wrangler` quedó en la versión 3.114.17 (avisa que hay 4.x disponible) — no se actualizó todavía, no es bloqueante.
 
-Copiá el `database_id` que te devuelve y pegalo en `wrangler.toml` (reemplazando `PENDIENTE-completar-tras-wrangler-d1-create`). Después:
+## 3. Cargar los secrets — HECHO (2026-08-10)
 
-```
-npm run d1:migrate:local    # probar primero en local
-npm run d1:migrate:remote   # recién cuando estés conforme, aplica contra la D1 real
-```
+Los 4 secrets (`TOKEN_SECRET`, `SUPA_URL`, `SUPA_ANON`, `ADMIN_SECRET`) ya están cargados en el Worker `mipos-gateway` de Cloudflare — nunca tocaron git, no están en ningún archivo del repo. `TOKEN_SECRET` y `ADMIN_SECRET` se generaron random (`openssl rand -hex 32`), distintos entre sí.
 
-## 3. Cargar los secrets (nunca van en wrangler.toml ni se commitean)
+**Importante — este repo es público en GitHub.** Por eso `super-admin.html` NO tiene el `ADMIN_SECRET` hardcodeado: la primera vez que uses el panel te va a pedir la clave con un `prompt()` y la guarda en el `localStorage` de tu navegador (clave `gw_admin_key`), nunca en el código fuente. **Guardá vos el valor del `ADMIN_SECRET`** (el que generó esta sesión) en tu gestor de contraseñas — si lo perdés, hay que rotarlo con `wrangler secret put ADMIN_SECRET` de nuevo y volver a ingresarlo en el panel (`localStorage.removeItem('gw_admin_key')` para que te lo vuelva a pedir).
 
-```
-npx wrangler secret put TOKEN_SECRET
-npx wrangler secret put SUPA_URL
-npx wrangler secret put SUPA_ANON
-npx wrangler secret put ADMIN_SECRET
-```
-
-- `TOKEN_SECRET`: cualquier string largo random (ej. `openssl rand -hex 32`). Es la clave HMAC que firma los tokens de activación.
-- `SUPA_URL`: `https://kmreiniqgcvqgdtzvmel.supabase.co`
-- `SUPA_ANON`: la anon key actual (la que hoy está hardcodeada en `js/config.js`). Queda solo en el Worker, nunca más expuesta al cliente para tenants nuevos.
-- `ADMIN_SECRET`: otro string largo random, **distinto** de `TOKEN_SECRET`. Autentica a `super-admin.html` (que crea licencias nuevas, una operación admin-only, no de un tenant) — nunca se lo des a un dispositivo cliente. Hay que pegarlo también en `super-admin.html` (buscar `GWADMIN_KEY` cerca de `SURL`/`SKEY`) tras el deploy.
+Si en el futuro rotás algún secret, corré de nuevo el `wrangler secret put <NOMBRE>` correspondiente — sobreescribe sin downtime.
 
 ## 4. Deploy en modo "solo vos" (Fase 5, paso 1 del plan)
 
@@ -47,19 +28,24 @@ npx wrangler secret put ADMIN_SECRET
 npm run deploy
 ```
 
-Esto te da una URL tipo `https://mipos-gateway.<tu-cuenta>.workers.dev`. **No cambies `js/config.js` todavía.** Probá manualmente contra esa URL (Postman/curl/Playwright apuntado a esa URL) antes de que cualquier dispositivo real la use.
+**Deployado 2026-08-10**: `https://mipos-gateway.multitechmulti727.workers.dev` (Version ID `d4a5bd3f-4549-45d9-8ab6-9a0891aad9b6`). Coincide con el valor que ya estaba en `GATEWAY_URL` (`js/config.js`) — no hizo falta tocar ese archivo.
 
 Rollback si algo sale mal: `npx wrangler rollback` (versión anterior en segundos) o `npx wrangler deployments list` para ver el historial.
 
 Ver logs en vivo durante cualquier prueba: `npm run tail`.
 
-## 5. Smoke test manual sugerido (antes de crear el primer cliente real)
+## 5. Smoke test — HECHO (2026-08-10)
 
-1. `POST /rest/v1/rpc/activar_licencia` con una clave que insertaste a mano en la `licencias` de D1 (vía `wrangler d1 execute mipos_cf --remote --command "INSERT INTO licencias (...) VALUES (...)"`) → debe devolver `{ok:true, token, backend:'cloudflare'}`.
-2. Con ese token en `Authorization: Bearer <token>`, `GET /rest/v1/pos_productos` → debe devolver `[]` (tabla vacía, tenant nuevo).
-3. `POST /rest/v1/pos_productos` con un producto de prueba → confirmar que `licencia_email`/`licencia_id` quedó igual al del token, sin importar qué mandaste en el body.
-4. Probar a propósito un request malformado: una columna que no existe (`GET /rest/v1/pos_productos?columna_trucha=eq.1`) → debe devolver 400, no 500 ni datos.
-5. Recién ahí seguir con la Fase 3 (cablear `js/config.js`) y, más adelante, el primer cliente piloto real desde `super-admin.html`.
+Corrido contra el Worker real, con una licencia de prueba (`TEST-SMOKE-0001`) insertada y borrada de la D1 remota al terminar:
+
+1. Sin token → 401. Tabla no soportada → 501. Ruta inválida → 404. Alta admin sin `X-Admin-Key` → 401.
+2. `activar_licencia` con la clave de prueba → `{ok:true, token, backend:'cloudflare', ...}`.
+3. Con ese token, `GET pos_productos` → `[]` (tenant nuevo, vacío).
+4. `POST pos_productos` mandando a propósito `licencia_email` de OTRO tenant en el body → el Worker lo ignoró e insertó con el tenant real del token.
+5. `GET pos_productos?licencia_email=eq.otro@ajeno.com` (filtro trucho) → mismo resultado que sin filtro, confirma que también se ignora en las lecturas.
+6. `GET pos_productos?columna_trucha=eq.1` → 400, no 500 ni datos.
+
+Los 6 checks pasaron. **Recién ahora** conviene seguir con: cablear `js/config.js` al fleet completo (Fase 3, ya hecha en el código — falta el *ship* real vía el flujo normal de actualización de la PWA) y, más adelante, crear el primer cliente piloto real desde `super-admin.html`.
 
 ## Pendiente conocido antes de un piloto real
 

@@ -31,7 +31,7 @@ var SUPA_ANON = 'sb_publishable_j6btNHo1o3tSprmYUJITPw_8AsYgcvJ';
 // Los tenants activados con backend='supabase' (todos los existentes hoy) NUNCA
 // llegan a tocar esta URL para su trafico normal — siguen yendo directo a Supabase
 // arriba, sin cambios. Ver workers/mipos-gateway/docs/fase0-inventario.md.
-var GATEWAY_URL = 'https://mipos-gateway.multitechmulti727.workers.dev'; // TODO: confirmar URL real tras el deploy (ver RUNBOOK.md)
+var GATEWAY_URL = 'https://mipos-gateway.multitechmulti727.workers.dev'; // confirmada tras el deploy 2026-08-10
 
 // ── API SQL externa (búsqueda de productos por código de barras) ──
 // El token vive en el Worker — no se expone en el browser.

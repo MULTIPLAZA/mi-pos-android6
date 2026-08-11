@@ -2,15 +2,13 @@ name = "mipos-gateway"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# BORRADOR — el "database_id" se completa recien despues de correr:
-#   wrangler d1 create mipos_cf
-# (ver docs/RUNBOOK.md). No hacer wrangler deploy hasta completar este archivo
-# y cargar los secrets con `wrangler secret put`.
+# D1 creada 2026-08-10 (region ENAM) con `wrangler d1 create mipos_cf`, migracion
+# 0001_init_mvp.sql aplicada. Secrets ya cargados (ver docs/RUNBOOK.md paso 3).
 
 [[d1_databases]]
 binding = "DB"
 database_name = "mipos_cf"
-database_id = "PENDIENTE-completar-tras-wrangler-d1-create"
+database_id = "2a054578-d297-4996-ac74-07a53279f8b6"
 
 # Secrets (nunca en este archivo, cargar con `wrangler secret put <nombre>`):
 #   TOKEN_SECRET      -> clave HMAC para firmar/validar tokens de activacion (por-tenant)
