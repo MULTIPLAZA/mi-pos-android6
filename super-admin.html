@@ -651,7 +651,7 @@ function logout(){
 
 
 
-let allL=[], editId=null, renoMode=false;
+let allL=[], editId=null, renoMode=false, editBackend='supabase';
 let chI=null, chC=null;
 
 const gs  = n=>'₲'+Math.round(n||0).toLocaleString('es-PY');
@@ -737,8 +737,9 @@ const RUBROS={'':'General','gastronomia':'Gastronomía','kiosco':'Kiosco/Almacé
 const TIPOS={anual:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M3 12a9 9 0 0 1 15.5-6.5L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.5L3 16"/><path d="M3 21v-5h5"/></svg> Anual',mensual:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Mensual',unico:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg> Único',trial:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg> Trial'};
 
 async function loadL(){
+  var supaRows=[], cfRows=[];
   try{
-    allL=await sg('licencias','select=*,planes(nombre)&order=created_at.desc');
+    supaRows=await sg('licencias','select=*,planes(nombre)&order=created_at.desc');
     // Decorar con tipo_negocio desde pos_config SOLO como fallback — desde
     // que rubro.js lee licencias.tipo_negocio primero (ver
     // js/rubro.js rubroCargarDesdeSupabase), esa columna es la fuente real;
@@ -753,15 +754,31 @@ async function loadL(){
           if(v.tipo_negocio) rcMap[(r.licencia_email||'').toLowerCase()]=v.tipo_negocio;
         }catch(e){}
       });
-      allL.forEach(function(l){
+      supaRows.forEach(function(l){
         var em=(l.email_cliente||'').toLowerCase();
         if(!l.tipo_negocio && rcMap[em]) l._tipo_negocio=rcMap[em];
       });
     }catch(e){}
+    supaRows.forEach(function(l){ l._backend='supabase'; });
   }catch(e){
-    allL=DEMO;
+    allL=DEMO.map(function(l){ l._backend='supabase'; return l; });
     toast('Demo: '+e.message,4000);
+    renderL(allL);
+    return;
   }
+  // Licencias creadas con backend='cloudflare' viven en la D1 del Worker, no en
+  // Supabase — sin esto nunca aparecían en este listado aunque se hubieran creado
+  // bien (confirmado 2026-08-11). Tolerante: si el Worker falla, se sigue mostrando
+  // al menos lo de Supabase en vez de romper el panel entero.
+  try{
+    cfRows=await gwFetch('/rest/v1/licencias?select=*&order=created_at.desc');
+    cfRows.forEach(function(l){ l._backend='cloudflare'; });
+  }catch(e){
+    toast('No se pudo leer licencias de Cloudflare: '+e.message,4000);
+  }
+  allL=supaRows.concat(cfRows).sort(function(a,b){
+    return new Date(b.created_at||0)-new Date(a.created_at||0);
+  });
   renderL(allL);
 }
 
@@ -783,6 +800,11 @@ function renderL(lista){
     const _tnInfo=_tn&&_tn!=='gastronomia'?(TIPO_POS_LABELS[_tn]||{t:_tn,c:'#ff9800'}):null;
     const tn=_tnInfo?`<span class="tag" style="background:${_tnInfo.c}1f;color:${_tnInfo.c};border:1px solid ${_tnInfo.c}4d;">${_tnInfo.t}</span>`:'';
     const tp=l.tipo_pago?`<span class="tag tag-gr">${TIPOS[l.tipo_pago]||l.tipo_pago}</span>`:'';
+    // Los ids de Supabase y de la D1 de Cloudflare son secuencias separadas — pueden
+    // coincidir entre sí. Mostrar de dónde es cada licencia y pasar el backend a los
+    // botones de acción evita que Editar/Suspender/Renovar toquen la fila equivocada.
+    const be=l._backend||'supabase';
+    const beTag=be==='cloudflare'?'<span class="tag" style="background:#f6821f1f;color:#f6821f;border:1px solid #f6821f4d;">☁ Cloudflare</span>':'';
 
     let vt='';
     let rail='var(--green)';
@@ -803,7 +825,7 @@ function renderL(lista){
           </div>
           <div class="lmeta">
             <span class="tag ${pCls}">${pNom}</span>
-            ${rb}${tn}${tp}${vt}${suspTag}
+            ${rb}${tn}${tp}${vt}${suspTag}${beTag}
           </div>
         </div>
       </div>
@@ -811,12 +833,12 @@ function renderL(lista){
         <button class="la cp" onclick="copiar('${l.clave}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>COPIAR
         </button>
-        <button class="la ed" onclick="editL(${l.id})">
+        <button class="la ed" onclick="editL(${l.id},'${be}')">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>EDITAR
         </button>
         ${l.activa
-          ?`<button class="la su" onclick="suspender(${l.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>SUSPENDER</button>`
-          :`<button class="la ac" onclick="renovar(${l.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>RENOVAR</button>`
+          ?`<button class="la su" onclick="suspender(${l.id},'${be}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>SUSPENDER</button>`
+          :`<button class="la ac" onclick="renovar(${l.id},'${be}')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.5"/></svg>RENOVAR</button>`
         }
       </div>
     </div>`;
@@ -833,15 +855,22 @@ async function copiar(clave){
   try{await navigator.clipboard.writeText(clave);toast('Clave copiada: '+clave);}
   catch(e){toast(clave,4000);}
 }
-async function suspender(id){
+async function suspender(id,backend){
   if(!confirm('¿Suspender esta licencia?')) return;
-  try{await spatch('licencias',id,{activa:false});toast('Licencia suspendida');await loadL();}
+  try{
+    if(backend==='cloudflare'){
+      await gwFetch('/rest/v1/licencias?id=eq.'+id,{method:'PATCH',body:JSON.stringify({activa:false})});
+    } else {
+      await spatch('licencias',id,{activa:false});
+    }
+    toast('Licencia suspendida');await loadL();
+  }
   catch(e){toast('Error: '+e.message);}
 }
 
 // ── MODAL ────────────────────────────────────────────────
 function openM(){
-  editId=null; renoMode=false;
+  editId=null; renoMode=false; editBackend='supabase';
   document.getElementById('mTitle').textContent='Nueva licencia';
   document.getElementById('mNombre').value='';
   document.getElementById('mEmail').value='';
@@ -861,9 +890,11 @@ function openM(){
   setTimeout(genClave,50);
 }
 
-function editL(id){
-  const l=allL.find(x=>x.id===id); if(!l) return;
-  editId=id; renoMode=false;
+function editL(id,backend){
+  // Los ids de Supabase y de la D1 de Cloudflare son secuencias separadas y pueden
+  // coincidir — matchear también por backend evita editar la fila equivocada.
+  const l=allL.find(x=>x.id===id&&(x._backend||'supabase')===backend); if(!l) return;
+  editId=id; renoMode=false; editBackend=l._backend||'supabase';
   document.getElementById('mTitle').textContent='Editar licencia';
   document.getElementById('mClave').value=l.clave;
   document.getElementById('mNombre').value=l.nombre_cliente||'';
@@ -877,17 +908,16 @@ function editL(id){
   document.getElementById('mSoporte').value=l.monto_soporte||'';
   document.getElementById('mPrecioTer').value=l.precio_terminal||'';
   document.getElementById('mVence').value=l.fecha_vence||'';
-  // allL hoy solo carga licencias de Supabase (ver loadL) — cualquier fila editable
-  // desde este panel es, por definición, backend='supabase'. Bloqueado a propósito:
-  // editar una licencia D1 desde acá todavía no está soportado.
-  document.getElementById('mBackend').value='supabase';
+  // Solo refleja el backend real de la fila (ya no se fuerza a 'supabase') — sigue
+  // bloqueado porque mover un tenant entre backends no está soportado desde acá.
+  document.getElementById('mBackend').value=editBackend;
   document.getElementById('mBackend').disabled=true;
   document.getElementById('mOv').style.display='flex';
 }
 
-function renovar(id){
-  const l=allL.find(x=>x.id===id); if(!l) return;
-  editId=id; renoMode=true;
+function renovar(id,backend){
+  const l=allL.find(x=>x.id===id&&(x._backend||'supabase')===backend); if(!l) return;
+  editId=id; renoMode=true; editBackend=l._backend||'supabase';
   document.getElementById('mTitle').textContent='Renovar licencia';
   document.getElementById('mClave').value=l.clave;
   document.getElementById('mNombre').value=l.nombre_cliente||'';
@@ -906,6 +936,8 @@ function renovar(id){
   if(tp==='mensual') h.setMonth(h.getMonth()+1);
   else h.setFullYear(h.getFullYear()+1);
   document.getElementById('mVence').value=h.getFullYear()+'-'+pad(h.getMonth()+1)+'-'+pad(h.getDate());
+  document.getElementById('mBackend').value=editBackend;
+  document.getElementById('mBackend').disabled=true;
   document.getElementById('mOv').style.display='flex';
 }
 
@@ -953,10 +985,16 @@ async function guardarL(){
   const backend = document.getElementById('mBackend').value; // 'cloudflare' | 'supabase'
   try{
     if(editId){
-      // editId solo existe para filas de allL, que hoy son 100% Supabase (ver editL) —
-      // no hace falta branch por backend acá.
+      // editL()/renovar() guardan el backend REAL de la fila en editBackend (los ids
+      // de Supabase y de la D1 de Cloudflare son secuencias separadas — sin esto, un
+      // PATCH a una licencia cloudflare se hubiera mandado a Supabase por el id
+      // equivocado, arriesgando pisar una licencia real de otro cliente).
       if(renoMode) data.activa=true;
-      await spatch('licencias',editId,data);
+      if(editBackend==='cloudflare'){
+        await gwFetch('/rest/v1/licencias?id=eq.'+editId,{method:'PATCH',body:JSON.stringify(data)});
+      } else {
+        await spatch('licencias',editId,data);
+      }
       toast(renoMode?'Renovada y reactivada':'Licencia actualizada');
     } else if(backend==='cloudflare'){
       data.activa=true;
