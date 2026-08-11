@@ -72,10 +72,12 @@ async function handleRest(request, env, url, table) {
   const tableDef = TABLES[table];
   let tenantValue = null;
   if (tableDef.tenant === null) {
-    // Tabla admin-only (hoy: licencias). La llama super-admin.html, no un dispositivo
-    // de un tenant — se autentica con un secret propio, nunca con el token por-device.
-    const adminKey = request.headers.get('X-Admin-Key');
-    if (!adminKey || adminKey !== env.ADMIN_SECRET) return jsonResponse({ error: 'no autorizado' }, 401);
+    // Tabla sin proteccion de admin key a pedido explicito del dueño (2026-08-11,
+    // priorizo cero friccion sobre proteccion) - la llama super-admin.html sin
+    // autenticarse. RIESGO ACEPTADO: la URL de este Worker es publica (esta en el
+    // codigo fuente del repo, que es publico en GitHub) - cualquiera que la encuentre
+    // puede crear o modificar licencias sin restriccion. Unica mitigacion que queda:
+    // el log() de cada request al final de fetch() (ver wrangler tail).
   } else {
     const tenant = await requireTenant(request, env);
     if (!tenant) return jsonResponse({ error: 'no autorizado' }, 401);

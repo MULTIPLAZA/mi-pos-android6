@@ -492,24 +492,15 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#f2f1ee;min-height
 // SUPA_URL y SUPA_ANON vienen de js/config.js
 const SURL  = SUPA_URL;
 const SKEY  = SUPA_ANON;
-// GATEWAY_URL viene de js/config.js. El ADMIN_SECRET del Worker (ver
-// workers/mipos-gateway/docs/RUNBOOK.md) NUNCA va hardcodeado acá — este repo es
-// público en GitHub. Se pide una vez con prompt() y queda en el localStorage de
-// ESTE navegador únicamente (gw_admin_key). Si necesitás rotarlo:
-// localStorage.removeItem('gw_admin_key') y te lo vuelve a pedir.
+// GATEWAY_URL viene de js/config.js.
+// El Worker YA NO pide ADMIN_SECRET para esta tabla (decisión del dueño 2026-08-11:
+// prioriza cero fricción al crear licencias desde el celular sobre la protección).
+// RIESGO ACEPTADO: cualquiera que encuentre GWURL (código público en GitHub) puede
+// crear o modificar licencias sin restricción — ver comentario en index.js del Worker.
 const GWURL = typeof GATEWAY_URL !== 'undefined' ? GATEWAY_URL : '';
 
-function gwAdminKey(){
-  let k = localStorage.getItem('gw_admin_key');
-  if(!k){
-    k = (prompt('Clave admin del Worker (ADMIN_SECRET) — se guarda solo en este navegador, nunca en el código:') || '').trim();
-    if(k) localStorage.setItem('gw_admin_key', k);
-  }
-  return k;
-}
-
 async function gwFetch(path, opts){
-  const headers = Object.assign({'Content-Type':'application/json','X-Admin-Key':gwAdminKey()}, (opts&&opts.headers)||{});
+  const headers = Object.assign({'Content-Type':'application/json'}, (opts&&opts.headers)||{});
   const r = await fetch(GWURL+path, Object.assign({}, opts, {headers}));
   const txt = await r.text();
   if(!r.ok) throw new Error('Gateway '+r.status+': '+txt.substring(0,200));
