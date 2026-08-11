@@ -63,7 +63,9 @@ function _setupLongPressGrid(){
         : [];
       if((p.mitad || mods.length > 0) && typeof abrirFlujoPizza === 'function'){
         if(navigator.vibrate) navigator.vibrate(30);
-        abrirFlujoPizza(p, mods.length > 0);
+        // Long-press es el gesto pensado para armar mitades — arranca en ½ MITAD ya
+        // seleccionado (pedir entera sigue siendo 1 tap normal, ver addCart).
+        abrirFlujoPizza(p, mods.length > 0, !!p.mitad);
       }
     }, 500);
   }

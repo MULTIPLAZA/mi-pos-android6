@@ -1682,8 +1682,13 @@ function _flujoSteps(){
 }
 function _flujoIdx(){ return _flujoSteps().indexOf(_flujo.paso); }
 
-function abrirFlujoPizza(prod, tieneModif){
-  _flujo = { prod, esMitad:false, qty:1, prod2:null, selecciones:{}, tieneModif:!!tieneModif, paso:1 };
+// esMitadDefault: arranca en ½ MITAD en vez de ENTERA. El long-press sobre un tile
+// (ver ventas.js) es el gesto pensado especificamente para armar mitades — pedir
+// entera ya se cubre con 1 tap normal (ver addCart) — asi que ese caller lo pasa en
+// true para ahorrar un toque. El otro caller (obligatorio por modificador, sin mitad)
+// no lo pasa y sigue arrancando en ENTERA.
+function abrirFlujoPizza(prod, tieneModif, esMitadDefault){
+  _flujo = { prod, esMitad:!!esMitadDefault, qty:1, prod2:null, selecciones:{}, tieneModif:!!tieneModif, paso:1 };
   _renderFlujoSheet();
   document.getElementById('modifOverlay').classList.add('open');
 }
@@ -1999,7 +2004,7 @@ function _flujoBack(){
 }
 
 // Compat — mantener funciones antiguas que puedan llamarse desde otros lugares
-function abrirModalMitad(prod){ abrirFlujoPizza(prod, false); }
+function abrirModalMitad(prod){ abrirFlujoPizza(prod, false, true); }
 function mitadCancelar(){ _flujoClose(); }
 function mitadConfirmar(){ modifConfirmar(); }
 function renderMitadOpts(){}
