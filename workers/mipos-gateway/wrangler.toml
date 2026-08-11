@@ -1,0 +1,20 @@
+name = "mipos-gateway"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# BORRADOR — el "database_id" se completa recien despues de correr:
+#   wrangler d1 create mipos_cf
+# (ver docs/RUNBOOK.md). No hacer wrangler deploy hasta completar este archivo
+# y cargar los secrets con `wrangler secret put`.
+
+[[d1_databases]]
+binding = "DB"
+database_name = "mipos_cf"
+database_id = "PENDIENTE-completar-tras-wrangler-d1-create"
+
+# Secrets (nunca en este archivo, cargar con `wrangler secret put <nombre>`):
+#   TOKEN_SECRET      -> clave HMAC para firmar/validar tokens de activacion (por-tenant)
+#   SUPA_URL          -> https://kmreiniqgcvqgdtzvmel.supabase.co (passthrough legacy)
+#   SUPA_ANON         -> anon key de Supabase, retenida server-side, nunca al cliente
+#   ADMIN_SECRET      -> autentica a super-admin.html (alta de licencias, admin-only,
+#                        distinto del token por-dispositivo). Nunca dárselo a un cliente.

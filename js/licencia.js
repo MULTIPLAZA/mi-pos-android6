@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.135 (2026-08-03)';
+var APP_VERSION = 'v1.15.136 (2026-08-10)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -36,7 +36,8 @@ var MODO_TERMINAL = localStorage.getItem('pos_modo_terminal') || 'caja';
 var SK = {
   token:'lic_token', email:'lic_email', negocio:'lic_negocio',
   plan:'lic_plan', vence:'lic_vence', nextCheck:'lic_next_check',
-  activated:'lic_activated', deviceId:'lic_device_id', fallos:'lic_fallos'
+  activated:'lic_activated', deviceId:'lic_device_id', fallos:'lic_fallos',
+  backend:'lic_backend', gatewayToken:'lic_gateway_token'
 };
 
 const DEMO_KEYS = {
@@ -203,14 +204,18 @@ async function licActivar(email,clave){
     const licData=DEMO_KEYS[claveUp];
     if(!licData) return {ok:false,error:'Clave invalida. (Demo: DEMO-2025-XXXX)'};
     const token='tk_demo_'+btoa(email+':'+claveUp).replace(/=/g,'').substring(0,24);
-    return {ok:true,token,email,plan:licData.plan,vence:licData.vence};
+    return {ok:true,token,email,plan:licData.plan,vence:licData.vence,backend:'supabase'};
   }
   try {
     _log('[Licencia] Activando con Supabase...', claveUp);
     const data=await supaRPC('activar_licencia',{p_clave:claveUp,p_email:email,p_device_id:licGetDeviceId()});
     _log('[Licencia] Respuesta Supabase:', data);
     if(!data.ok) return {ok:false,error:data.error||'Error al activar'};
-    return {ok:true,token:data.token,email,plan:data.plan,vence:data.vence};
+    // data.backend viene del Worker (mipos-gateway): 'cloudflare' si la licencia es
+    // nueva y vive en D1, 'supabase' si es un tenant existente (passthrough). Este
+    // flag decide, de ahora en mas, si el dispositivo le pega al Worker o directo a
+    // Supabase para TODO su trafico — ver licGuardar() y js/config.js:backendBaseUrl().
+    return {ok:true,token:data.token,email,plan:data.plan,vence:data.vence,backend:data.backend||'supabase'};
   } catch(e){
     console.error('[Licencia] Error Supabase:', e.message);
     return {ok:false,error:'Error de conexion: '+e.message};
@@ -225,6 +230,11 @@ function licGuardar(data){
   localStorage.setItem(SK.vence,data.vence);
   localStorage.setItem(SK.fallos,'0');
   localStorage.setItem(SK.nextCheck,String(Date.now()+24*60*60*1000));
+  // Backend resuelto por el Worker en la activación (ver js/config.js:licBackend()).
+  // Default 'supabase' si por algún motivo no vino — nunca asumir 'cloudflare' a ciegas.
+  localStorage.setItem(SK.backend, data.backend || 'supabase');
+  if(data.backend === 'cloudflare' && data.token) localStorage.setItem(SK.gatewayToken, data.token);
+  else localStorage.removeItem(SK.gatewayToken);
   // Guardar email en cookie como backup para auto-recuperación offline.
   // Si se borra el localStorage, licInit puede leer el email desde aquí
   // y usarlo como fallback mientras no haya internet.
@@ -246,6 +256,10 @@ async function licVerificarServidor(){
   const email=localStorage.getItem(SK.email);
   if(!email) return false;
   const data=await supaRPC('verificar_licencia',{p_device_id:licGetDeviceId(),p_email:email});
+  // Para tenants cloudflare el token del Worker vence (30 dias, ver rpc.js) y se
+  // renueva en cada verificación exitosa — sin este refresh el dispositivo quedaría
+  // bloqueado solo, aunque la licencia siga vigente.
+  if(data.backend==='cloudflare' && data.token) localStorage.setItem(SK.gatewayToken, data.token);
   return data.activa===true;
 }
 
@@ -366,6 +380,13 @@ async function licInit(){
       _log('[licInit] device_id encontrado:', deviceId ? deviceId.substring(0,12)+'...' : 'ninguno');
 
       if(deviceId){
+        // LIMITACION CONOCIDA (tenants cloudflare): este lookup usa supaGet(), que sin
+        // backend guardado en localStorage apunta a Supabase por default (ver
+        // js/config.js:licBackend()). Si este dispositivo es un tenant cloudflare y
+        // perdió su localStorage, la query no va a encontrar nada acá (activaciones
+        // vive en D1, no en Supabase) — 'rows' queda vacío y el flujo cae a mostrar
+        // la pantalla de activación normal, donde el usuario reingresa la clave y
+        // licActivar() lo resuelve bien (degradación aceptada, no hay pérdida de datos).
         // Consultar activaciones por device_id directamente
         const rows = await supaGet('activaciones',
             'device_id=eq.' + encodeURIComponent(deviceId)
@@ -396,6 +417,8 @@ async function licInit(){
               localStorage.setItem(SK.vence,     tokenData.vence || '');
               localStorage.setItem(SK.fallos,    '0');
               localStorage.setItem(SK.nextCheck, String(Date.now() + 24*60*60*1000));
+              localStorage.setItem(SK.backend,   tokenData.backend || 'supabase');
+              if(tokenData.backend === 'cloudflare' && tokenData.token) localStorage.setItem(SK.gatewayToken, tokenData.token);
 
               // Restaurar datos del negocio — solo como fallback si el usuario no tiene valor propio
               if(activ.nombre_negocio){

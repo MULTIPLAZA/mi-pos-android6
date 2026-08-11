@@ -10,50 +10,86 @@ var _CRED_RESETS_KEY   = 'pos_cred_cycle_resets'; // timestamp del último saldo
 // Formato moneda sin símbolo ₲ duplicado
 function numGs(n) { return 'Gs.'+Math.round(n||0).toLocaleString('es-PY'); }
 
-// Guarda el timestamp exacto en que el saldo del cliente llegó a 0 (corte de ciclo)
-function _cicloGuardarCorte(clienteId) {
+// Guarda el timestamp del cobro que llevó el saldo a 0 (corte de ciclo).
+// Usar el fecha del cobro (no new Date()) para evitar desfases reloj cliente/servidor.
+function _cicloGuardarCorte(clienteId, fechaCobro) {
   var resets = {};
   try { resets = JSON.parse(localStorage.getItem(_CRED_RESETS_KEY)||'{}'); } catch(e) {}
-  resets[clienteId] = new Date().toISOString();
+  resets[clienteId] = fechaCobro || new Date().toISOString();
   try { localStorage.setItem(_CRED_RESETS_KEY, JSON.stringify(resets)); } catch(e) {}
 }
 
-// Devuelve solo los movimientos del ciclo activo (después del último corte a saldo=0).
-// Estrategia primaria: timestamp explícito guardado al cobrar. Fallback: balance acumulado.
+// Devuelve los movimientos del ciclo activo.
+// Lógica pura por nroTicket y montos — sin timestamps ni cutoffs cruzados.
 function _cicloMovs(clienteId) {
-  var resets = {};
-  try { resets = JSON.parse(localStorage.getItem(_CRED_RESETS_KEY)||'{}'); } catch(e) {}
-  var cutoff = resets[clienteId] ? new Date(resets[clienteId]) : null;
-
+  var saldo = cliSaldo(clienteId);
   var fiados = fiadoCargar();
   var cobros = cobrosCargar();
-  var movs = [];
-  for (var i = 0; i < fiados.length; i++) {
-    if (fiados[i].clienteId === clienteId)
-      movs.push({ tipo:'fiado', fecha:fiados[i].fecha, monto:fiados[i].total||0, nroTicket:fiados[i].nroTicket });
-  }
-  for (var j = 0; j < cobros.length; j++) {
-    if (cobros[j].clienteId === clienteId && (cobros[j].monto||0) > 0)
-      movs.push({ tipo:'cobro', fecha:cobros[j].fecha, monto:cobros[j].monto||0, metodo:cobros[j].metodo });
-  }
-  movs.sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
 
-  if (cutoff) {
-    // Usar el corte explícito: solo movimientos POSTERIORES al timestamp guardado
-    var activos = [];
-    for (var k = 0; k < movs.length; k++) {
-      if (new Date(movs[k].fecha) > cutoff) activos.push(movs[k]);
+  // ── 1. FIADOS del ciclo ───────────────────────────────────────
+  // Mínimo conjunto de fiados más recientes (por nroTicket desc) cuya suma >= saldo.
+  var fiadosCli = [];
+  for (var fi = 0; fi < fiados.length; fi++) {
+    if (fiados[fi].clienteId === clienteId && (fiados[fi].total||0) > 0)
+      fiadosCli.push(fiados[fi]);
+  }
+  fiadosCli.sort(function(a,b) {
+    var na = parseInt(a.nroTicket)||0, nb = parseInt(b.nroTicket)||0;
+    if (na !== nb) return nb - na;                        // más reciente por nro ticket
+    return new Date(b.fecha) - new Date(a.fecha);         // tiebreaker: más reciente por fecha
+  });
+
+  if (saldo <= 0 || fiadosCli.length === 0) return [];
+
+  var acum = 0, cicloFiados = [];
+  for (var ti = 0; ti < fiadosCli.length; ti++) {
+    cicloFiados.push(fiadosCli[ti]);
+    acum += fiadosCli[ti].total || 0;
+    if (acum >= saldo) break;
+  }
+
+  // ── 2. COBROS del ciclo ───────────────────────────────────────
+  // Lo que ya se abonó contra los fiados del ciclo actual:
+  var expected_paid = acum - saldo;
+  // Solo candidatos con fecha >= al fiado más temprano del ciclo
+  var minFiadoMs = Infinity;
+  for (var ci = 0; ci < cicloFiados.length; ci++) {
+    var ft = new Date(cicloFiados[ci].fecha).getTime();
+    if (ft < minFiadoMs) minFiadoMs = ft;
+  }
+
+  var candidatos = [];
+  for (var k = 0; k < cobros.length; k++) {
+    var c = cobros[k];
+    if (c.clienteId === clienteId && (c.monto||0) > 0 &&
+        new Date(c.fecha).getTime() >= minFiadoMs) {
+      candidatos.push(c);
     }
-    return activos;
+  }
+  // Más recientes primero: cobros del ciclo actual tienen fecha posterior
+  candidatos.sort(function(a,b){ return new Date(b.fecha)-new Date(a.fecha); });
+
+  var ciclosCobros = [], cobros_acum = 0;
+  for (var cc = 0; cc < candidatos.length; cc++) {
+    if (cobros_acum >= expected_paid) break;
+    var m = candidatos[cc].monto || 0;
+    if (m <= (expected_paid - cobros_acum)) {  // solo incluir si cabe exacto
+      ciclosCobros.push(candidatos[cc]);
+      cobros_acum += m;
+    }
+    // Saltar cobros mayores al monto restante (pertenecen a otro ciclo)
   }
 
-  // Fallback para clientes sin corte guardado: balance acumulado cronológico
-  var runBal = 0, lastZero = -1;
-  for (var m = 0; m < movs.length; m++) {
-    if (movs[m].tipo === 'fiado') { runBal += movs[m].monto; }
-    else { runBal -= movs[m].monto; if (runBal <= 0) { runBal = 0; lastZero = m; } }
+  // ── 3. Combinar y ordenar cronológicamente ────────────────────
+  var res = [];
+  for (var ri = 0; ri < cicloFiados.length; ri++) {
+    res.push({ tipo:'fiado', fecha:cicloFiados[ri].fecha, monto:cicloFiados[ri].total||0, nroTicket:cicloFiados[ri].nroTicket });
   }
-  return lastZero >= 0 ? movs.slice(lastZero + 1) : movs;
+  for (var rj = 0; rj < ciclosCobros.length; rj++) {
+    res.push({ tipo:'cobro', fecha:ciclosCobros[rj].fecha, monto:ciclosCobros[rj].monto||0, metodo:ciclosCobros[rj].metodo });
+  }
+  res.sort(function(a,b){ return new Date(a.fecha)-new Date(b.fecha); });
+  return res;
 }
 
 // ── COBROS LOG ────────────────────────────────────────────────
@@ -299,7 +335,8 @@ function abrirDetalleCliente(clienteId) {
         html += '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">';
         html += '<div style="width:30px;height:30px;border-radius:50%;background:rgba(229,57,53,.12);border:1.5px solid rgba(229,57,53,.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">';
         html += '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#e53935" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>';
-        html += '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text);">Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+'</div>';
+        var tktLabel = mv.nroTicket ? 'Tkt #'+String(mv.nroTicket).padStart(4,'0') : 'Venta';
+        html += '<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:var(--text);">'+tktLabel+'</div>';
         html += '<div style="font-size:11px;color:var(--muted);">'+mvds+' '+mvts+'</div></div>';
         html += '<div style="font-size:15px;font-weight:800;color:#e53935;">+'+numGs(mv.monto)+'</div></div>';
       } else {
@@ -370,11 +407,11 @@ function confirmarCobrarFiado() {
   var metodo  = document.getElementById('cobrarFiadoMetodo').value || 'efectivo';
   var cobrado = fiadoCobrar(_cobFiadoCId, monto, metodo);
   var nomStr  = document.getElementById('cobrarFiadoNombre').textContent;
-  cobroRegistrar(_cobFiadoCId, nomStr, cobrado, metodo);
+  var cobroObj = cobroRegistrar(_cobFiadoCId, nomStr, cobrado, metodo);
   if (typeof registrarIngreso === 'function') registrarIngreso('Cobro fiado — '+nomStr, cobrado, metodo);
   var nuevoSaldo = cliSaldo(_cobFiadoCId);
-  // Si el saldo llegó a 0, guardar el timestamp como corte de ciclo
-  if (nuevoSaldo === 0) _cicloGuardarCorte(_cobFiadoCId);
+  // Si el saldo llegó a 0, guardar el timestamp DEL COBRO como corte de ciclo
+  if (nuevoSaldo === 0) _cicloGuardarCorte(_cobFiadoCId, cobroObj ? cobroObj.fecha : null);
   cerrarCobrarFiado();
   if(typeof toast==='function') toast('Cobrado: '+numGs(cobrado));
   imprimirReciboCobro(nomStr, cobrado, metodo, nuevoSaldo);
@@ -596,8 +633,8 @@ async function _credSupaSincronizar() {
   try {
     // Clientes
     var rCli = await fetch(
-      SUPA_URL + '/rest/v1/pos_cred_clientes?email=eq.' + encodeURIComponent(email) + '&select=*',
-      { headers: supaHeaders({}) }
+      backendBaseUrl() + '/rest/v1/pos_cred_clientes?email=eq.' + encodeURIComponent(email) + '&select=*',
+      { headers: backendHeaders({}) }
     );
     if (rCli.ok) {
       var dbClis = await rCli.json();
@@ -615,8 +652,8 @@ async function _credSupaSincronizar() {
     }
     // Fiados
     var rFiado = await fetch(
-      SUPA_URL + '/rest/v1/pos_cred_fiado?email=eq.' + encodeURIComponent(email) + '&select=*&order=fecha.asc',
-      { headers: supaHeaders({}) }
+      backendBaseUrl() + '/rest/v1/pos_cred_fiado?email=eq.' + encodeURIComponent(email) + '&select=*&order=fecha.asc',
+      { headers: backendHeaders({}) }
     );
     if (rFiado.ok) {
       var dbFiados = await rFiado.json();
@@ -624,11 +661,12 @@ async function _credSupaSincronizar() {
         var fMap = {};
         fiadoCargar().forEach(function(f){ fMap[f.id] = f; });
         dbFiados.forEach(function(f){
+          var existing = fMap[f.id] || {};
           fMap[f.id] = {
             id:            f.id,
             clienteId:     f.cliente_id,
             clienteNombre: f.cliente_nombre,
-            nroTicket:     f.nro_ticket,
+            nroTicket:     f.nro_ticket != null ? f.nro_ticket : (existing.nroTicket || null),
             total:         f.total,
             fecha:         f.fecha,
             pagado:        f.pagado,
@@ -700,7 +738,8 @@ function cliImprimirCuenta(clienteId) {
     for (var mi = 0; mi < activMovs.length; mi++) {
       var mv = activMovs[mi];
       if (mv.tipo === 'fiado') {
-        txt += _pad('Tkt #'+String(mv.nroTicket||'?').padStart(4,'0')+' '+_fmt(mv.fecha), '+Gs.'+_gs(mv.monto)) + n;
+        var _tktPfx = mv.nroTicket ? 'Tkt #'+String(mv.nroTicket).padStart(4,'0') : 'Venta';
+        txt += _pad(_tktPfx+' '+_fmt(mv.fecha), '+Gs.'+_gs(mv.monto)) + n;
       } else {
         var _d = new Date(mv.fecha);
         var _f5 = ('0'+_d.getDate()).slice(-2)+'/'+('0'+(_d.getMonth()+1)).slice(-2);

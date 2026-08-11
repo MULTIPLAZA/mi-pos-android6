@@ -181,9 +181,9 @@ async function sateliteEnviarPedido(){
   let supabasePedidoId = null;
   if(navigator.onLine && email && !USAR_DEMO){
     try{
-      const res = await fetch(SUPA_URL + '/rest/v1/pos_pedidos', {
+      const res = await fetch(backendBaseUrl() + '/rest/v1/pos_pedidos', {
         method:  'POST',
-        headers: supaHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+        headers: backendHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
         body: JSON.stringify(pedidoData),
       });
       supaOk = res.ok;
@@ -487,10 +487,28 @@ async function cajaSyncPedidosSatelite(){
 var _realtimeWS = null;
 var _realtimeReconnectTimer = null;
 var _realtimeRef = 0;
+var _cfPollingTimer = null;
+
+// Tenants cloudflare (D1) no tienen Realtime de Postgres — no hay protocolo Phoenix
+// que replicar. El WS actual funciona como puro "wake-up signal" (el handler
+// onmessage no lee el payload, solo dispara el mismo polling de siempre), así que
+// alcanza con poll-ear directo cada pocos segundos. Ver plan de migración,
+// sección Realtime, y workers/mipos-gateway/docs/fase0-inventario.md.
+function _cfPollingIniciar(){
+  if(_cfPollingTimer) return; // ya corriendo
+  _cfPollingTimer = setInterval(function(){
+    if(MODO_TERMINAL === 'caja') cajaSyncPedidosSatelite();
+    else if(MODO_TERMINAL === 'satelite') sateliteSyncPedidosPendientes();
+  }, 3000);
+}
 
 function posSuscribirRealtime(){
   if(MODO_TERMINAL !== 'caja' && MODO_TERMINAL !== 'satelite') return;
   if(!navigator.onLine || USAR_DEMO) return;
+  if(typeof usaGateway === 'function' && usaGateway()){
+    _cfPollingIniciar();
+    return;
+  }
   if(_realtimeWS && _realtimeWS.readyState === 1) return; // ya conectado
   if(typeof SUPA_URL === 'undefined' || typeof SUPA_ANON === 'undefined') return;
   if(typeof WebSocket === 'undefined') return;
@@ -671,9 +689,9 @@ async function sateliteSyncPedidosPendientes(){
           created_at:       (p.fecha instanceof Date ? p.fecha : new Date(p.fecha||Date.now())).toISOString(),
           updated_at:       new Date().toISOString(),
         };
-        var retryRes = await fetch(SUPA_URL + '/rest/v1/pos_pedidos', {
+        var retryRes = await fetch(backendBaseUrl() + '/rest/v1/pos_pedidos', {
           method:  'POST',
-          headers: supaHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
+          headers: backendHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=representation' }),
           body: JSON.stringify(retryData),
         });
         if(retryRes.ok){

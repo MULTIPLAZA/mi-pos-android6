@@ -399,6 +399,16 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#f2f1ee;min-height
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
       <div>
+        <label class="flabel">Backend</label>
+        <select id="mBackend" class="fsel">
+          <option value="cloudflare" selected>Cloudflare (D1) — clientes nuevos</option>
+          <option value="supabase">Supabase — legacy</option>
+        </select>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      <div>
         <label class="flabel">Rubro</label>
         <select id="mRubro" class="fsel">
           <option value="">General</option>
@@ -482,6 +492,20 @@ body{font-family:Barlow,sans-serif;background:var(--bg);color:#f2f1ee;min-height
 // SUPA_URL y SUPA_ANON vienen de js/config.js
 const SURL  = SUPA_URL;
 const SKEY  = SUPA_ANON;
+// GATEWAY_URL viene de js/config.js. GWADMIN_KEY es el ADMIN_SECRET del Worker
+// (ver workers/mipos-gateway/docs/RUNBOOK.md) — TODO: pegarlo acá tras cargarlo
+// con `wrangler secret put ADMIN_SECRET`. Sin esto, crear licencias 'cloudflare'
+// desde este panel va a fallar con 401.
+const GWURL       = typeof GATEWAY_URL !== 'undefined' ? GATEWAY_URL : '';
+const GWADMIN_KEY = 'PENDIENTE-pegar-ADMIN_SECRET-tras-wrangler-secret-put';
+
+async function gwFetch(path, opts){
+  const headers = Object.assign({'Content-Type':'application/json','X-Admin-Key':GWADMIN_KEY}, (opts&&opts.headers)||{});
+  const r = await fetch(GWURL+path, Object.assign({}, opts, {headers}));
+  const txt = await r.text();
+  if(!r.ok) throw new Error('Gateway '+r.status+': '+txt.substring(0,200));
+  try{ return JSON.parse(txt); }catch(e){ return []; }
+}
 
 // ── AUTH: Supabase Auth + validacion contra tabla super_admins ───────────
 // Sin password hardcodeado. La sesion vive en supabase-js (refresh tokens).
@@ -827,6 +851,10 @@ function openM(){
   document.getElementById('mTipoPOS').value='';
   document.getElementById('mMonto').value='';
   document.getElementById('mPlan').value='2';
+  // Default cloudflare para toda licencia nueva (ver plan de migración) — el usuario
+  // puede cambiarlo a 'supabase' a mano para un caso especial puntual.
+  document.getElementById('mBackend').value='cloudflare';
+  document.getElementById('mBackend').disabled=false;
   const h=new Date(); h.setFullYear(h.getFullYear()+1);
   document.getElementById('mVence').value=h.getFullYear()+'-'+pad(h.getMonth()+1)+'-'+pad(h.getDate());
   document.getElementById('mOv').style.display='flex';
@@ -849,6 +877,11 @@ function editL(id){
   document.getElementById('mSoporte').value=l.monto_soporte||'';
   document.getElementById('mPrecioTer').value=l.precio_terminal||'';
   document.getElementById('mVence').value=l.fecha_vence||'';
+  // allL hoy solo carga licencias de Supabase (ver loadL) — cualquier fila editable
+  // desde este panel es, por definición, backend='supabase'. Bloqueado a propósito:
+  // editar una licencia D1 desde acá todavía no está soportado.
+  document.getElementById('mBackend').value='supabase';
+  document.getElementById('mBackend').disabled=true;
   document.getElementById('mOv').style.display='flex';
 }
 
@@ -917,11 +950,19 @@ async function guardarL(){
     monto_soporte:parseInt(document.getElementById('mSoporte').value)||null,
     precio_terminal:parseInt(document.getElementById('mPrecioTer').value)||null};
 
+  const backend = document.getElementById('mBackend').value; // 'cloudflare' | 'supabase'
   try{
     if(editId){
+      // editId solo existe para filas de allL, que hoy son 100% Supabase (ver editL) —
+      // no hace falta branch por backend acá.
       if(renoMode) data.activa=true;
       await spatch('licencias',editId,data);
       toast(renoMode?'Renovada y reactivada':'Licencia actualizada');
+    } else if(backend==='cloudflare'){
+      data.activa=true;
+      await gwFetch('/rest/v1/licencias',{method:'POST',body:JSON.stringify(data)});
+      try{await navigator.clipboard.writeText(clave);toast('Creada en Cloudflare y copiada: '+clave,3000);}
+      catch(e){toast('Licencia Cloudflare creada: '+clave,3000);}
     } else {
       data.activa=true;
       await spost('licencias',data);
@@ -930,8 +971,14 @@ async function guardarL(){
     }
 
     // Persistir tipo_negocio en pos_config si hay email de cliente
-    // Upsert por clave compuesta (licencia_email, clave) — mismo shape que lee rubro.js
-    if(email){
+    // Upsert por clave compuesta (licencia_email, clave) — mismo shape que lee rubro.js.
+    // Esto es compat con dispositivos que corren una versión del POS anterior a que
+    // rubro.js empezara a leer licencias.tipo_negocio directamente (ver comentario
+    // arriba de `data`). No aplica a licencias 'cloudflare': son tenants nuevos que
+    // arrancan siempre con la versión actual del POS, que ya lee tipo_negocio de
+    // licencias — y escribirlo requeriría un token por-dispositivo que este panel
+    // admin no tiene (pos_config es tabla de tenant, no admin-only, ver schema.js).
+    if(email && backend!=='cloudflare'){
       try{
         const rcPayload={
           licencia_email: email,

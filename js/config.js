@@ -27,6 +27,12 @@ if (typeof AbortController === 'undefined') {
 var SUPA_URL  = 'https://kmreiniqgcvqgdtzvmel.supabase.co';
 var SUPA_ANON = 'sb_publishable_j6btNHo1o3tSprmYUJITPw_8AsYgcvJ';
 
+// ── mipos-gateway (Cloudflare Worker + D1) — solo para clientes NUEVOS ──
+// Los tenants activados con backend='supabase' (todos los existentes hoy) NUNCA
+// llegan a tocar esta URL para su trafico normal — siguen yendo directo a Supabase
+// arriba, sin cambios. Ver workers/mipos-gateway/docs/fase0-inventario.md.
+var GATEWAY_URL = 'https://mipos-gateway.multitechmulti727.workers.dev'; // TODO: confirmar URL real tras el deploy (ver RUNBOOK.md)
+
 // ── API SQL externa (búsqueda de productos por código de barras) ──
 // El token vive en el Worker — no se expone en el browser.
 var APISQL_WORKER = 'https://apisql-proxy.multitechmulti727.workers.dev';
@@ -38,6 +44,29 @@ var SUPA_HEADERS = {
 
 function supaHeaders(extra) {
   return Object.assign({}, SUPA_HEADERS, extra || {});
+}
+
+// ── Resolución de backend por tenant ──
+// Default 'supabase' cuando todavía no hay nada guardado (dispositivo sin activar,
+// o cualquier tenant existente que nunca escribió este flag): comportamiento
+// idéntico al de siempre, cero cambio para clientes que ya facturan.
+function licBackend() {
+  return localStorage.getItem('lic_backend') || 'supabase';
+}
+function licGatewayToken() {
+  return localStorage.getItem('lic_gateway_token') || '';
+}
+function usaGateway() {
+  return licBackend() === 'cloudflare';
+}
+function backendHeaders(extra) {
+  if (usaGateway()) {
+    return Object.assign({ 'Authorization': 'Bearer ' + licGatewayToken() }, extra || {});
+  }
+  return supaHeaders(extra);
+}
+function backendBaseUrl() {
+  return usaGateway() ? GATEWAY_URL : SUPA_URL;
 }
 
 // ── Helpers de fetch para Supabase REST API ──
@@ -54,9 +83,9 @@ function supaAbortSignal() {
 
 // GET: supaGet('pos_productos', 'activo=eq.true&order=nombre.asc')
 async function supaGet(tabla, query) {
-  var url = SUPA_URL + '/rest/v1/' + tabla + (query ? '?' + query : '');
+  var url = backendBaseUrl() + '/rest/v1/' + tabla + (query ? '?' + query : '');
   var r = await fetch(url, {
-    headers: supaHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
+    headers: backendHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
     signal: supaAbortSignal()
   });
   if (!r.ok) {
@@ -69,15 +98,14 @@ async function supaGet(tabla, query) {
 
 // POST: supaPost('pos_ventas', {datos}, 'on_conflict_col', true) — 4to param = minimal (sin retorno)
 async function supaPost(tabla, data, conflictCol, minimal) {
-  var url = conflictCol
-    ? SUPA_URL + '/rest/v1/' + tabla + '?on_conflict=' + conflictCol
-    : SUPA_URL + '/rest/v1/' + tabla;
+  var base = backendBaseUrl() + '/rest/v1/' + tabla;
+  var url = conflictCol ? base + '?on_conflict=' + conflictCol : base;
   var prefer = conflictCol
     ? 'resolution=merge-duplicates,return=' + (minimal ? 'minimal' : 'representation')
     : 'return=' + (minimal ? 'minimal' : 'representation');
   var r = await fetch(url, {
     method: 'POST',
-    headers: supaHeaders({ 'Content-Type': 'application/json', 'Prefer': prefer }),
+    headers: backendHeaders({ 'Content-Type': 'application/json', 'Prefer': prefer }),
     body: JSON.stringify(data),
     signal: supaAbortSignal()
   });
@@ -89,9 +117,9 @@ async function supaPost(tabla, data, conflictCol, minimal) {
 
 // PATCH: supaPatch('pos_productos', 'id=eq.123', {nombre:'nuevo'}, true) — 4to param = minimal
 async function supaPatch(tabla, filtro, data, minimal) {
-  var r = await fetch(SUPA_URL + '/rest/v1/' + tabla + '?' + filtro, {
+  var r = await fetch(backendBaseUrl() + '/rest/v1/' + tabla + '?' + filtro, {
     method: 'PATCH',
-    headers: supaHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=' + (minimal ? 'minimal' : 'representation') }),
+    headers: backendHeaders({ 'Content-Type': 'application/json', 'Prefer': 'return=' + (minimal ? 'minimal' : 'representation') }),
     body: JSON.stringify(data),
     signal: supaAbortSignal()
   });
@@ -103,9 +131,9 @@ async function supaPatch(tabla, filtro, data, minimal) {
 
 // DELETE: supaDelete('pos_productos', 'id=eq.123')
 async function supaDelete(tabla, filtro) {
-  var r = await fetch(SUPA_URL + '/rest/v1/' + tabla + '?' + filtro, {
+  var r = await fetch(backendBaseUrl() + '/rest/v1/' + tabla + '?' + filtro, {
     method: 'DELETE',
-    headers: supaHeaders({ 'Prefer': 'return=minimal' }),
+    headers: backendHeaders({ 'Prefer': 'return=minimal' }),
     signal: supaAbortSignal()
   });
   if (!r.ok) {
@@ -115,11 +143,18 @@ async function supaDelete(tabla, filtro) {
 }
 
 // RPC: supaRPC('nombre_funcion', {param1: 'val'})
+// 'activar_licencia' es especial: un dispositivo recien instalado todavia no tiene
+// backend guardado (licBackend() por default da 'supabase'), asi que esta llamada
+// puntual SIEMPRE va al Worker — el Worker decide server-side si el tenant es D1
+// nativo o si hace passthrough a Supabase, y de ahi en mas licGuardar() persiste
+// el backend correcto para todo el resto del trafico. Ver workers/mipos-gateway/src/index.js.
 async function supaRPC(fn, params) {
-  var url = SUPA_URL + '/rest/v1/rpc/' + fn;
+  var base = (fn === 'activar_licencia') ? GATEWAY_URL : backendBaseUrl();
+  var headers = (fn === 'activar_licencia') ? { 'Content-Type': 'application/json', 'Accept': 'application/json' } : backendHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' });
+  var url = base + '/rest/v1/rpc/' + fn;
   var r = await fetch(url, {
     method: 'POST',
-    headers: supaHeaders({ 'Content-Type': 'application/json', 'Accept': 'application/json' }),
+    headers: headers,
     body: JSON.stringify(params),
     signal: supaAbortSignal()
   });

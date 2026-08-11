@@ -1,0 +1,15 @@
+{
+  "name": "mipos-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "tail": "wrangler tail",
+    "d1:migrate:local": "wrangler d1 execute mipos_cf --local --file=d1-migrations/0001_init_mvp.sql",
+    "d1:migrate:remote": "wrangler d1 execute mipos_cf --remote --file=d1-migrations/0001_init_mvp.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^3.90.0"
+  }
+}

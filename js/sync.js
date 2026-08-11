@@ -538,14 +538,14 @@ async function syncConSupabase(){
 }
 
 async function supaFetch(method, tabla, body, params, prefer){
-  let url = SUPA_URL + '/rest/v1/' + tabla;
+  let url = backendBaseUrl() + '/rest/v1/' + tabla;
   if(params){
     const q = Object.entries(params).map(([k,v])=>k+'='+v).join('&');
     url += '?' + q;
   }
   const opts = {
     method,
-    headers: supaHeaders({ 'Content-Type': 'application/json', 'Prefer': prefer || 'return=minimal' }),
+    headers: backendHeaders({ 'Content-Type': 'application/json', 'Prefer': prefer || 'return=minimal' }),
   };
   if(body) opts.body = JSON.stringify(body);
   opts.signal = supaAbortSignal();

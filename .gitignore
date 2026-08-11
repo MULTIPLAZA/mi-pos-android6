@@ -14,3 +14,6 @@ playwright-report/
 test-results/
 blob-report/
 .playwright/
+# Wrangler (Cloudflare Workers/D1) — cache/estado local
+.wrangler/
+workers/*/.wrangler/
