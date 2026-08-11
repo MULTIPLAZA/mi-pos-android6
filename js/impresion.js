@@ -325,6 +325,22 @@ function lineasPago(data, gn){
       });
     } else {
       lineas += '<p class="row s"><span class="l1">'+metodo+':</span><span class="l2">'+gn(data.total)+'</span></p>';
+      // Credito/Fiado: nombre del cliente. Pix/Mercado Pago: equivalente en moneda
+      // extranjera. Faltaban en esta version HTML - solo estaban en el texto plano
+      // de BTPrinter.buildTicket (ver mas abajo), asi que en ticket impreso por
+      // navegador/USB/Android/Bluetooth directo el cliente no veia el tipo de
+      // cambio usado, y en credito no se repetia el nombre junto al metodo de pago.
+      if(metodo === 'CREDITO' && data.clienteNombre){
+        lineas += '<p class="s" style="padding-left:8px;">A cuenta: '+data.clienteNombre+'</p>';
+      }
+      if(data.pixMpPagos){
+        const pm = data.pixMpPagos;
+        const pmAmtStr = pm.tipo === 'pix'
+          ? pm.monedaAmt.toFixed(2).replace('.', ',')
+          : Number(pm.monedaAmt).toLocaleString('es-PY');
+        const pmCotStr = pm.tipo === 'pix' ? gn(pm.cotizacion) : String(pm.cotizacion);
+        lineas += '<p class="s" style="padding-left:8px;">('+pm.simbolo+' '+pmAmtStr+' x Gs. '+pmCotStr+')</p>';
+      }
     }
   }
   return lineas;
@@ -379,7 +395,10 @@ function generarHTMLTicket(data, size){
   lineas += '<p class="hr"></p>';
 
   // Items — nombre en línea 1, cant × pu = sub en línea 2
-  data.items.forEach(item => {
+  // filter(!esDescuento): los descuentos van aparte mas abajo (linea ~417) — sin este
+  // filtro un descuento se imprimia DOS VECES, una como "producto" con precio negativo
+  // acá y otra vez bien formateado en el resumen de descuentos.
+  data.items.filter(i=>!i.esDescuento).forEach(item => {
     const subtot = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : Math.round(item.price*item.qty);
     lineas += '<p class="it-nom">'+item.name+'</p>';
     if(item.esKilo){
@@ -487,9 +506,13 @@ function generarHTMLFactura(data, size){
 
   data.items.filter(i=>!i.esDescuento).forEach(item=>{
     const sub = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : item.price*item.qty;
-    if(item.iva==='10')       grav10  += sub;
-    else if(item.iva==='5')   grav5   += sub;
-    else                       exento  += sub;
+    // Default sin iva seteado -> Gravado 10% (mismo default que productos.js:
+    // `if(!p.iva) p.iva='10'`, y que BTPrinter.buildTicket mas abajo para el mismo
+    // documento) - antes caia en Exento, que subestima el IVA declarado en la factura.
+    if(item.iva==='10')          grav10  += sub;
+    else if(item.iva==='5')      grav5   += sub;
+    else if(item.iva==='exento') exento  += sub;
+    else                          grav10  += sub;
   });
   // Aplicar descuento a nivel ticket proporcionalmente a cada alícuota
   if(totalDescFact > 0 && subtotalFact > 0){
@@ -539,8 +562,11 @@ function generarHTMLFactura(data, size){
     const sub = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : item.price*item.qty;
     const ivaLabel = item.iva==='exento'?'Exnt':(item.iva||'10')+'%';
     lineas += '<p class="if-nom">'+item.name+'</p>';
+    // esKilo: mostrar "X kg x precio/kg" en vez de "cant x precio" — faltaba acá
+    // (generarHTMLTicket, generarHTMLFacturaA4 y BTPrinter.buildTicket ya lo hacen).
+    const cantLabel = item.esKilo ? (parseFloat(item.qty)||0).toFixed(3)+' kg × '+gn(item.price)+'/kg' : item.qty+'×'+gn(item.price);
     lineas += '<p class="if-det">'
-      +'<span>'+item.qty+'×'+gn(item.price)+'</span>'
+      +'<span>'+cantLabel+'</span>'
       +'<span>'+gn(sub)+'</span>'
       +'<span>'+ivaLabel+'</span>'
       +'</p>';
@@ -722,9 +748,12 @@ function generarHTMLFacturaA4(data){
   var itemsFact = (data.items || []).filter(function(i){ return !i.esDescuento; });
   itemsFact.forEach(function(it){
     var sub = it.desc > 0 ? Math.round(it.price*it.qty*(1-it.desc/100)) : Math.round(it.price*it.qty);
-    if(it.iva === '10' || it.iva === 10)      grav10 += sub;
-    else if(it.iva === '5' || it.iva === 5)   grav5  += sub;
-    else                                       exento += sub;
+    // Mismo default que generarHTMLFactura/BTPrinter.buildTicket: sin iva seteado
+    // -> Gravado 10%, no Exento (ver comentario en generarHTMLFactura mas arriba).
+    if(it.iva === '10' || it.iva === 10)         grav10 += sub;
+    else if(it.iva === '5' || it.iva === 5)      grav5  += sub;
+    else if(it.iva === 'exento')                 exento += sub;
+    else                                          grav10 += sub;
   });
   // Descuento de ticket, proporcional
   var totalDesc = (data.items || []).filter(function(i){ return i.esDescuento; }).reduce(function(s,i){ return s+(i.montoDesc||0); }, 0);
@@ -1064,6 +1093,23 @@ function generarHTMLCierreTurno(data, size){
     lineas += '<p class="hr"></p>';
   }
 
+  // Moneda extranjera del turno — faltaba en esta version HTML (solo estaba en
+  // BTPrinter.buildCierreTurno), asi que quien cerraba caja por navegador/USB/Android
+  // nativo/Bluetooth directo nunca veia cuanto entro en reales/pesos argentinos.
+  if(data.mmShiftBRL > 0 || data.mmShiftARS > 0){
+    lineas += '<p class="b">MONEDA EXTRANJERA (TURNO)</p>';
+    lineas += '<p class="hr"></p>';
+    if(data.mmShiftBRL > 0){
+      lineas += '<p class="row s"><span class="l1">Reales recibidos:</span><span class="l2">'+gn(data.mmShiftBRLGs)+' Gs.</span></p>';
+      lineas += '<p class="s" style="padding-left:8px;">('+data.mmShiftBRL+' R$ x Gs. '+gn(data.cotBRL||0)+')</p>';
+    }
+    if(data.mmShiftARS > 0){
+      lineas += '<p class="row s"><span class="l1">Pesos Arg. recib.:</span><span class="l2">'+gn(data.mmShiftARSGs)+' Gs.</span></p>';
+      lineas += '<p class="s" style="padding-left:8px;">('+data.mmShiftARS+' $ x Gs. '+(data.cotARS||0)+')</p>';
+    }
+    lineas += '<p class="hr"></p>';
+  }
+
   // Ventas a crédito (compacto)
   if(data.creditoShiftTotal > 0){
     lineas += '<p class="row s"><span class="l1">Fiado entregado</span><span class="l2">'+gn(data.creditoShiftTotal)+'</span></p>';
@@ -1071,19 +1117,55 @@ function generarHTMLCierreTurno(data, size){
     lineas += '<p class="hr"></p>';
   }
 
+  // Pagos digitales Pix / Mercado Pago — mismo motivo que moneda extranjera arriba.
+  if((data.pixShiftBRL > 0) || (data.mpShiftARS > 0)){
+    lineas += '<p class="b">PAGOS DIGITALES</p>';
+    lineas += '<p class="hr"></p>';
+    if(data.pixShiftBRL > 0){
+      var _pxAmt = data.pixShiftBRL.toFixed(2).replace('.', ',');
+      lineas += '<p class="row s"><span class="l1">Pix R$:</span><span class="l2">'+_pxAmt+' R$</span></p>';
+      lineas += '<p class="row s"><span class="l1">  Equiv. Gs:</span><span class="l2">'+gn(data.pixShiftBRLGs)+' Gs.</span></p>';
+    }
+    if(data.mpShiftARS > 0){
+      var _mpAmt = Number(Math.round(data.mpShiftARS)).toLocaleString('es-PY');
+      lineas += '<p class="row s"><span class="l1">Mercado Pago $:</span><span class="l2">'+_mpAmt+' $</span></p>';
+      lineas += '<p class="row s"><span class="l1">  Equiv. Gs:</span><span class="l2">'+gn(data.mpShiftARSGs)+' Gs.</span></p>';
+    }
+    lineas += '<p class="hr"></p>';
+  }
+
   // Conteo de valores (si el cajero contó)
-  if(data.totalContado > 0 && data.cierreMetodos){
+  // Antes exigia data.cierreMetodos para entrar — pero si el cajero conto en arqueo
+  // multi-moneda (arqueoGS/BRL/ARS) puede no haber cierreMetodos poblado, y esta
+  // seccion entera (incluido el cuadre OK/SOBRANTE/FALTANTE) se salteaba en silencio.
+  if(data.totalContado > 0){
     lineas += '<p class="b">CONTEO DE VALORES</p>';
     lineas += '<p class="hr"></p>';
-    Object.entries(data.cierreMetodos).forEach(function(e){
-      var m = e[0], d = e[1];
-      if(d.contado > 0){
-        var dif = d.contado - d.esperado;
-        var difStr = dif === 0 ? ' OK' : dif > 0 ? ' +'+gn(dif) : ' -'+gn(Math.abs(dif));
-        lineas += '<p class="row s"><span class="l1">'+m+'</span><span class="l2">'+gn(d.contado)+'</span></p>';
-        lineas += '<p class="s" style="padding-left:8px;">Esperado: '+gn(d.esperado)+'  '+difStr+'</p>';
+    if(data.arqueoGS > 0 || data.arqueoBRL > 0 || data.arqueoARS > 0){
+      // Arqueo multi-moneda — faltaba esta rama, solo estaba en BTPrinter.buildCierreTurno.
+      if(data.arqueoGS > 0) lineas += '<p class="row s"><span class="l1">Guaranies:</span><span class="l2">'+gn(data.arqueoGS)+' Gs.</span></p>';
+      if(data.arqueoBRL > 0){
+        var _brlGsCierre = Math.round(data.arqueoBRL * (data.cotBRL||0));
+        lineas += '<p class="row s"><span class="l1">Reales:</span><span class="l2">'+gn(_brlGsCierre)+' Gs.</span></p>';
+        lineas += '<p class="s" style="padding-left:8px;">('+data.arqueoBRL+' R$ x Gs. '+gn(data.cotBRL||0)+')</p>';
       }
-    });
+      if(data.arqueoARS > 0){
+        var _arsGsCierre = Math.round(data.arqueoARS * (data.cotARS||0));
+        lineas += '<p class="row s"><span class="l1">Pesos Arg.:</span><span class="l2">'+gn(_arsGsCierre)+' Gs.</span></p>';
+        lineas += '<p class="s" style="padding-left:8px;">('+data.arqueoARS+' $ x Gs. '+(data.cotARS||0)+')</p>';
+      }
+      lineas += '<p class="row b"><span class="l1">Total contado:</span><span class="l2">'+gn(data.totalContado)+' Gs.</span></p>';
+    } else if(data.cierreMetodos){
+      Object.entries(data.cierreMetodos).forEach(function(e){
+        var m = e[0], d = e[1];
+        if(d.contado > 0){
+          var dif = d.contado - d.esperado;
+          var difStr = dif === 0 ? ' OK' : dif > 0 ? ' +'+gn(dif) : ' -'+gn(Math.abs(dif));
+          lineas += '<p class="row s"><span class="l1">'+m+'</span><span class="l2">'+gn(d.contado)+'</span></p>';
+          lineas += '<p class="s" style="padding-left:8px;">Esperado: '+gn(d.esperado)+'  '+difStr+'</p>';
+        }
+      });
+    }
     if(data.diff !== null && data.diff !== undefined){
       if(data.diff === 0) lineas += '<p class="c b">CUADRE EXACTO</p>';
       else if(data.diff > 0) lineas += '<p class="c b">SOBRANTE: +'+gn(data.diff)+'</p>';
@@ -3677,9 +3759,11 @@ var BTPrinter = {
     txt += sep2 + n;
 
     // ── DESCUENTO Y TOTAL ─────────────────────────────────
+    // data.total ya es POSTERIOR al descuento - calcular el monto desde ahi
+    // (data.total*desc/100) da un numero menor al descuento real aplicado, salvo
+    // desc=0. data.descMonto ya viene bien calculado desde cobro.js:calcDescuentoMonto().
     if (data.descTicket && data.descTicket > 0) {
-      var montoDesc = Math.round(data.total * data.descTicket / 100);
-      txt += pad('Descuento ' + data.descTicket + '%', '-' + gs(montoDesc)) + n;
+      txt += pad('Descuento ' + data.descTicket + '%', '-' + gs(data.descMonto||0)) + n;
     }
     txt += '[BOLD]' + pad('TOTAL', gs(data.total) + ' Gs.') + '[/BOLD]' + n;
     txt += sep + n;
