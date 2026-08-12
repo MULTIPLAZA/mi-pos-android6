@@ -121,6 +121,45 @@ export const TABLES = {
     ],
     booleans: [],
   },
+  // Faltaban del MVP inicial - confirmado 2026-08-11: egresos/ingresos de turno no
+  // sincronizaban para tenants cloudflare (501, tabla no soportada). Columnas
+  // inferidas del cliente (js/sync.js), NO confirmadas contra Supabase real como las
+  // 11 tablas originales - ver docs/fase0-inventario.md.
+  pos_egresos: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'turno_id', 'descripcion', 'monto', 'monto_original', 'moneda_original',
+      'fecha', 'terminal', 'licencia_email',
+    ],
+    booleans: [],
+  },
+  pos_ingresos: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'turno_id', 'descripcion', 'monto', 'metodo', 'monto_original',
+      'moneda_original', 'fecha', 'terminal', 'licencia_email',
+    ],
+    booleans: [],
+  },
+  // Sistema de fiado/credito (js/credito.js) - mismo hueco. OJO: usan `email` como
+  // columna de tenant, no `licencia_email` (asi las llama el codigo cliente).
+  pos_cred_clientes: {
+    tenant: { column: 'email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: ['id', 'email', 'nombre', 'limite_gs'],
+    booleans: [],
+  },
+  pos_cred_fiado: {
+    tenant: { column: 'email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'email', 'cliente_id', 'cliente_nombre', 'nro_ticket', 'total', 'fecha',
+      'pagado', 'fecha_pago', 'metodo_pago',
+    ],
+    booleans: ['pagado'],
+  },
 };
 
 export function isSupportedTable(table) {
