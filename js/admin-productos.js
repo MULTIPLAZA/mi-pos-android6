@@ -285,7 +285,8 @@ async function sincronizarCategorias(nombresCateg){
         updated_at: ahora
       };
     });
-    await supaPost('pos_categorias', payload, 'id');
+    // on_conflict por (licencia_email,id) — ver nota en productos.js supaUpsertProducto.
+    await supaPost('pos_categorias', payload, 'licencia_email,id');
     _log('[Import] Categorías creadas:', nuevas);
     toast('Categorías creadas: '+nuevas.join(', '));
   }catch(e){
@@ -340,7 +341,7 @@ async function impConfirmar(){
           };
         });
         _log('[Import] payload[0]:', JSON.stringify(payload[0]));
-        await supaPost('pos_productos',payload,'id');
+        await supaPost('pos_productos',payload,'licencia_email,id');
         ok+=inserts.length;
       }
     }catch(e){err+=batch.length;errs.push(e.message.substring(0,200));console.error('[Import error]',e.message);}
@@ -642,12 +643,16 @@ async function exportarCatalogo(){
 
 // ── HELPER: próximo id libre para pos_productos ───────────
 // La tabla pos_productos no tiene autoincrement en `id` —
-// hay que pasarlo explícito. Usamos max(id)+1 leído de la DB
-// para minimizar el riesgo de colisión (no es a prueba de
-// race conditions concurrentes, pero alcanza para alta humana).
+// hay que pasarlo explícito. `id` es un contador LOCAL POR TENANT
+// (la unicidad real en la DB es licencia_email+id, no id solo —
+// ver database/PATCH_pos_productos_licencia_id_uq_v1.sql), así que
+// el máximo hay que calcularlo SOLO sobre los productos de ESTE
+// cliente. Antes esto leía el máximo global (sin filtrar por
+// licencia_email) — no rompía la unicidad post-fix, pero saltaba
+// a ids absurdamente altos prestados de otro tenant sin necesidad.
 async function _nextProductoId(){
   try{
-    var r = await sg('pos_productos','select=id&order=id.desc&limit=1');
+    var r = await sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&select=id&order=id.desc&limit=1');
     return (r && r.length && r[0].id ? r[0].id : 0) + 1;
   }catch(e){
     return Date.now() % 1000000; // fallback: id grande basado en timestamp

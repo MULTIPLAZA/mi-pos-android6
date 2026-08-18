@@ -1948,7 +1948,10 @@ async function movGuardar(){
         _mov.items.forEach(function(it){
           if(it.costo>0){
             var costoFinal=(it._costoProm!=null)?it._costoProm:it.costo;
-            supaPatch('pos_productos','id=eq.'+it.prodId,{costo:costoFinal,updated_at:now},true)
+            // Con id ya no globalmente único (ver database/PATCH_pos_productos_licencia_id_uq_v1.sql),
+            // hay que filtrar también por licencia_email — si no, esto podía pisar
+            // el costo de un producto de OTRO cliente que comparta el mismo id.
+            supaPatch('pos_productos','id=eq.'+it.prodId+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoFinal,updated_at:now},true)
               .catch(function(e){console.warn('[Costo update]',e.message);});
           }
         });

@@ -1208,7 +1208,13 @@ async function supaUpsertProducto(prod){
     updated_at:      new Date().toISOString()
   };
   try {
-    await supaPost('pos_productos', payload, 'id', true);
+    // on_conflict por (licencia_email,id), NO por "id" solo — "id" lo genera
+    // cada dispositivo como contador LOCAL por tenant (nextProdId = max local+1),
+    // así que el mismo id chico se repite entre clientes distintos. Con
+    // on_conflict=id a secas, el upsert de un tenant nuevo pisaba en silencio
+    // la fila de OTRO tenant que ya tenía ese id (caso real: producto.js:2075
+    // + PATCH_pos_productos_licencia_id_uq — ver database/).
+    await supaPost('pos_productos', payload, 'licencia_email,id', true);
   } catch(e){
     console.warn('[supaUpsertProducto]', e.message);
     // Sin cola de reintento acá, el producto quedaba SOLO en este
@@ -1235,7 +1241,7 @@ async function supaUpsertCategoria(cat){
   };
   if(cat.activa === false) payload.activa = false;
   try {
-    await supaPost('pos_categorias', payload, 'id', true);
+    await supaPost('pos_categorias', payload, 'licencia_email,id', true);
   } catch(e){
     console.warn('[supaUpsertCategoria]', e.message);
     encolarProductoSync('pos_categorias', payload);
@@ -1269,7 +1275,9 @@ async function drenarProductosFallback(){
   if(!arr.length) return;
   var quedan = [];
   for(var i=0;i<arr.length;i++){
-    try { await supaPost(arr[i].tabla, arr[i].payload, 'id', true); }
+    // Mismo motivo que supaUpsertProducto: conflicto por (licencia_email,id),
+    // tanto pos_productos como pos_categorias usan ese mismo par de columnas.
+    try { await supaPost(arr[i].tabla, arr[i].payload, 'licencia_email,id', true); }
     catch(e){ quedan.push(arr[i]); }
   }
   try { localStorage.setItem(FALLBACK_KEY_PRODUCTOS, JSON.stringify(quedan)); } catch(e){}
@@ -1300,7 +1308,7 @@ async function supaSyncTodasCategorias(){
       licencia_email: email,
       updated_at: ahora
     }));
-    await supaPost('pos_categorias', payload, 'id', true);
+    await supaPost('pos_categorias', payload, 'licencia_email,id', true);
   } catch(e){
     console.warn('[supaSyncTodasCategorias]', e.message);
   }
