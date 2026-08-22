@@ -97,15 +97,26 @@ export async function verificarLicencia(db, secret, params) {
   };
 }
 
+// Contrato confirmado 2026-08-22 contra el llamador real (js/licencia.js:956):
+// supaRPC('actualizar_activacion', {p_device_id, p_email, p_negocio, p_terminal, p_sucursal}).
+// El mapeo anterior (nombre_negocio/nombre_terminal/sucursal/modo -- nombres
+// de COLUMNA, no de parametro) nunca coincidia con lo que manda el cliente:
+// la condicion `k in params` daba siempre false, `sets` quedaba vacio, y la
+// RPC devolvia {ok:true} sin actualizar nada -- fallaba en silencio para
+// todo tenant Cloudflare que cambiara nombre de negocio/terminal/sucursal.
+// `modo` no se manda por esta RPC (el cliente lo actualiza aparte con un
+// PATCH directo a activaciones?device_id=eq...), pero se deja soportado por
+// si el contrato cambia. Se scopea por tenant.did (del token verificado),
+// NO por el p_device_id del body -- mismo patron que actualizarRubro con
+// tenant.lid, evita que un dispositivo pueda editar la activacion de otro.
 export async function actualizarActivacion(db, tenant, params) {
-  // TODO: confirmar contrato exacto contra la funcion Postgres original antes de produccion.
-  const allowed = ['nombre_negocio', 'nombre_terminal', 'sucursal', 'modo'];
+  const map = { p_negocio: 'nombre_negocio', p_terminal: 'nombre_terminal', p_sucursal: 'sucursal', p_modo: 'modo' };
   const sets = [];
   const binds = [];
-  for (const k of allowed) {
-    if (k in params) {
-      sets.push(`${k} = ?`);
-      binds.push(params[k]);
+  for (const [pKey, col] of Object.entries(map)) {
+    if (params && params[pKey] !== undefined) {
+      sets.push(`${col} = ?`);
+      binds.push(params[pKey]);
     }
   }
   if (!sets.length) return { ok: true };
@@ -114,15 +125,33 @@ export async function actualizarActivacion(db, tenant, params) {
   return { ok: true };
 }
 
+// Contrato confirmado 2026-08-22 contra el llamador real (js/licencia.js:976):
+// supaRPC('crear_sucursal', {p_licencia_id, p_nombre, p_direccion, p_deposito}),
+// que espera de vuelta result.sucursal_id (y opcionalmente result.deposito_id)
+// EN LA RAIZ de la respuesta -- devolverlo anidado en `sucursal` (como antes)
+// hacia que `if(result.sucursal_id)` diera siempre false, y el id nuevo nunca
+// se guardaba en localStorage para un tenant Cloudflare. Tambien faltaba la
+// idempotencia que el comentario del cliente ya asume ("crea o reutiliza por
+// nombre") -- sin buscar antes de insertar, cada llamada duplicaba la fila.
+// p_deposito (nombre de deposito) queda sin usar: D1 todavia no tiene tabla
+// `depositos` (ver docs/RUNBOOK.md, mismo pendiente que descontar_stock_venta) --
+// no se inventa una a medias aca, se documenta la limitacion.
 export async function crearSucursal(db, tenant, params) {
-  // TODO: confirmar contrato exacto (p_direccion no esta confirmado como columna real).
-  const { p_nombre, p_direccion } = params;
+  const p_nombre = params && params.p_nombre;
+  const p_direccion = params && params.p_direccion;
   if (!p_nombre) throw new ShimError('crear_sucursal: falta p_nombre', 400);
+
+  const existente = await db
+    .prepare('SELECT id FROM sucursales WHERE licencia_id = ? AND nombre = ? AND activa = 1')
+    .bind(tenant.lid, p_nombre)
+    .first();
+  if (existente) return { ok: true, sucursal_id: existente.id };
+
   const { results } = await db
-    .prepare('INSERT INTO sucursales (licencia_id, nombre, direccion, activa) VALUES (?, ?, ?, 1) RETURNING *')
+    .prepare('INSERT INTO sucursales (licencia_id, nombre, direccion, activa) VALUES (?, ?, ?, 1) RETURNING id')
     .bind(tenant.lid, p_nombre, p_direccion || null)
     .all();
-  return { ok: true, sucursal: results[0] };
+  return { ok: true, sucursal_id: results[0].id };
 }
 
 // El dueño del negocio puede cambiar su propio rubro desde admin-negocio.html (Configuración),
