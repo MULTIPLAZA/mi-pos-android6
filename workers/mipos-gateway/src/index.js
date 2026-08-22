@@ -134,7 +134,8 @@ async function handleRpc(request, env, fn) {
     if (BOOTSTRAP_RPCS.has(fn)) {
       // Bootstrap: intenta D1 primero (tenant nuevo); si no existe, passthrough a Supabase.
       if (fn === 'activar_licencia') {
-        const r = await activarLicencia(env.DB, env.TOKEN_SECRET, body);
+        const ip = request.headers.get('CF-Connecting-IP') || null;
+        const r = await activarLicencia(env.DB, env.TOKEN_SECRET, body, ip);
         if (r.ok || r.error !== 'clave invalida o licencia inactiva') return jsonResponse(r);
       } else {
         const tenantGuess = await requireTenant(request, env);

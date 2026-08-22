@@ -13,6 +13,38 @@ import { signToken } from './token.js';
 
 const TOKEN_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 dias, se renueva en cada verificar_licencia
 
+// Rate-limit de activar_licencia por IP -- ver 0004_activacion_intentos.sql para el
+// motivo completo. Umbral elegido para no molestar a un usuario real que se equivoca
+// tipeando la clave (hasta 8 intentos en 15 min es holgado para eso) pero corta un
+// loop de brute-force automatizado desde una misma IP.
+const INTENTOS_MAX = 8;
+const INTENTOS_VENTANA_MIN = 15;
+// Limpieza oportunista de intentos viejos -- sin esto la tabla crece sin limite.
+const INTENTOS_RETENCION_HORAS = 24;
+
+async function intentosRecientes(db, ip) {
+  const row = await db
+    .prepare(
+      `SELECT COUNT(*) as n FROM activacion_intentos
+       WHERE ip = ? AND ok = 0 AND creado_at > datetime('now', ?)`,
+    )
+    .bind(ip, `-${INTENTOS_VENTANA_MIN} minutes`)
+    .first();
+  return row ? row.n : 0;
+}
+
+async function registrarIntento(db, ip, ok) {
+  await db
+    .prepare('INSERT INTO activacion_intentos (ip, ok) VALUES (?, ?)')
+    .bind(ip, ok ? 1 : 0)
+    .run();
+  // Limpieza oportunista (no bloqueante para la respuesta, D1 no tiene cron aca).
+  await db
+    .prepare(`DELETE FROM activacion_intentos WHERE creado_at < datetime('now', ?)`)
+    .bind(`-${INTENTOS_RETENCION_HORAS} hours`)
+    .run();
+}
+
 // `licencias` es admin-only (ver index.js: requiere X-Admin-Key) - ningun dispositivo
 // puede leerla directo. tipo_negocio/capacidades viajan entonces DENTRO de la respuesta
 // de activar_licencia/verificar_licencia, que ya tienen la fila leida en memoria.
@@ -22,16 +54,26 @@ function parseCapacidades(raw) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
-export async function activarLicencia(db, secret, params) {
+export async function activarLicencia(db, secret, params, ip) {
   const { p_clave, p_email, p_device_id } = params;
   if (!p_clave || !p_email || !p_device_id) {
     throw new ShimError('activar_licencia: faltan parametros', 400);
+  }
+  if (ip) {
+    const n = await intentosRecientes(db, ip);
+    if (n >= INTENTOS_MAX) {
+      return { ok: false, error: 'Demasiados intentos. Esperá unos minutos y volvé a intentar.' };
+    }
   }
   const lic = await db
     .prepare('SELECT * FROM licencias WHERE clave = ? AND activa = 1')
     .bind(String(p_clave).trim().toUpperCase())
     .first();
-  if (!lic) return { ok: false, error: 'clave invalida o licencia inactiva' };
+  if (!lic) {
+    if (ip) await registrarIntento(db, ip, false);
+    return { ok: false, error: 'clave invalida o licencia inactiva' };
+  }
+  if (ip) await registrarIntento(db, ip, true);
   if (lic.fecha_vence && new Date(lic.fecha_vence) < new Date()) {
     return { ok: false, error: 'licencia vencida' };
   }
