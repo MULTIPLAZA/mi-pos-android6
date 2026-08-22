@@ -1373,6 +1373,13 @@ async function confirmarPago() {
       toast('Sin timbrado configurado. No se puede emitir factura.');
       return;
     }
+    // Aviso (no bloqueante) si el timbrado autoimpresor/preimpreso llegó al
+    // límite autorizado -- mismo chequeo que fpConfirmar() (turno.js,
+    // v1.15.175), acá en el flujo principal de cobro (más frecuente que la
+    // facturación post-cobro). Ver esa versión para el detalle completo.
+    if (tim.tipo !== 'electronico' && tim.hasta && (tim.nro_actual||tim.desde||1) >= tim.hasta) {
+      toast('⚠ Timbrado ' + tim.nro + ' llegó al límite autorizado (' + tim.hasta + '). Avisá al dueño para gestionar uno nuevo.');
+    }
     // Si no se ingresó cliente, facturar como consumidor final (DNIT)
     if (elRuc && !elRuc.value.trim())       elRuc.value    = 'X';
     if (elNombre && !elNombre.value.trim()) elNombre.value = 'SIN NOMBRE';
