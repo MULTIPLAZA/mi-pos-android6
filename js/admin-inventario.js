@@ -2954,18 +2954,43 @@ async function cntConfirmar(){
       });
       await supaPost('stock_comprobante_items',compItems,null);
 
-      // Actualizar stock en tabla stock
+      // Actualizar stock en tabla stock -- AWAITED, con tracking de éxito
+      // por ítem. Antes este upsert era fire-and-forget (.catch con solo
+      // console.warn, sin esperar) y el flag `ajustado` se marcaba en true
+      // SIEMPRE, incluso cuando el upsert de stock había fallado -- un
+      // conteo de decenas/cientos de productos podía terminar "confirmado"
+      // mintiendo que todo quedó ajustado, cuando en realidad uno o varios
+      // productos nunca tuvieron su stock actualizado de verdad. Es
+      // exactamente el momento en que el negocio intenta corregir el
+      // inventario real, así que un fallo silencioso ahí es grave.
+      var fallidos=[];
       for(var k=0;k<conAjuste.length;k++){
         var it=conAjuste[k];
-        supaPost('stock',{
-            deposito_id:ct.deposito_id, sucursal_id:dep.sucursal_id||null,
-            licencia_id:licId, producto_id:it.producto_id,
-            nombre_producto:it.nombre_producto,
-            cantidad:it.stock_fisico, updated_at:now
-        },'deposito_id,producto_id',true).catch(function(e){ console.warn('[Conteo] stock upsert:',e.message); });
+        try{
+          await supaPost('stock',{
+              deposito_id:ct.deposito_id, sucursal_id:dep.sucursal_id||null,
+              licencia_id:licId, producto_id:it.producto_id,
+              nombre_producto:it.nombre_producto,
+              cantidad:it.stock_fisico, updated_at:now
+          },'deposito_id,producto_id',true);
+          // Marcar ítem como ajustado -- solo si el stock SÍ se actualizó.
+          await supaPatch('stock_conteo_items','id=eq.'+it.id,{ajustado:true});
+        }catch(e){
+          console.warn('[Conteo] Falló el ajuste de '+it.nombre_producto+':', e.message);
+          fallidos.push(it.nombre_producto);
+        }
+      }
 
-        // Marcar ítem como ajustado
-        await supaPatch('stock_conteo_items','id=eq.'+it.id,{ajustado:true});
+      if(fallidos.length){
+        // NO marcar el conteo como confirmado -- queda reabrible (Reanudar)
+        // para reintentar justo lo que faltó, en vez de esconder el problema
+        // detrás de un "Conteo confirmado" que no era cierto.
+        _cnt.conteoActual=null;
+        _inv.prds=[];
+        toast((conAjuste.length-fallidos.length)+' de '+conAjuste.length+' ajustes aplicados. FALLARON: '+fallidos.slice(0,5).join(', ')+(fallidos.length>5?' y '+(fallidos.length-5)+' más':'')+'. El conteo queda abierto -- volvé a "Reanudar" para reintentar.', 9000);
+        renderConteo('lista');
+        if(btn){ btn.disabled=false; btn.textContent='Confirmar y ajustar'; }
+        return;
       }
     }
 
