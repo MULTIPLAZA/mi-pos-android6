@@ -662,7 +662,7 @@ function verVentaCobradaModal(item){
   var itemsHTML = (v.items||[]).map(function(it){
     var sub = (it.price||it.precio||0) * (it.qty||1);
     return '<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border);font-size:13px;">'+
-      '<span>'+(it.qty||1)+'× '+(it.name||it.nombre||'')+'</span>'+
+      '<span>'+(it.qty||1)+'× '+esc(it.name||it.nombre||'')+'</span>'+
       '<span style="font-weight:700;">'+gs(sub)+'</span>'+
     '</div>';
   }).join('');
@@ -827,7 +827,7 @@ function goGuardar() {
   document.getElementById('guardCliente').value = nomClienteActual;
   document.getElementById('guardItemsList').innerHTML = cart.map(i =>
     `<div class="guard-item-row">
-      <span class="gin">${i.qty}× ${i.name}${i.obs ? ' <span style="color:#777;font-weight:400;font-size:11px;">('+i.obs+')</span>' : ''}</span>
+      <span class="gin">${i.qty}× ${esc(i.name)}${i.obs ? ' <span style="color:#777;font-weight:400;font-size:11px;">('+esc(i.obs)+')</span>' : ''}</span>
       <span class="gip">${gs(i.price * i.qty)}</span>
     </div>`
   ).join('');
@@ -1543,7 +1543,7 @@ function renderTabletTicket(){
       div.style.cssText='border-left:3px solid var(--orange);background:rgba(255,152,0,.06)';
       div.innerHTML=
         '<div style="width:7px;height:7px;border-radius:50%;background:var(--orange);flex-shrink:0"></div>'+
-        '<div class="tab-tiname" style="color:var(--orange)">'+i.name+'</div>'+
+        '<div class="tab-tiname" style="color:var(--orange)">'+esc(i.name)+'</div>'+
         '<div class="tab-tictrl">'+
           '<button class="tab-qbtn" onclick="quitarItemDelivery();setTipoPedido(\'local\')" title="Quitar delivery" style="background:var(--orange);color:#fff">\u2715</button>'+
         '</div>'+
@@ -1556,7 +1556,7 @@ function renderTabletTicket(){
       var _obsTitle    = i.obs ? 'Editar observaci\u00f3n' : 'Agregar observaci\u00f3n';
       div.innerHTML=
         '<div style="width:7px;height:7px;border-radius:50%;background:'+i.color+';flex-shrink:0"></div>'+
-        '<div class="tab-tiname">'+i.name+(i.obs?'<div class="tab-tiobs">'+i.obs+'</div>':'')+'</div>'+
+        '<div class="tab-tiname">'+esc(i.name)+(i.obs?'<div class="tab-tiobs">'+esc(i.obs)+'</div>':'')+'</div>'+
         '<div class="tab-tictrl">'+
           '<button class="tab-qbtn" onclick="event.stopPropagation();abrirObsRapida('+i.lineId+')" title="'+_obsTitle+'" style="color:'+_obsBtnColor+';">'+
             '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:auto;"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+
