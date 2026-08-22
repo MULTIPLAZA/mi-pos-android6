@@ -192,7 +192,12 @@ function impValidarYMostrar(rows){
     pv=pv==='SI'||pv==='SÍ'||pv==='1'||pv==='TRUE';
     var stock=parseInt((row.stock||row.Stock||'0').toString())||0;
     var stockMin=parseInt((row.stock_min||row.stockMin||row.stock_minimo||'0').toString())||0;
-    var costo=parseFloat((row.costo||row.Costo||'0').toString().replace(',','.'))||0;
+    // Math.max(0,...): precio ya se valida como invalido si es <=0 en un
+    // producto nuevo (ver errFila mas abajo), pero costo no tenia ningun
+    // piso -- una fila de importacion con costo negativo pasaba entera y
+    // quedaba insertada tal cual (costo:r.costo||0 en impConfirmar trata un
+    // negativo como valor valido, no como "sin costo").
+    var costo=Math.max(0, parseFloat((row.costo||row.Costo||'0').toString().replace(',','.'))||0);
     var cat=(row.categoria||row.Categoria||row.CATEGORIA||'Sin categoría').toString().trim()||'Sin categoría';
     var cod=(row.codigo||row.Codigo||row.CODIGO||'').toString().trim();
     var col=(row.color||row.Color||'').toString().trim()||'';
