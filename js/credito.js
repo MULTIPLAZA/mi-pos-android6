@@ -6,6 +6,13 @@ var _CRED_CLI_KEY      = 'pos_cred_clientes';
 var _CRED_FIADO_KEY    = 'pos_cred_fiado';
 var _CRED_COBROS_KEY   = 'pos_cred_cobros';
 var _CRED_RESETS_KEY   = 'pos_cred_cycle_resets'; // timestamp del último saldo=0 por cliente
+// Cola de reintento para upserts a Supabase que fallaron (ej. offline momentáneo).
+// A diferencia de pos_ventas (que tiene encolarVentaSync), este módulo hacía
+// supaPost(...).catch(function(){}) -- catch vacío, sin log, sin reintento. Un
+// fiado que fallaba en sincronizar quedaba SOLO en localStorage de ese
+// dispositivo: invisible en reportes, otras terminales y cobranzas, sin que
+// nadie se enterara nunca. Mismo patrón de resiliencia que ya usa turno.js.
+var _CRED_SYNC_FALLBACK_KEY = 'pos_cred_sync_fallback';
 
 // Formato moneda sin símbolo ₲ duplicado
 function numGs(n) { return 'Gs.'+Math.round(n||0).toLocaleString('es-PY'); }
@@ -598,21 +605,55 @@ function _credSupaEmail() {
   return (typeof SK !== 'undefined' && localStorage.getItem(SK.email)) || '';
 }
 
+// ── Cola de reintento (ver comentario junto a _CRED_SYNC_FALLBACK_KEY) ──────
+function _credFallbackCargar() {
+  try { return JSON.parse(localStorage.getItem(_CRED_SYNC_FALLBACK_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function _credFallbackGuardar(arr) {
+  try { localStorage.setItem(_CRED_SYNC_FALLBACK_KEY, JSON.stringify(arr)); } catch (e) {}
+}
+// Encola un upsert fallido, reemplazando cualquier entrada pendiente previa
+// del mismo (tabla,id) para no acumular versiones viejas del mismo registro.
+function _credFallbackEncolar(tabla, payload) {
+  var arr = _credFallbackCargar().filter(function(e){ return !(e.tabla === tabla && e.payload.id === payload.id); });
+  arr.push({ tabla: tabla, payload: payload, encolado: new Date().toISOString() });
+  _credFallbackGuardar(arr);
+}
+// Reintenta todo lo pendiente. Se llama oportunísticamente desde
+// _credSupaSincronizar() (que ya corre cada vez que se abre la pantalla de
+// Crédito) -- no hace falta un timer nuevo para que esto se autocure.
+async function _credReintentarPendientes() {
+  if (!_credSupaOk()) return;
+  var pendientes = _credFallbackCargar();
+  if (!pendientes.length) return;
+  var quedan = [];
+  for (var i = 0; i < pendientes.length; i++) {
+    var e = pendientes[i];
+    try {
+      await supaPost(e.tabla, e.payload, 'id', true);
+      _log && _log('[Credito] Reintento OK: ' + e.tabla + ' ' + e.payload.id);
+    } catch (err) {
+      quedan.push(e); // sigue offline/fallando -- se reintenta la próxima vez
+    }
+  }
+  _credFallbackGuardar(quedan);
+}
+
 function _credSupaUpsertCli(cli) {
   if (!_credSupaOk()) return;
   var email = _credSupaEmail();
   if (!email) return;
-  supaPost('pos_cred_clientes',
-    { id: cli.id, email: email, nombre: cli.nombre, limite_gs: cli.limiteGs || 0 },
-    'id', true
-  ).catch(function(){});
+  var payload = { id: cli.id, email: email, nombre: cli.nombre, limite_gs: cli.limiteGs || 0 };
+  supaPost('pos_cred_clientes', payload, 'id', true)
+    .catch(function(){ _credFallbackEncolar('pos_cred_clientes', payload); });
 }
 
 function _credSupaUpsertFiado(f) {
   if (!_credSupaOk()) return;
   var email = _credSupaEmail();
   if (!email) return;
-  supaPost('pos_cred_fiado', {
+  var payload = {
     id:             f.id,
     email:          email,
     cliente_id:     f.clienteId,
@@ -623,11 +664,16 @@ function _credSupaUpsertFiado(f) {
     pagado:         f.pagado,
     fecha_pago:     f.fechaPago || null,
     metodo_pago:    f.metodoPago || ''
-  }, 'id', true).catch(function(){});
+  };
+  supaPost('pos_cred_fiado', payload, 'id', true)
+    .catch(function(){ _credFallbackEncolar('pos_cred_fiado', payload); });
 }
 
 async function _credSupaSincronizar() {
   if (!_credSupaOk()) return;
+  // Primero reintentar lo pendiente -- si no, el pull de abajo podría traer
+  // de vuelta una versión vieja del mismo registro que todavía no subió.
+  await _credReintentarPendientes();
   var email = _credSupaEmail();
   if (!email) return;
   try {

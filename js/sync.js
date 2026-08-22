@@ -641,12 +641,14 @@ async function updSyncBadge(){
 }
 
 /** Cuenta items pendientes en las colas de respaldo de localStorage (ventas
- *  sin IndexedDB + productos/categorías) — ver FALLBACK_KEY en turno.js y
- *  FALLBACK_KEY_PRODUCTOS en productos.js. */
+ *  sin IndexedDB + productos/categorías + fiado/crédito) — ver FALLBACK_KEY
+ *  en turno.js, FALLBACK_KEY_PRODUCTOS en productos.js y
+ *  _CRED_SYNC_FALLBACK_KEY en credito.js. */
 function _contarPendientesLocalStorage(){
   var n = 0;
   try { n += (JSON.parse(localStorage.getItem('pos_sync_fallback') || '[]')).length; } catch(e){}
   try { n += (JSON.parse(localStorage.getItem('pos_productos_sync_fallback') || '[]')).length; } catch(e){}
+  try { n += (JSON.parse(localStorage.getItem('pos_cred_sync_fallback') || '[]')).length; } catch(e){}
   return n;
 }
 
