@@ -1732,7 +1732,9 @@ async function renombrarTerminal(activId){
   nuevo=nuevo.trim();
   if(!nuevo){toast('El nombre no puede quedar vacío');return;}
   try{
-    await supaPatch('activaciones','id=eq.'+activId,{nombre_terminal:nuevo},true);
+    // email=ilike. en el filtro: sin acotar por tenant (RLS desactivado en
+    // Supabase), un activId de otra licencia se podia renombrar igual.
+    await supaPatch('activaciones','id=eq.'+activId+'&email=ilike.'+encodeURIComponent(SE),{nombre_terminal:nuevo},true);
     if(t.device_id){
       try{
         var rows=await sg('pos_config','licencia_email=ilike.'+encodeURIComponent(SE)+'&clave=eq.terminal_config_'+encodeURIComponent(t.device_id)+'&select=valor');
@@ -1754,7 +1756,12 @@ async function toggleTerminalActiva(activId, nuevoValor){
     if(!confirm('¿Deshabilitar esta terminal?\n\nDejará de poder facturar/cobrar en la próxima verificación de licencia, hasta que la vuelvas a habilitar.')) return;
   }
   try{
-    await supaPatch('activaciones','id=eq.'+activId,{activa:nuevoValor},true);
+    // email=ilike. en el filtro: sin esto, cualquiera con acceso admin
+    // podia habilitar/deshabilitar una terminal de OTRA licencia con solo
+    // adivinar/conocer su id (RLS desactivado en Supabase) -- el vector mas
+    // grave de los encontrados en esta pasada, ya que deshabilita
+    // facturacion/cobro ajena.
+    await supaPatch('activaciones','id=eq.'+activId+'&email=ilike.'+encodeURIComponent(SE),{activa:nuevoValor},true);
     toast(nuevoValor?'Terminal habilitada':'Terminal deshabilitada');
     await _cargarYRenderTerminales();
   }catch(e){toast('Error: '+e.message);}
