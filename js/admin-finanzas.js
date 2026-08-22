@@ -1262,8 +1262,8 @@ async function renderRepProductos(fdKey){
           rows: entries.map(function(e){
             var pct = totalGeneral>0 ? Math.round(e[1].tot/totalGeneral*100) : 0;
             return '<tr>'+
-              '<td>'+e[0]+'</td>'+
-              '<td style="color:#666;font-size:11px;">'+e[1].cat+'</td>'+
+              '<td>'+esc(e[0])+'</td>'+
+              '<td style="color:#666;font-size:11px;">'+esc(e[1].cat)+'</td>'+
               '<td class="r">'+e[1].qty+'</td>'+
               '<td class="r">'+gs(e[1].tot)+'</td>'+
               '<td class="r" style="color:#888;font-size:11px;">'+pct+'%</td>'+
