@@ -649,6 +649,7 @@ function _contarPendientesLocalStorage(){
   try { n += (JSON.parse(localStorage.getItem('pos_sync_fallback') || '[]')).length; } catch(e){}
   try { n += (JSON.parse(localStorage.getItem('pos_productos_sync_fallback') || '[]')).length; } catch(e){}
   try { n += (JSON.parse(localStorage.getItem('pos_cred_sync_fallback') || '[]')).length; } catch(e){}
+  try { n += (JSON.parse(localStorage.getItem('pos_hosp_sync_fallback') || '[]')).length; } catch(e){}
   return n;
 }
 

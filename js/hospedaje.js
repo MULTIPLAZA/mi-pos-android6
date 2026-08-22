@@ -34,11 +34,75 @@ var HOSP_PRECIOS_TIPO_DEFAULT = {
 };
 var hospPreciosTipo = {}; // se llena en hospCargarPreciosTipo()
 
+// ── Cola de reintento para PATCHes a pos_estadias que fallaron ─────────────
+// hospAutoCargarNochesVencidas() y hospedajeRegistrarAbonoTrasVenta() mutan
+// hospEstadias EN MEMORIA (push a est.cargos/abonos) y recién después hacen
+// supaPatch -- si el patch falla (corte de red momentáneo), antes el catch
+// solo hacía console.warn. Eso es MÁS grave que un simple "no sincronizó":
+// hospEstadias es un array en memoria sin backup en localStorage, así que la
+// próxima vez que hospCargar() refetchea desde Supabase, el cargo/abono que
+// solo existía en memoria se PIERDE para siempre -- una noche o un pago que
+// el sistema mostró como cobrado nunca queda registrado. Mismo patrón de
+// cola que ya se usa en credito.js.
+var _HOSP_SYNC_FALLBACK_KEY = 'pos_hosp_sync_fallback';
+function _hospFallbackCargar(){
+  try { return JSON.parse(localStorage.getItem(_HOSP_SYNC_FALLBACK_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function _hospFallbackGuardar(arr){
+  try { localStorage.setItem(_HOSP_SYNC_FALLBACK_KEY, JSON.stringify(arr)); } catch(e){}
+}
+// Encola un patch fallido a pos_estadias, reemplazando cualquier pendiente
+// previo de la MISMA estadía por el mas reciente (no tiene sentido reenviar
+// una version vieja si ya se acumularon mas cargos despues).
+function _hospFallbackEncolar(estadiaId, patch){
+  var arr = _hospFallbackCargar().filter(function(e){ return e.estadiaId !== estadiaId; });
+  arr.push({ estadiaId: estadiaId, patch: patch, encolado: new Date().toISOString() });
+  _hospFallbackGuardar(arr);
+}
+// PATCH resiliente a pos_estadias: si falla, encola para reintentar en vez
+// de perder el cambio. Usar SIEMPRE en vez de supaPatch('pos_estadias', ...)
+// directo para cambios que solo viven en memoria (cargos/abonos/total).
+async function _hospPatchEstadiaResiliente(estadiaId, patch){
+  try{
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, patch, true);
+  }catch(e){
+    _hospFallbackEncolar(estadiaId, patch);
+    console.warn('[Hospedaje] Patch a estadía falló, encolado para reintentar:', e.message);
+  }
+}
+// Reintenta todo lo pendiente. Se llama al PRINCIPIO de hospCargar(), ANTES
+// de refetchear desde Supabase -- si se hiciera después, el refetch trae de
+// vuelta la versión vieja del servidor y pisa el cambio local que todavía no
+// subió, dos veces perdido en vez de una.
+async function _hospReintentarPendientes(){
+  var pendientes = _hospFallbackCargar();
+  if(!pendientes.length) return;
+  var quedan = [];
+  for(var i=0;i<pendientes.length;i++){
+    var e = pendientes[i];
+    try{
+      await supaPatch('pos_estadias', 'id=eq.'+e.estadiaId, e.patch, true);
+      _log && _log('[Hospedaje] Reintento OK: estadía', e.estadiaId);
+    }catch(err){
+      quedan.push(e);
+    }
+  }
+  _hospFallbackGuardar(quedan);
+}
+
 // ── Carga (con cache offline en IndexedDB, mismo patrón que mesas_cache) ──
 async function hospCargar(){
   const licId = parseInt(localStorage.getItem('ali')) || null;
   const email = localStorage.getItem('lic_email');
   if(!licId || !email || USAR_DEMO) return;
+
+  // Reintentar cargos/abonos pendientes ANTES de refetchear -- si no, el
+  // refetch de abajo trae la version vieja del servidor y pisa el cambio
+  // local que todavia no subio.
+  if(navigator.onLine){
+    try{ await _hospReintentarPendientes(); }catch(e){ console.warn('[Hospedaje] Error reintentando pendientes:', e.message); }
+  }
 
   if(!navigator.onLine){
     if(db){
@@ -199,10 +263,8 @@ async function hospAutoCargarNochesVencidas(){
       });
     }
     est.total = est.cargos.reduce(function(s,c){ return s + (c.monto || 0); }, 0);
-    try{
-      await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
-      _log('[Hospedaje] Night audit: +' + faltantes + ' noche(s) auto-cargadas — ' + est.huesped_nombre);
-    }catch(e){ console.warn('[Hospedaje] Error en night audit:', e.message); }
+    await _hospPatchEstadiaResiliente(est.id, { cargos: est.cargos, total: est.total });
+    _log('[Hospedaje] Night audit: +' + faltantes + ' noche(s) auto-cargadas — ' + est.huesped_nombre);
   }
 }
 
@@ -1519,10 +1581,8 @@ async function hospedajeRegistrarAbonoTrasVenta(estadiaId, monto, comprobante){
   if(!est) return;
   est.abonos = est.abonos || [];
   est.abonos.push({ fecha: new Date().toISOString().substring(0,10), monto: monto, comprobante: comprobante || null });
-  try{
-    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, { abonos: est.abonos }, true);
-    _log('[Hospedaje] Abono registrado:', estadiaId, monto);
-  }catch(e){ console.warn('[Hospedaje] Error guardando abono:', e.message); }
+  await _hospPatchEstadiaResiliente(estadiaId, { abonos: est.abonos });
+  _log('[Hospedaje] Abono registrado:', estadiaId, monto);
   _hospRefrescarVista();
 }
 
