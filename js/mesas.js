@@ -486,8 +486,14 @@ async function guardarSalon(salonId){
 async function eliminarSalon(id){
   if(!confirm('¿Borrar este salón y todas sus mesas?')) return;
   try{
+    // licencia_id=eq. SIEMPRE en el filtro, nunca condicional: con RLS
+    // desactivado en Supabase (ver memoria project_mipos_supabase_rls_desactivado),
+    // omitir el filtro de tenant en un DELETE deja la fila expuesta a
+    // cualquier id que coincida de otra licencia. Si no hay _licId, abortar
+    // en vez de borrar sin acotar.
     var _licId = parseInt(localStorage.getItem('ali'))||null;
-    await supaDelete('pos_salones', 'id=eq.'+id+(_licId ? '&licencia_id=eq.'+_licId : ''));
+    if(!_licId){ toast('No se pudo determinar la licencia — no se borró nada'); return; }
+    await supaDelete('pos_salones', 'id=eq.'+id+'&licencia_id=eq.'+_licId);
     await mesasCargar();
     if(mesaSalonSel===id) mesaSalonSel = (mesasSalones[0] && mesasSalones[0].id)||null;
     toast('Salón eliminado');
@@ -524,7 +530,7 @@ async function guardarMesa(salonId, mesaId){
   const sucId = parseInt(localStorage.getItem('pos_sucursal_id'))||null;
   try{
     if(mesaId){
-      await supaPatch('pos_mesas', 'id=eq.'+mesaId, {nombre, capacidad:cap}, true);
+      await supaPatch('pos_mesas', 'id=eq.'+mesaId+'&licencia_id=eq.'+licId, {nombre, capacidad:cap}, true);
     } else {
       await supaPost('pos_mesas', {salon_id:salonId, licencia_id:licId, sucursal_id:sucId, nombre, capacidad:cap}, null, true);
     }
@@ -537,7 +543,10 @@ async function guardarMesa(salonId, mesaId){
 async function eliminarMesa(id){
   if(!confirm('¿Borrar esta mesa?')) return;
   try{
-    await supaDelete('pos_mesas', 'id=eq.'+id);
+    // licencia_id=eq. en el filtro: mismo motivo que eliminarSalon().
+    var _licId = parseInt(localStorage.getItem('ali'))||null;
+    if(!_licId){ toast('No se pudo determinar la licencia — no se borró nada'); return; }
+    await supaDelete('pos_mesas', 'id=eq.'+id+'&licencia_id=eq.'+_licId);
     await mesasCargar();
     toast('Mesa eliminada');
     abrirGestionMesas();

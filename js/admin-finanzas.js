@@ -124,11 +124,15 @@ async function planEliminarCat(id){
     if(!confirm('Esta categoría tiene '+cons.length+' conceptos. ¿Eliminar todo?')) return;
   }
   try{
+    // licencia_id=eq. en el filtro: sin esto, un id de otro tenant (RLS
+    // desactivado en Supabase, ver memoria project_mipos_supabase_rls_desactivado)
+    // se podía borrar igual -- el filtro no acotaba a la licencia propia.
+    var licId=await planGetLicId();
     // Eliminar conceptos primero
     if(cons.length){
-      await supaDelete('gasto_conceptos','categoria_id=eq.'+id);
+      await supaDelete('gasto_conceptos','categoria_id=eq.'+id+'&licencia_id=eq.'+licId);
     }
-    await supaDelete('gasto_categorias','id=eq.'+id);
+    await supaDelete('gasto_categorias','id=eq.'+id+'&licencia_id=eq.'+licId);
     toast('Categoría eliminada');
     await planCargar();
     renderPlanGastos();
@@ -138,7 +142,8 @@ async function planEliminarCat(id){
 async function planEliminarCon(id){
   if(!confirm('¿Eliminar este concepto?')) return;
   try{
-    await supaDelete('gasto_conceptos','id=eq.'+id);
+    var licId=await planGetLicId();
+    await supaDelete('gasto_conceptos','id=eq.'+id+'&licencia_id=eq.'+licId);
     toast('Concepto eliminado');
     await planCargar();
     renderPlanGastos();
@@ -351,7 +356,9 @@ async function gastosBuscar(){
 async function gastoEliminar(id){
   if(!confirm('¿Eliminar este gasto?')) return;
   try{
-    await supaDelete('gastos','id=eq.'+id);
+    // licencia_id=eq. en el filtro: mismo motivo que planEliminarCat/Con --
+    // sin acotar por tenant, un id de otra licencia se podía borrar igual.
+    await supaDelete('gastos','id=eq.'+id+'&licencia_id=eq.'+_gastosLicId);
     toast('Gasto eliminado');
     await gastosBuscar();
   }catch(e){ toast('Error: '+e.message); }
