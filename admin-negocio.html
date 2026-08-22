@@ -358,12 +358,44 @@ function getFDLabel(f){
 }
 
 // ── LOGIN ─────────────────────────────────────────────────
+// Throttle de intentos SOLO client-side (localStorage) -- no reemplaza una
+// proteccion real server-side (esta pantalla consulta la tabla `licencias`
+// directo via REST con la anon key, sin pasar por el RPC activar_licencia
+// que sí tiene rate-limit por IP en mipos-gateway; ver memoria
+// project_mipos_gateway_activacion_bruteforce). Sin RLS en Supabase no hay
+// forma de bloquear esto de verdad desde el cliente -- esto solo sube el
+// costo de adivinar la clave a mano/con un script simple contra ESTA
+// pantalla, no contra la API directamente.
+var LOGIN_INTENTOS_MAX = 8, LOGIN_INTENTOS_VENTANA_MIN = 15;
+function _loginIntentosRecientes(){
+  try{
+    var arr = JSON.parse(localStorage.getItem('admin_login_intentos')||'[]');
+    var corte = Date.now() - LOGIN_INTENTOS_VENTANA_MIN*60*1000;
+    arr = arr.filter(function(t){ return t > corte; });
+    localStorage.setItem('admin_login_intentos', JSON.stringify(arr));
+    return arr;
+  }catch(e){ return []; }
+}
+function _loginRegistrarIntentoFallido(){
+  try{
+    var arr = _loginIntentosRecientes();
+    arr.push(Date.now());
+    localStorage.setItem('admin_login_intentos', JSON.stringify(arr));
+  }catch(e){}
+}
+
 async function doLogin(){
   var email = document.getElementById('loginEmail').value.trim().toLowerCase();
   var clave = document.getElementById('loginClave').value.trim().toUpperCase();
   var err   = document.getElementById('loginErr');
   var btn   = document.getElementById('loginBtn');
   err.style.display='none';
+
+  if(_loginIntentosRecientes().length >= LOGIN_INTENTOS_MAX){
+    err.textContent='Demasiados intentos fallidos. Esperá unos minutos y volvé a intentar.';
+    err.style.display='block';
+    return;
+  }
 
   if(!email||!clave){err.textContent='Completá todos los campos';err.style.display='block';return;}
   if(!email.includes('@')){err.textContent='Ingresá un email válido';err.style.display='block';return;}
@@ -412,12 +444,14 @@ async function doLogin(){
     }
 
     if(emailMismatch){
+      _loginRegistrarIntentoFallido();
       err.textContent='Ese email no corresponde a esta licencia.';
       err.style.display='block';
       if(btn){btn.disabled=false;btn.textContent='INGRESAR';}
       return;
     }
     if(!lic){
+      _loginRegistrarIntentoFallido();
       err.textContent='Email o código de licencia incorrecto';
       err.style.display='block';
       if(btn){btn.disabled=false;btn.textContent='INGRESAR';}
@@ -435,6 +469,7 @@ async function doLogin(){
     }
 
     // Login exitoso
+    try{ localStorage.removeItem('admin_login_intentos'); }catch(e){}
     SE=email; SP=lic.plan; SV=lic.vence; SLI=lic.id||null;
     localStorage.setItem('ae',SE); localStorage.setItem('ap',SP); localStorage.setItem('av',SV); if(SLI) localStorage.setItem('ali',SLI);
     // lic_email: clave que usa js/rubro.js (compartida con el POS) para
