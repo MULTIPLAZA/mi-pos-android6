@@ -64,6 +64,15 @@ self.addEventListener('fetch', e => {
   if (url.hostname.includes('jsdelivr.net')) return;
   if (url.hostname.includes('googleapis.com')) return;
   if (url.hostname.includes('cdnjs.cloudflare.com')) return;
+  // mipos-gateway (backend D1 para tenants Cloudflare, js/config.js
+  // GATEWAY_URL): mismo motivo que 127.0.0.1 mas abajo -- si el Worker
+  // esta caido/inalcanzable y el SW intercepta, el .catch() de mas abajo
+  // cae a caches.match('/') y devuelve el HTML de la app (status 200) en
+  // vez de un error de red real. supaGet()/supaPost() esperan JSON y
+  // hacen r.json() sobre eso -- explota con un SyntaxError que ningun
+  // _esErrorReintentar() del codigo sabe reconocer como reintentable, asi
+  // que el item queda marcado como error permanente en vez de encolado.
+  if (url.hostname.includes('workers.dev')) return;
   // Agente local de impresión (USB Print Server / BT Print Server) — NUNCA
   // interceptar. Si esto pasa por el manejador de abajo y la conexión a
   // 127.0.0.1 falla (CSP, Private Network Access de Chrome, agente
