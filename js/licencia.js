@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.158 (2026-08-22)';
+var APP_VERSION = 'v1.15.159 (2026-08-22)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -118,6 +118,7 @@ async function limpiarCacheTenantAnterior(){
       await Promise.all([
         db.productos.clear(), db.categorias.clear(), db.config.clear(),
         db.turno.clear(), db.ventas.clear(), db.egresos.clear(),
+        db.ingresos.clear(),
         db.sync_queue.clear(), db.mesas_cache.clear(),
       ]);
     }

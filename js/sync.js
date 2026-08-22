@@ -41,6 +41,23 @@ async function initDB(){
       sync_queue:  '++id, tabla, sincronizado, timestamp, error_msg',
       mesas_cache: 'clave',
     });
+    // v3: agrega `ingresos` — antes dbSaveIngreso() posteaba directo a Supabase
+    // sin cola de reintento ni respaldo local, así que un fallo de red o el
+    // dispositivo offline perdía el ingreso (cobro de fiado, etc.) para
+    // siempre: solo quedaba en turnoData/localStorage de esa sesión y
+    // reconstruirEgresosIngresosDesdeSupabase() nunca lo iba a encontrar al
+    // recomponer el turno. Mismo patrón que egresos, que sí tiene cola.
+    db.version(3).stores({
+      productos:   '++id, nombre, categoria, activo, updatedAt, imagen',
+      categorias:  '++id, nombre, updatedAt',
+      ventas:      '++id, fecha, turno_id, terminal, sincronizado, anulada, factura_anulada',
+      turno:       '++id, fecha_apertura, estado, terminal',
+      egresos:     '++id, turno_id, fecha, sincronizado, anulada',
+      ingresos:    '++id, turno_id, fecha, sincronizado',
+      config:      'clave',
+      sync_queue:  '++id, tabla, sincronizado, timestamp, error_msg',
+      mesas_cache: 'clave',
+    });
     await db.open();
     _log('[DB] IndexedDB inicializado OK');
     await dbLoadConfig();
@@ -342,17 +359,19 @@ async function reconstruirEgresosIngresosDesdeSupabase(turnoId){
   return out;
 }
 
-/** Persiste un ingreso del turno (cobro de fiado) directo en Supabase —
- * sin esto, los ingresos vivían solo en turnoData/localStorage, sin
- * ninguna tabla propia en la base (se perdían sin dejar rastro si el
- * dispositivo reconstruía el turno desde cero). Best-effort: si falla,
- * el ingreso sigue viendose en pantalla durante la sesión igual. */
+/** Persiste un ingreso del turno (cobro de fiado, etc.) — mismo patrón que
+ * dbSaveEgreso: guarda primero en IndexedDB y encola el insert real via
+ * dbQueueSync, en vez de postear directo a Supabase sin respaldo. Antes,
+ * si el POST fallaba o el dispositivo estaba offline, el ingreso se perdía
+ * para siempre (solo vivía en turnoData/localStorage de esa sesión) y
+ * reconstruirEgresosIngresosDesdeSupabase() nunca lo recuperaba al
+ * recomponer el turno — un cierre de caja podía dar corto sin explicación. */
 async function dbSaveIngreso(ingreso){
   if(typeof USAR_DEMO !== 'undefined' && USAR_DEMO) return;
-  if(!navigator.onLine) return;
+  if(!db) return;
   const data = {
-    // turno_id va directo a Supabase (supaPost más abajo) — turnoData.supaId,
-    // no turnoData.dbId. Ver mismo fix en supaInsertVenta (turno.js).
+    // turno_id termina en Supabase (vía dbQueueSync) — tiene que ser
+    // turnoData.supaId, no turnoData.dbId. Ver mismo fix en dbSaveEgreso.
     turno_id:        turnoData.supaId || null,
     descripcion:     ingreso.desc,
     monto:           ingreso.monto,
@@ -362,9 +381,11 @@ async function dbSaveIngreso(ingreso){
     fecha:           ingreso.fecha ? ingreso.fecha.toISOString() : new Date().toISOString(),
     terminal:        (typeof configData !== 'undefined' ? configData.terminal : null) || 'Principal',
     licencia_email:  localStorage.getItem('lic_email') || '',
+    sincronizado:    0,
   };
-  try { await supaPost('pos_ingresos', data, null, true); }
-  catch(e){ console.warn('[Turno] Error guardando ingreso en Supabase:', e.message); }
+  const id = await db.ingresos.add(data);
+  await dbQueueSync('ingresos', 'insert', { ...data, id });
+  return id;
 }
 
 // ── SYNC QUEUE ────────────────────────────────────────────

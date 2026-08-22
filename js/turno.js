@@ -919,7 +919,13 @@ function registrarIngreso(desc, monto, metodo, montoOriginal, monedaOriginal) {
   }
   turnoData.ingresos.push(ingreso);
   turnoGuardar();
-  if(typeof dbSaveIngreso === 'function') dbSaveIngreso(ingreso);
+  // Guardar en IndexedDB + cola de reintento (mismo patrón que registrarEgreso)
+  if(db && typeof dbSaveIngreso === 'function'){
+    dbSaveIngreso(ingreso).then(dbId => {
+      if(dbId) ingreso.dbId = dbId;
+      turnoGuardar();
+    }).catch(function(e){ console.warn('[Turno] Error guardando ingreso en IndexedDB:', e.message); });
+  }
 }
 
 async function emitirFacturaPostCobro(ventaId){
