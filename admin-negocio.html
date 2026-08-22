@@ -588,7 +588,7 @@ async function renderSucursalesTab(tc){
     var v=await sg('pos_ventas','licencia_email=ilike.'+encodeURIComponent(SE)+'&fecha=gte.'+fd.d+'&fecha=lte.'+fd.h+'&select=sucursal,total&limit=500');
     var m={};
     v.forEach(function(x){var s=x.sucursal||'Principal';if(!m[s])m[s]={tot:0,ops:0};m[s].tot+=x.total||0;m[s].ops++;});
-    tc.innerHTML=Object.entries(m).length?Object.entries(m).map(function(entry){var s=entry[0];var d=entry[1];return '<div class="li"><div class="li-ic" style="background:var(--g2);color:var(--green)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="li-inf"><div class="li-t">'+s+'</div><div class="li-s">'+d.ops+' ventas este mes</div></div><div class="li-r"><div class="li-v" style="color:var(--green)">'+gs(d.tot)+'</div></div></div>';}).join(''):'<div class="empty"><div class="empty-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg></div><div class="empty-t">Sin sucursales</div></div>';
+    tc.innerHTML=Object.entries(m).length?Object.entries(m).map(function(entry){var s=entry[0];var d=entry[1];return '<div class="li"><div class="li-ic" style="background:var(--g2);color:var(--green)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></div><div class="li-inf"><div class="li-t">'+esc(s)+'</div><div class="li-s">'+d.ops+' ventas este mes</div></div><div class="li-r"><div class="li-v" style="color:var(--green)">'+gs(d.tot)+'</div></div></div>';}).join(''):'<div class="empty"><div class="empty-i"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/></svg></div><div class="empty-t">Sin sucursales</div></div>';
   }catch(e){tc.innerHTML='<div class="loading">Sin datos</div>';}
 }
 
@@ -638,16 +638,16 @@ async function renderConfig(){
         '</select>',
       '</div>',
       '<div id="facA4Fields" style="display:'+(facFormato==='a4'?'block':'none')+';">',
-        '<div class="cfg-r"><div><div class="cfg-rl">Actividad economica</div><div class="cfg-rs">Texto que aparece bajo el nombre (giro DNIT)</div></div><input class="cfg-inp" id="cfgActividad" value="'+v('actividad_economica')+'"></div>',
-        '<div class="cfg-r"><div><div class="cfg-rl">Giro / subtitulo</div><div class="cfg-rs">Ej: VENTA DE PRODUCTOS PARA...</div></div><input class="cfg-inp" id="cfgGiro" value="'+v('factura_giro')+'"></div>',
-        '<div class="cfg-r"><div><div class="cfg-rl">Habilitacion</div><div class="cfg-rs">Nro de habilitacion DNIT</div></div><input class="cfg-inp" id="cfgHabilitacion" value="'+v('habilitacion')+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Actividad economica</div><div class="cfg-rs">Texto que aparece bajo el nombre (giro DNIT)</div></div><input class="cfg-inp" id="cfgActividad" value="'+esc(v('actividad_economica'))+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Giro / subtitulo</div><div class="cfg-rs">Ej: VENTA DE PRODUCTOS PARA...</div></div><input class="cfg-inp" id="cfgGiro" value="'+esc(v('factura_giro'))+'"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Habilitacion</div><div class="cfg-rs">Nro de habilitacion DNIT</div></div><input class="cfg-inp" id="cfgHabilitacion" value="'+esc(v('habilitacion'))+'"></div>',
         '<div class="cfg-r"><div><div class="cfg-rl">Logo</div><div class="cfg-rs">Subi un archivo desde tu computadora o pegá una URL</div></div>'+
           '<div style="display:flex;align-items:center;gap:10px;">'+
-            '<img id="cfgLogoPreview" src="'+v('logo_url')+'" style="width:44px;height:44px;object-fit:contain;background:var(--card2);border:1px solid var(--border);border-radius:6px;display:'+(v('logo_url')?'block':'none')+';">'+
+            '<img id="cfgLogoPreview" src="'+esc(v('logo_url'))+'" style="width:44px;height:44px;object-fit:contain;background:var(--card2);border:1px solid var(--border);border-radius:6px;display:'+(v('logo_url')?'block':'none')+';">'+
             '<label class="btn-dn" style="cursor:pointer;white-space:nowrap;">SUBIR ARCHIVO<input type="file" accept="image/*" id="cfgLogoFile" onchange="onLogoFileChange(this)" style="display:none;"></label>'+
           '</div>'+
         '</div>',
-        '<div class="cfg-r"><div><div class="cfg-rl">Logo (URL)</div><div class="cfg-rs">O pegá la direccion de una imagen ya publicada</div></div><input class="cfg-inp" id="cfgLogo" value="'+v('logo_url')+'" oninput="onLogoUrlInput(this.value)"></div>',
+        '<div class="cfg-r"><div><div class="cfg-rl">Logo (URL)</div><div class="cfg-rs">O pegá la direccion de una imagen ya publicada</div></div><input class="cfg-inp" id="cfgLogo" value="'+esc(v('logo_url'))+'" oninput="onLogoUrlInput(this.value)"></div>',
       '</div>',
     '</div>',
   ].join('');
@@ -679,15 +679,15 @@ async function renderConfig(){
   document.getElementById('content').innerHTML=
     '<div class="ph"><div><div class="pt">Configuracion</div><div class="ps">Datos del negocio y terminales</div></div><button class="btn-sv" onclick="saveConf()">GUARDAR</button></div>'+
     '<div class="cfg-s"><div class="cfg-st">Datos del negocio</div>'+
-    '<div class="cfg-r"><div><div class="cfg-rl">Razon social</div></div><input class="cfg-inp" id="cfgN" value="'+v('an')+'"></div>'+
-    '<div class="cfg-r"><div><div class="cfg-rl">RUC</div></div><input class="cfg-inp" id="cfgRuc" value="'+v('ar')+'"></div>'+
-    '<div class="cfg-r"><div><div class="cfg-rl">Direccion</div></div><input class="cfg-inp" id="cfgD" value="'+v('ad')+'"></div>'+
-    '<div class="cfg-r"><div><div class="cfg-rl">Telefono</div></div><input class="cfg-inp" id="cfgT" value="'+v('at')+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Razon social</div></div><input class="cfg-inp" id="cfgN" value="'+esc(v('an'))+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">RUC</div></div><input class="cfg-inp" id="cfgRuc" value="'+esc(v('ar'))+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Direccion</div></div><input class="cfg-inp" id="cfgD" value="'+esc(v('ad'))+'"></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Telefono</div></div><input class="cfg-inp" id="cfgT" value="'+esc(v('at'))+'"></div>'+
     '</div>'+
     facturaSection+
     rubroSection+
     '<div class="cfg-s"><div class="cfg-st">Licencia</div>'+
-    '<div class="cfg-r"><div><div class="cfg-rl">Email</div><div class="cfg-rs">'+(SE||'—')+'</div></div><span class="tag tag-g">Plan '+(SP||'—')+'</span></div>'+
+    '<div class="cfg-r"><div><div class="cfg-rl">Email</div><div class="cfg-rs">'+esc(SE||'—')+'</div></div><span class="tag tag-g">Plan '+esc(SP||'—')+'</span></div>'+
     '</div>'+
     '<div class="cfg-s"><div class="cfg-st">Sesion</div>'+
     '<div class="cfg-r"><div><div class="cfg-rl">Cerrar sesion</div></div><button class="btn-dn" onclick="doLogout()">SALIR</button></div>'+
