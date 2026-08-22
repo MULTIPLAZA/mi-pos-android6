@@ -1463,6 +1463,330 @@ async function renderRepCompras(fdKey){
 }
 
 // ════════════════════════════════════════════════════════
+// REPORTE: RG 90 — LIBRO DE VENTAS (Marangatu / DNIT)
+// ════════════════════════════════════════════════════════
+// Mismo formato que SpRG90Venta (tpvadmin/database/PATCH_ReportesContador_v3_RG90Venta.sql)
+// -- 18 columnas del "Libro de Ventas" que pide Marangatu. Solo incluye
+// ventas con tiene_factura=true (un ticket sin factura no es un comprobante
+// fiscal). CodigoIdentificacionComprador usa el estandar Marangatu: 1=RUC
+// (con digito verificador, formato "1234567-8"), 2=Cedula (numero sin
+// digito verificador), 5=Innominado/Consumidor Final (venta sin RUC, "X").
+//
+// OJO: Timbrado/NumeroComprobante dependen de pos_ventas.factura_timbrado /
+// factura_numero (ver add_factura_numero_timbrado.sql + fix en turno.js) --
+// las facturas emitidas ANTES de ese fix no tienen ese dato guardado y
+// aparecen marcadas como incompletas en la planilla.
+
+// Período = mes/año calendario (no rango de fechas libre) -- Marangatu se
+// declara siempre por mes calendario, igual que el módulo Contador de tpvadmin.
+var _rg90Mes  = null; // 1-12, se inicializa en renderRepRG90()
+var _rg90Anio = null;
+var RG90_MESES       = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+var RG90_MESES_LARGO = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function rg90PeriodoBounds(mes, anio){
+  var p2=function(n){return String(n).padStart(2,'0');};
+  var ultimoDia = new Date(anio, mes, 0).getDate();
+  return { fd0: anio+'-'+p2(mes)+'-01', fh0: anio+'-'+p2(mes)+'-'+p2(ultimoDia) };
+}
+window.rg90Mes  = function(m){ _rg90Mes = m; renderRepRG90(); };
+window.rg90Anio = function(delta){ _rg90Anio += delta; renderRepRG90(); };
+
+var RG90_XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+function rg90CargarXLSX(cb){
+  if(typeof XLSX !== 'undefined'){ cb(); return; }
+  var s=document.createElement('script');
+  s.src=RG90_XLSX_URL;
+  s.onload=cb;
+  s.onerror=function(){ toast('No se pudo cargar el generador de Excel'); };
+  document.head.appendChild(s);
+}
+
+function rg90CodigoTipoId(ruc){
+  var v=(ruc||'').trim().toUpperCase();
+  if(!v || v==='X') return '5'; // Innominado / Consumidor Final
+  if(v.indexOf('-')>=0) return '1'; // RUC con digito verificador
+  return '2'; // Cedula
+}
+function rg90NumeroId(ruc){
+  var v=(ruc||'').trim().toUpperCase();
+  if(!v || v==='X') return '0';
+  return v;
+}
+
+async function rg90ArmarFilas(fd0, fh0, addDay){
+  var ventas = await sg('pos_ventas',
+    'licencia_email=ilike.'+encodeURIComponent(SE)+
+    '&anulada=is.false'+
+    '&tiene_factura=is.true'+
+    '&fecha=gte.'+fd0+'T04:00:00'+
+    '&fecha=lte.'+addDay(fh0)+'T03:59:59'+
+    '&select=fecha,total,items,factura_ruc,factura_nombre,factura_numero,factura_timbrado,fe_numero,metodo_pago'+
+    '&order=fecha.asc&limit=5000');
+
+  // Mapa de IVA por producto (fallback cuando el item no trae iva propio)
+  var prodMap={};
+  try{
+    var prds=await sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&select=id,iva&limit=2000');
+    prds.forEach(function(p){ prodMap[p.id]=p.iva||'10'; });
+  }catch(e){ console.warn('[RG90] Error cargando IVA de productos:', e.message); }
+
+  var p2=function(n){return String(n).padStart(2,'0');};
+
+  return ventas.map(function(v){
+    var items=[];
+    try{ items=typeof v.items==='string'?JSON.parse(v.items):(v.items||[]); }catch(e){}
+    var g10=0,g5=0,ex=0;
+    items.forEach(function(it){
+      if(it.esDescuento) return;
+      var qty=Number(it.qty)||1, price=Number(it.price||it.precio)||0, sub=price*qty;
+      var ivaRate=it.iva||prodMap[it.id]||'10';
+      if(ivaRate==='exento'||ivaRate==='0') ex+=sub;
+      else if(ivaRate==='5') g5+=sub;
+      else g10+=sub;
+    });
+    if(g10===0&&g5===0&&ex===0) g10=v.total||0; // sin detalle de items -> asumir 10%
+
+    var d=new Date(v.fecha);
+    var fechaFmt=p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear();
+    var numero = v.factura_numero || v.fe_numero || '';
+    var timbrado = v.factura_timbrado || '';
+    var esCredito = (v.metodo_pago||'').toUpperCase().indexOf('CR')===0;
+
+    return {
+      CodigoTipoRegistro: '1',
+      CodigoIdentificacionComprador: rg90CodigoTipoId(v.factura_ruc),
+      NumeroIdentificacion: rg90NumeroId(v.factura_ruc),
+      RazonSocial: v.factura_nombre || 'SIN NOMBRE',
+      CodigoTipoComprobante: '109',
+      FechaEmision: fechaFmt,
+      Timbrado: timbrado,
+      NumeroComprobante: numero,
+      Gravado10: Math.round(g10),
+      Gravado5: Math.round(g5),
+      Exento: Math.round(ex),
+      TotalComprobante: Math.round(v.total||0),
+      CodigoCondicionVenta: esCredito ? '2' : '1',
+      OperacionMonedaExtranjera: 'N',
+      ImputaIva: 'S',
+      ImputaIre: 'N',
+      ImputaIrpRsp: 'N',
+      ComprobanteAsociado: '',
+      TimbradoAsociado: '',
+      _incompleta: !numero || !timbrado,
+    };
+  });
+}
+
+async function renderRepRG90(){
+  var hoy = new Date();
+  if(_rg90Mes===null)  _rg90Mes  = hoy.getMonth()+1;
+  if(_rg90Anio===null) _rg90Anio = hoy.getFullYear();
+
+  var c = document.getElementById('content');
+  var p2 = function(n){ return String(n).padStart(2,'0'); };
+  var addDay = function(ds){ var p=ds.split('-'),d=new Date(+p[0],+p[1]-1,+p[2]+1);return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); };
+  var bounds = rg90PeriodoBounds(_rg90Mes, _rg90Anio);
+  var fd0 = bounds.fd0, fh0 = bounds.fh0;
+  var rangoLabel = RG90_MESES_LARGO[_rg90Mes-1]+' '+_rg90Anio;
+  var emailKey = 'rg90_contador_email_'+(SE||'');
+
+  c.innerHTML =
+    '<div class="ph" style="margin-bottom:14px;flex-wrap:wrap;gap:10px">'+
+      '<div>'+
+        '<div class="pt">RG 90 — Libro de Ventas</div>'+
+        '<div class="ps" style="color:var(--muted);">'+rangoLabel+' · Formato Marangatu (DNIT)</div>'+
+      '</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'+
+        '<div style="display:flex;align-items:center;gap:2px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:2px 6px;">'+
+          '<button onclick="rg90Anio(-1)" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:15px;font-weight:700;padding:2px 8px;">‹</button>'+
+          '<span style="font-size:13px;font-weight:800;color:var(--text);min-width:38px;text-align:center;">'+_rg90Anio+'</span>'+
+          '<button onclick="rg90Anio(1)" style="background:none;border:none;color:var(--text);cursor:pointer;font-size:15px;font-weight:700;padding:2px 8px;">›</button>'+
+        '</div>'+
+        '<div style="display:inline-flex;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:2px;gap:1px;flex-wrap:wrap;">'+
+          RG90_MESES.map(function(m,i){ return '<button class="atab'+(i+1===_rg90Mes?' on':'')+'" onclick="rg90Mes('+(i+1)+')">'+m+'</button>'; }).join('')+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="card" style="margin-bottom:14px;padding:14px 16px;">'+
+      '<div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Correo del contador</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">'+
+        '<input id="rg90Email" type="email" placeholder="contador@estudio.com" value="'+(localStorage.getItem(emailKey)||'')+'" '+
+          'class="d-inp" style="flex:1;min-width:220px;font-size:13px;padding:7px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card2);color:var(--text);" '+
+          'oninput="localStorage.setItem(\''+emailKey+'\', this.value.trim())">'+
+        '<button id="rg90BtnXlsx" class="btn-sv" onclick="rg90Descargar(\'xlsx\')">Descargar Excel</button>'+
+        '<button id="rg90BtnTxt" class="btn-sv" style="background:var(--card2);color:var(--text);" onclick="rg90Descargar(\'txt\')">Descargar TXT (Marangatu)</button>'+
+        '<button id="rg90BtnMail" class="btn-sv" onclick="rg90Enviar()">Enviar por correo</button>'+
+      '</div>'+
+      '<div style="font-size:11px;color:var(--muted);margin-top:6px;">Se guarda solo en este dispositivo.</div>'+
+    '</div>'+
+    '<div id="rg90Wrap"><div class="loading"><span class="sp"></span>Cargando...</div></div>';
+
+  var wrap = document.getElementById('rg90Wrap');
+  try {
+    var filas = await rg90ArmarFilas(fd0, fh0, addDay);
+    window._rg90Filas = filas; // cache para descargar/enviar sin re-consultar
+
+    if(!filas.length){
+      wrap.innerHTML = '<div style="text-align:center;padding:48px;color:var(--muted);">Sin ventas facturadas en el período seleccionado</div>';
+      return;
+    }
+
+    var totG10=0,totG5=0,totEx=0,totGen=0,incompletas=0;
+    filas.forEach(function(f){ totG10+=f.Gravado10; totG5+=f.Gravado5; totEx+=f.Exento; totGen+=f.TotalComprobante; if(f._incompleta) incompletas++; });
+
+    var avisoIncompletas = incompletas ?
+      '<div style="background:#fff3cd;border:1px solid #ffe69c;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#664d03;">'+
+        '<strong>'+incompletas+' factura'+(incompletas>1?'s':'')+'</strong> del período '+(incompletas>1?'no tienen':'no tiene')+' timbrado/número de comprobante guardado '+
+        '(se emitieron antes de esta actualización). Completalas a mano en la planilla antes de subir a Marangatu.'+
+      '</div>' : '';
+
+    var html =
+      avisoIncompletas +
+      '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;padding:16px 20px;display:flex;gap:32px;flex-wrap:wrap;">'+
+        '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Comprobantes</div>'+
+          '<div style="font-size:24px;font-weight:800;color:var(--text);">'+filas.length+'</div></div>'+
+        '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Gravado 10%</div>'+
+          '<div style="font-size:20px;font-weight:800;color:var(--text);">'+gs(totG10)+'</div></div>'+
+        '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Gravado 5%</div>'+
+          '<div style="font-size:20px;font-weight:800;color:var(--text);">'+gs(totG5)+'</div></div>'+
+        '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Exento</div>'+
+          '<div style="font-size:20px;font-weight:800;color:var(--text);">'+gs(totEx)+'</div></div>'+
+        '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Total</div>'+
+          '<div style="font-size:20px;font-weight:800;color:var(--green);">'+gs(totGen)+'</div></div>'+
+      '</div>'+
+      '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;overflow:hidden;overflow-x:auto;">'+
+      '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">'+
+      '<thead><tr style="background:var(--card2);">'+
+        '<th style="padding:9px 12px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;">Fecha</th>'+
+        '<th style="padding:9px 12px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">RUC/CI</th>'+
+        '<th style="padding:9px 12px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Razón Social</th>'+
+        '<th style="padding:9px 12px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;">Timbrado</th>'+
+        '<th style="padding:9px 12px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap;">N° Comprobante</th>'+
+        '<th style="padding:9px 12px;text-align:right;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Total</th>'+
+        '<th style="padding:9px 12px;text-align:center;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;">Cond.</th>'+
+      '</tr></thead><tbody>'+
+      filas.map(function(f){
+        return '<tr style="border-top:1px solid var(--border);'+(f._incompleta?'background:rgba(255,193,7,.08);':'')+'">'+
+          '<td style="padding:9px 12px;color:var(--muted);white-space:nowrap;">'+f.FechaEmision+'</td>'+
+          '<td style="padding:9px 12px;">'+(f.NumeroIdentificacion==='0'?'—':f.NumeroIdentificacion)+'</td>'+
+          '<td style="padding:9px 12px;font-weight:600;color:var(--text);">'+f.RazonSocial+'</td>'+
+          '<td style="padding:9px 12px;white-space:nowrap;'+(!f.Timbrado?'color:#e6a700;':'')+'">'+(f.Timbrado||'sin datos')+'</td>'+
+          '<td style="padding:9px 12px;white-space:nowrap;'+(!f.NumeroComprobante?'color:#e6a700;':'')+'">'+(f.NumeroComprobante||'sin datos')+'</td>'+
+          '<td style="padding:9px 12px;text-align:right;font-weight:700;color:var(--text);">'+gs(f.TotalComprobante)+'</td>'+
+          '<td style="padding:9px 12px;text-align:center;color:var(--muted);font-size:11px;">'+(f.CodigoCondicionVenta==='2'?'Créd.':'Cont.')+'</td>'+
+        '</tr>';
+      }).join('')+
+      '</tbody></table></div>';
+
+    wrap.innerHTML = html;
+  } catch(e) {
+    wrap.innerHTML = '<div style="padding:24px;color:var(--red);">Error: '+e.message+'</div>';
+  }
+}
+
+// ── Descarga XLSX / TXT (formato Marangatu, pipe-delimitado) ────────────
+var RG90_HEADERS = [
+  'CodigoTipoRegistro','CodigoIdentificacionComprador','NumeroIdentificacion','RazonSocial',
+  'CodigoTipoComprobante','FechaEmision','Timbrado','NumeroComprobante','Gravado10','Gravado5',
+  'Exento','TotalComprobante','CodigoCondicionVenta','OperacionMonedaExtranjera','ImputaIva',
+  'ImputaIre','ImputaIrpRsp','ComprobanteAsociado','TimbradoAsociado'
+];
+
+function rg90FilasLimpias(){
+  return (window._rg90Filas||[]).map(function(f){
+    var r={}; RG90_HEADERS.forEach(function(h){ r[h]=f[h]; }); return r;
+  });
+}
+
+function rg90NombreArchivo(ext){
+  return 'RG90_Ventas_'+_rg90Anio+'-'+String(_rg90Mes).padStart(2,'0')+'.'+ext;
+}
+
+function rg90Descargar(tipo){
+  if(!window._rg90Filas || !window._rg90Filas.length){ toast('No hay datos para descargar'); return; }
+  if(tipo==='txt'){
+    var filas=rg90FilasLimpias();
+    var lineas=filas.map(function(f){ return RG90_HEADERS.map(function(h){ return f[h]; }).join('|'); });
+    var blob=new Blob([lineas.join('\r\n')], {type:'text/plain;charset=utf-8;'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=rg90NombreArchivo('txt'); a.click();
+    return;
+  }
+  rg90CargarXLSX(function(){
+    var filas=rg90FilasLimpias();
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.json_to_sheet(filas, {header:RG90_HEADERS});
+    XLSX.utils.book_append_sheet(wb, ws, 'RG90 Ventas');
+    XLSX.writeFile(wb, rg90NombreArchivo('xlsx'));
+  });
+}
+
+// UTF-8 seguro (razón social con tildes/ñ) -- btoa solo entiende Latin1 directo.
+function rg90StrToBase64(str){
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
+// Arma los DOS adjuntos (Excel + TXT Marangatu) de una sola pasada -- el
+// contador pide indistintamente uno u otro segun el dia, mejor mandar ambos
+// siempre que se envia por correo.
+function rg90ArmarAdjuntos(cb){
+  rg90CargarXLSX(function(){
+    var filas=rg90FilasLimpias();
+    var wb=XLSX.utils.book_new();
+    var ws=XLSX.utils.json_to_sheet(filas, {header:RG90_HEADERS});
+    XLSX.utils.book_append_sheet(wb, ws, 'RG90 Ventas');
+    var xlsxB64 = XLSX.write(wb, {bookType:'xlsx', type:'base64'});
+
+    var lineas = filas.map(function(f){ return RG90_HEADERS.map(function(h){ return f[h]; }).join('|'); });
+    var txtB64 = rg90StrToBase64(lineas.join('\r\n'));
+
+    cb(xlsxB64, txtB64);
+  });
+}
+
+async function rg90Enviar(){
+  if(!window._rg90Filas || !window._rg90Filas.length){ toast('No hay datos para enviar'); return; }
+  var email=(document.getElementById('rg90Email')?.value||'').trim();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('Ingresá un correo válido'); return; }
+
+  var btn=document.getElementById('rg90BtnMail');
+  var htmlOriginal=btn?btn.innerHTML:'';
+  if(btn){ btn.disabled=true; btn.textContent='Enviando...'; }
+
+  rg90ArmarAdjuntos(async function(xlsxB64, txtB64){
+    try{
+      var neg=localStorage.getItem('an')||'Mi Negocio';
+      var periodoLabel = RG90_MESES_LARGO[_rg90Mes-1]+' '+_rg90Anio;
+      var resp=await fetch('/api/enviar-email', {
+        method:'POST',
+        headers:{'content-type':'application/json'},
+        body: JSON.stringify({
+          cliente_id: String(SLI||SE||''),
+          to: email,
+          subject: 'RG 90 — Libro de Ventas — '+neg+' — '+periodoLabel,
+          html: '<p>Hola,</p><p>Adjuntamos el <strong>RG 90 — Libro de Ventas</strong> de <strong>'+neg+'</strong> correspondiente a <strong>'+periodoLabel+'</strong>, en dos formatos: Excel (para revisar) y TXT (formato Marangatu, listo para subir a DNIT).</p><p style="color:#888;font-size:12px">Generado automáticamente desde el panel del negocio.</p>',
+          attachments: [
+            { filename: rg90NombreArchivo('xlsx'), content: xlsxB64 },
+            { filename: rg90NombreArchivo('txt'),  content: txtB64 },
+          ],
+        }),
+      });
+      var data=await resp.json().catch(function(){ return {}; });
+      if(!resp.ok || !data.ok){
+        var msg = typeof data.error==='string' ? data.error : (data.error && data.error.message) || 'Error desconocido';
+        throw new Error(msg);
+      }
+      toast('Enviado a '+email+' (Excel + TXT)');
+    }catch(e){
+      toast('Error al enviar: '+e.message);
+    }finally{
+      if(btn){ btn.disabled=false; btn.innerHTML=htmlOriginal; }
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════
 // ADMINISTRACIÓN — TIMBRADOS
 // ════════════════════════════════════════════════════════
 

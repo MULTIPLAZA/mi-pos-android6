@@ -92,6 +92,8 @@ function renderDashboard(){
   </div>
 </div>
 
+${(typeof usaHabitaciones==='function' && usaHabitaciones()) ? _dshHospedajeHtml() : ''}
+
 <!-- Fila top: 3 métricas principales -->
 <div class="dsh-row dsh-row-3">
   <div class="dsh-kpi" style="--c:var(--green);">
@@ -236,6 +238,12 @@ function renderDashboard(){
   } else {
     loadDashData(filtroD);
   }
+  // Ocupación/check-ins/check-outs son "ahora", no dependen del período de
+  // los pills (Hoy/Semana/Mes) -- se cargan una sola vez al entrar.
+  if(typeof usaHabitaciones==='function' && usaHabitaciones()){
+    loadHotelDashData();
+    loadHotelDashDataPeriodo(filtroD);
+  }
 }
 
 // Compat stub — los gráficos ahora cargan automáticamente al entrar al dashboard
@@ -246,6 +254,9 @@ function setFD(f,b){
   document.querySelectorAll('.dsh-pill').forEach(function(x){x.classList.remove('on');});
   if(b) b.classList.add('on');
   loadDashData(f);
+  // Ingreso/ranking/canceladas del hotel SI dependen del período (Hoy/Semana/
+  // Mes) -- antes los pills no tocaban nada de la sección hotelera.
+  if(typeof usaHabitaciones==='function' && usaHabitaciones()) loadHotelDashDataPeriodo(f);
 }
 
 var _dashCharts={};
@@ -253,6 +264,284 @@ var _dashCache=null;
 function _destroyChart(id){ if(_dashCharts[id]){try{_dashCharts[id].destroy();}catch(e){/* chart already destroyed */} delete _dashCharts[id];} }
 function _mkChart(id,cfg){ _destroyChart(id); var el=document.getElementById(id); if(!el)return; _dashCharts[id]=new Chart(el,cfg); return _dashCharts[id]; }
 function _isDark(){ return !document.documentElement.hasAttribute('data-theme')||document.documentElement.getAttribute('data-theme')==='dark'; }
+
+// ── Dashboard hotelero (rubro hospedaje) ───────────────────────────────
+// Al hotelero no le importa "productos más vendidos" -- le importa
+// ocupación, quién llega/se va hoy y si algún huésped se pasó de fecha.
+// Se inyecta ARRIBA del dashboard genérico (que sigue mostrando ventas/
+// gastos/compras, útil también para un hotel), solo cuando usaHabitaciones()
+// (rubro.js) da true -- no toca nada para el resto de los rubros.
+function _dshHospedajeHtml(){
+  return `
+<div class="dsh-row dsh-row-3">
+  <div class="dsh-kpi" style="--c:var(--green);">
+    <div class="dsh-kpi-lbl">Ocupación ahora</div>
+    <div class="dsh-kpi-val lg" id="hkOcup">0%</div>
+    <div class="dsh-kpi-diff" style="color:var(--muted);" id="hkOcupSub">—</div>
+  </div>
+  <div class="dsh-kpi" style="--c:var(--blue);">
+    <div class="dsh-kpi-lbl">Check-ins hoy</div>
+    <div class="dsh-kpi-val" id="hkCheckin">0</div>
+    <div class="dsh-kpi-diff" style="color:var(--muted);" id="hkCheckinSub">—</div>
+  </div>
+  <div class="dsh-kpi" style="--c:var(--orange);">
+    <div class="dsh-kpi-lbl">Check-outs hoy</div>
+    <div class="dsh-kpi-val" id="hkCheckout">0</div>
+    <div class="dsh-kpi-diff" style="color:var(--muted);" id="hkCheckoutSub">—</div>
+  </div>
+</div>
+<div class="dsh-row dsh-row-3">
+  <div class="dsh-kpi" style="--c:var(--blue);">
+    <div class="dsh-kpi-lbl">Huéspedes alojados</div>
+    <div class="dsh-kpi-val" id="hkHuespedes">0</div>
+  </div>
+  <div class="dsh-kpi" style="--c:var(--green);">
+    <div class="dsh-kpi-lbl">Tarifa promedio (ADR)</div>
+    <div class="dsh-kpi-val" id="hkADR">₲0</div>
+  </div>
+  <div class="dsh-kpi" style="--c:var(--green);">
+    <div class="dsh-kpi-lbl">RevPAR</div>
+    <div class="dsh-kpi-val" id="hkRevPAR">₲0</div>
+    <div class="dsh-kpi-diff" style="color:var(--muted);">Ingreso hospedaje ÷ habitaciones totales</div>
+  </div>
+</div>
+<div class="dsh-row" style="grid-template-columns:1fr;">
+  <div class="dsh-split">
+    <div class="dsh-split-hd">Estado de habitaciones</div>
+    <div id="hkHabEstados" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
+  </div>
+</div>
+<div class="dsh-row dsh-row-2">
+  <div class="card">
+    <div class="card-h"><span class="card-t">Check-ins de hoy</span></div>
+    <div id="hkListaCheckin" style="padding:8px 0;max-height:260px;overflow-y:auto;"><div style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;">Cargando...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span class="card-t">Check-outs de hoy / vencidos</span></div>
+    <div id="hkListaCheckout" style="padding:8px 0;max-height:260px;overflow-y:auto;"><div style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;">Cargando...</div></div>
+  </div>
+</div>
+<!-- Del período (Hoy/Semana/Mes, mismos pills de arriba) -->
+<div class="dsh-row" style="grid-template-columns:1fr;margin-top:4px;">
+  <div class="card">
+    <div class="card-h"><span class="card-t" id="hkIngresoTitle">Ingreso hospedaje</span></div>
+    <div id="hkIngresoWrap" style="padding:16px 18px;"><div style="font-size:12px;color:var(--muted);">Cargando...</div></div>
+  </div>
+</div>
+<div class="dsh-row dsh-row-2">
+  <div class="card">
+    <div class="card-h"><span class="card-t">Habitaciones más ocupadas</span></div>
+    <div id="hkRankHab" style="padding:8px 0;max-height:280px;overflow-y:auto;"><div style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;">Cargando...</div></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span class="card-t">Check-ins por día de la semana</span></div>
+    <div id="hkDiaSemana" style="padding:16px 18px;"><div style="font-size:12px;color:var(--muted);">Cargando...</div></div>
+  </div>
+</div>
+<div class="dsh-row" style="grid-template-columns:1fr;">
+  <div class="card">
+    <div class="card-h"><span class="card-t">Reservas canceladas</span></div>
+    <div id="hkCanceladas" style="padding:16px 18px;"><div style="font-size:12px;color:var(--muted);">Cargando...</div></div>
+  </div>
+</div>`;
+}
+
+async function loadHotelDashData(){
+  var $$=function(id){return document.getElementById(id);};
+  try{
+    var habs = await sg('pos_habitaciones',
+      'licencia_email=ilike.'+encodeURIComponent(SE)+'&activo=eq.true&select=id,numero,tipo,estado,precio_noche');
+    var ests = await sg('pos_estadias',
+      'licencia_email=ilike.'+encodeURIComponent(SE)+'&estado=in.(en_estadia,reservado)'+
+      '&select=id,habitacion_id,huesped_nombre,checkin,checkout_previsto,tarifa_noche,estado');
+
+    var p2=function(n){return String(n).padStart(2,'0');};
+    var hoyD=new Date();
+    var hoyStr=hoyD.getFullYear()+'-'+p2(hoyD.getMonth()+1)+'-'+p2(hoyD.getDate());
+
+    var totalHab   = habs.length;
+    var ocupadas   = habs.filter(function(h){ return h.estado==='en_estadia'; }).length;
+    var libres     = habs.filter(function(h){ return h.estado==='libre'; }).length;
+    var limpieza   = habs.filter(function(h){ return h.estado==='limpieza'; }).length;
+    var pctOcup    = totalHab>0 ? Math.round(ocupadas/totalHab*100) : 0;
+
+    var enEstadia    = ests.filter(function(e){ return e.estado==='en_estadia'; });
+    var checkinsHoy  = ests.filter(function(e){ return e.checkin===hoyStr; });
+    var checkoutsHoy = enEstadia.filter(function(e){ return e.checkout_previsto===hoyStr; });
+    var vencidos     = enEstadia.filter(function(e){ return e.checkout_previsto && e.checkout_previsto<hoyStr; });
+
+    var tarifas = enEstadia.map(function(e){ return e.tarifa_noche||0; }).filter(function(t){ return t>0; });
+    var adr = tarifas.length ? Math.round(tarifas.reduce(function(s,t){ return s+t; },0)/tarifas.length) : 0;
+    // Ingreso de hospedaje "hoy" aproximado por la tarifa corriente de cada
+    // habitación ocupada (no re-suma cargos históricos) -- suficiente para
+    // un RevPAR de un vistazo, no reemplaza el reporte de ventas real.
+    var ingresoHospedajeHoy = enEstadia.reduce(function(s,e){ return s+(e.tarifa_noche||0); },0);
+    var revpar = totalHab>0 ? Math.round(ingresoHospedajeHoy/totalHab) : 0;
+
+    if($$('hkOcup'))       $$('hkOcup').textContent = pctOcup+'%';
+    if($$('hkOcupSub'))    $$('hkOcupSub').textContent = ocupadas+' de '+totalHab+' habitaciones';
+    if($$('hkCheckin'))    $$('hkCheckin').textContent = String(checkinsHoy.length);
+    if($$('hkCheckinSub')) $$('hkCheckinSub').textContent = checkinsHoy.length
+      ? checkinsHoy.slice(0,3).map(function(e){ return e.huesped_nombre; }).join(', ')+(checkinsHoy.length>3?'…':'')
+      : 'Sin llegadas hoy';
+    if($$('hkCheckout'))    $$('hkCheckout').textContent = String(checkoutsHoy.length);
+    if($$('hkCheckoutSub')) $$('hkCheckoutSub').textContent = vencidos.length
+      ? vencidos.length+' vencido'+(vencidos.length>1?'s':'')
+      : 'Al día';
+    if($$('hkHuespedes')) $$('hkHuespedes').textContent = String(enEstadia.length);
+    if($$('hkADR'))       $$('hkADR').textContent = gs(adr);
+    if($$('hkRevPAR'))    $$('hkRevPAR').textContent = gs(revpar);
+
+    var estadosWrap=$$('hkHabEstados');
+    if(estadosWrap){
+      var chip=function(lbl,val,color){
+        return '<div style="flex:1;min-width:100px;background:var(--card2);border-radius:8px;padding:10px 14px;border-left:3px solid '+color+';">'
+          +'<div style="font-size:20px;font-weight:800;color:var(--text);">'+val+'</div>'
+          +'<div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;">'+lbl+'</div></div>';
+      };
+      estadosWrap.innerHTML = chip('Ocupadas',ocupadas,'var(--red)')+chip('Libres',libres,'var(--green)')+chip('En limpieza',limpieza,'var(--orange)');
+    }
+
+    // etiquetaFecha: en la lista de check-ins la fecha de la derecha es la
+    // SALIDA prevista (no el check-in, que ya es "hoy" para toda la lista) --
+    // sin la etiqueta "Sale:" parecia un dato mal puesto (mostraba manana).
+    var listaHtml=function(items, vacioMsg, etiquetaFecha){
+      if(!items.length) return '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;">'+vacioMsg+'</div>';
+      return items.map(function(e){
+        var hab=habs.find(function(h){ return h.id===e.habitacion_id; });
+        var esVencido = e.checkout_previsto && e.checkout_previsto<hoyStr;
+        var tag = esVencido
+          ? '<span style="font-size:10px;font-weight:800;background:var(--red);color:#fff;padding:1px 6px;border-radius:3px;margin-left:6px;">VENCIDO</span>' : '';
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--border);font-size:13px;">'
+          +'<div><strong>'+(hab?('Hab. '+hab.numero):'—')+'</strong> · '+(e.huesped_nombre||'—')+tag+'</div>'
+          +'<div style="color:var(--muted);font-size:11px;">'+etiquetaFecha+(e.checkout_previsto||'—')+'</div></div>';
+      }).join('');
+    };
+    if($$('hkListaCheckin')) $$('hkListaCheckin').innerHTML = listaHtml(checkinsHoy, 'Sin llegadas programadas para hoy', 'Sale: ');
+    var listaSalidas = checkoutsHoy.concat(vencidos.filter(function(e){ return e.checkout_previsto!==hoyStr; }));
+    if($$('hkListaCheckout')) $$('hkListaCheckout').innerHTML = listaHtml(listaSalidas, 'Sin salidas pendientes', '');
+
+  }catch(e){ console.warn('[Dash Hotel] Error:', e.message); }
+}
+
+// ── Sección del hotel que SÍ depende del período (Hoy/Semana/Mes) ──────
+// Ingreso real (Gs + R$ efectivamente cobrados -- Nico Palace factura en
+// ambas monedas y la mayoría de sus huéspedes son brasileros), ranking de
+// habitaciones, día de semana con más check-ins, y reservas canceladas.
+async function loadHotelDashDataPeriodo(f){
+  var $$=function(id){ return document.getElementById(id); };
+  var fd=getFD(f||'hoy');
+  var p2=function(n){ return String(n).padStart(2,'0'); };
+  var addDay=function(ds){ var p=ds.substring(0,10).split('-'); var d=new Date(+p[0],+p[1]-1,+p[2]+1); return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()); };
+  var fd0=fd.d.slice(0,10), fh0=fd.h.slice(0,10);
+  var desdeTZ=fd0+'T04:00:00', hastaTZ=addDay(fh0)+'T03:59:59';
+  var periodLabel=f==='hoy'?'hoy':f==='semana'?'esta semana':'este mes';
+
+  try{
+    // ── Ingreso de hospedaje del período, según lo efectivamente cobrado ──
+    // total ya viene en Gs (equivalente); mm_pagos/div_pagos/pix_mp_pagos
+    // son las 3 formas en que puede haber entrado un pago en reales -- mismo
+    // criterio que usa el cierre de turno (turno.js) para no duplicar lógica
+    // de conversión.
+    var ventas = await sg('pos_ventas',
+      'licencia_email=ilike.'+encodeURIComponent(SE)+
+      '&anulada=is.false'+
+      '&fecha=gte.'+desdeTZ+'&fecha=lte.'+hastaTZ+
+      '&select=total,mm_pagos,div_pagos,pix_mp_pagos&limit=3000');
+    var totalGs=0, totalBRL=0;
+    ventas.forEach(function(v){
+      totalGs += v.total||0;
+      // Un pago por Pix queda guardado en mm_pagos.pagoBRL Y TAMBIÉN en
+      // pix_mp_pagos.monedaAmt (mismo importe, dos etiquetas distintas) --
+      // sumar los dos duplicaba el total en reales. mm_pagos manda cuando
+      // existe; pix_mp_pagos solo suma si la venta NO pasó por mm_pagos.
+      if(v.mm_pagos) totalBRL += v.mm_pagos.pagoBRL||0;
+      else if(v.pix_mp_pagos && v.pix_mp_pagos.tipo==='pix') totalBRL += v.pix_mp_pagos.monedaAmt||0;
+      if(Array.isArray(v.div_pagos)) v.div_pagos.forEach(function(p){ totalBRL += p.montoBRL||0; });
+    });
+
+    if($$('hkIngresoTitle')) $$('hkIngresoTitle').textContent='Ingreso hospedaje — '+periodLabel;
+    if($$('hkIngresoWrap')){
+      $$('hkIngresoWrap').innerHTML =
+        '<div style="display:flex;gap:28px;flex-wrap:wrap;">'+
+          '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Total (equiv. Gs)</div>'+
+            '<div style="font-size:26px;font-weight:800;color:var(--green);">'+gs(totalGs)+'</div></div>'+
+          (totalBRL>0 ? '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Recibido en R$</div>'+
+            '<div style="font-size:26px;font-weight:800;color:var(--blue);">R$ '+totalBRL.toFixed(2)+'</div></div>' : '')+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:10px;">'+ventas.length+' venta'+(ventas.length!==1?'s':'')+' del período'+(totalBRL>0?' · el total en Gs ya incluye los pagos en reales convertidos':'')+'</div>';
+    }
+
+    // ── Estadías con checkin en el período (cualquier estado) ──
+    var estadias = await sg('pos_estadias',
+      'licencia_email=ilike.'+encodeURIComponent(SE)+
+      '&checkin=gte.'+fd0+'&checkin=lte.'+fh0+
+      '&select=habitacion_id,checkin,estado');
+    var habs = await sg('pos_habitaciones',
+      'licencia_email=ilike.'+encodeURIComponent(SE)+'&select=id,numero,tipo');
+    var habMap={}; habs.forEach(function(h){ habMap[h.id]=h; });
+
+    // Ranking de habitaciones (se excluyen las canceladas -- no llegaron a ocupar)
+    var conteoHab={};
+    estadias.forEach(function(e){
+      if(e.estado==='cancelado') return;
+      conteoHab[e.habitacion_id]=(conteoHab[e.habitacion_id]||0)+1;
+    });
+    var ranking=Object.entries(conteoHab).sort(function(a,b){ return b[1]-a[1]; }).slice(0,8);
+    var maxCnt=ranking.length?ranking[0][1]:1;
+    if($$('hkRankHab')){
+      $$('hkRankHab').innerHTML = ranking.length ? ranking.map(function(entry){
+        var h=habMap[entry[0]];
+        var pct=Math.round(entry[1]/maxCnt*100);
+        return '<div style="padding:8px 14px;border-top:1px solid var(--border);">'+
+          '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">'+
+            '<span style="font-weight:700;color:var(--text);">Hab. '+(h?h.numero:'—')+(h&&h.tipo?' · '+h.tipo:'')+'</span>'+
+            '<span style="color:var(--muted);">'+entry[1]+' estadía'+(entry[1]!==1?'s':'')+'</span>'+
+          '</div>'+
+          '<div style="height:6px;background:var(--card2);border-radius:3px;"><div style="width:'+pct+'%;height:6px;background:var(--green);border-radius:3px;"></div></div>'+
+        '</div>';
+      }).join('') : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px 0;">Sin estadías en el período</div>';
+    }
+
+    // Día de la semana con más check-ins
+    var DIAS=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    var porDia=[0,0,0,0,0,0,0];
+    estadias.forEach(function(e){
+      if(e.estado==='cancelado') return;
+      var d=new Date(e.checkin+'T00:00:00');
+      porDia[d.getDay()]++;
+    });
+    var maxDia=Math.max.apply(null, porDia);
+    if($$('hkDiaSemana')){
+      var totalCheckins = porDia.reduce(function(s,n){return s+n;},0);
+      $$('hkDiaSemana').innerHTML = totalCheckins ? porDia.map(function(cnt,i){
+        var pct=maxDia>0?Math.round(cnt/maxDia*100):0;
+        var esMax=cnt===maxDia && cnt>0;
+        return '<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">'+
+          '<div style="width:78px;font-size:11.5px;color:'+(esMax?'var(--text)':'var(--muted)')+';font-weight:'+(esMax?'800':'600')+';">'+DIAS[i]+'</div>'+
+          '<div style="flex:1;height:8px;background:var(--card2);border-radius:4px;"><div style="width:'+pct+'%;height:8px;background:'+(esMax?'var(--green)':'var(--border)')+';border-radius:4px;"></div></div>'+
+          '<div style="width:22px;text-align:right;font-size:11.5px;color:var(--muted);">'+cnt+'</div>'+
+        '</div>';
+      }).join('') : '<div style="font-size:12px;color:var(--muted);text-align:center;">Sin check-ins en el período</div>';
+    }
+
+    // Reservas canceladas del período (incluye tanto reservas anticipadas
+    // como estadías canceladas -- pos_estadias no distingue el motivo)
+    var totalPeriodo=estadias.length;
+    var canceladas=estadias.filter(function(e){ return e.estado==='cancelado'; }).length;
+    var pctCancel=totalPeriodo>0?Math.round(canceladas/totalPeriodo*100):0;
+    if($$('hkCanceladas')){
+      $$('hkCanceladas').innerHTML = totalPeriodo>0 ?
+        '<div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;">'+
+          '<div style="font-size:30px;font-weight:800;color:'+(pctCancel>15?'var(--red)':'var(--text)')+';">'+pctCancel+'%</div>'+
+          '<div style="font-size:12px;color:var(--muted);">'+canceladas+' de '+totalPeriodo+' reservas/estadías del período</div>'+
+        '</div>'+
+        '<div style="font-size:11px;color:var(--muted);margin-top:8px;">No distingue "no-show" de una cancelación anticipada -- son todas las estadías que terminaron en estado cancelado.</div>'
+        : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">Sin reservas en el período</div>';
+    }
+
+  }catch(e){ console.warn('[Dash Hotel Periodo] Error:', e.message); }
+}
 
 async function loadDashData(f){
   var fd=getFD(f||'hoy');

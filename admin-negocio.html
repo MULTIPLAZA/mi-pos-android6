@@ -82,6 +82,8 @@
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><path d="M7 8h2v5H7zM11 5h2v8h-2zM15 10h2v3h-2z"/></svg>Ventas por Producto</div>
       <div class="sb-i" id="sbi-rep-compras" onclick="goTo(&apos;rep-compras&apos;)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>Reporte de Compras</div>
+      <div class="sb-i" id="sbi-rg90" onclick="goTo(&apos;rg90&apos;)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.7 0 3.29.47 4.65 1.28"/></svg>RG 90 — Libro de Ventas</div>
       <div class="sb-sep">Ayuda</div>
       <div class="sb-i" id="sbi-tutoriales" onclick="goTo('tutoriales')">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.74V17h8v-2.26A7 7 0 0 0 12 2z"/></svg>Tutoriales</div>
@@ -255,6 +257,7 @@ window._adminModules = {
   iva:          'js/admin-finanzas.js',
   'rep-productos': 'js/admin-finanzas.js',
   'rep-compras':'js/admin-finanzas.js',
+  rg90:         'js/admin-finanzas.js',
   admin:        'js/admin-finanzas.js',
   'factura-electronica': 'js/admin-fe.js',
   tutoriales:   'js/admin-tutoriales.js'
@@ -532,7 +535,7 @@ function goTo(p){
   curPage=p; closeSB();
   document.querySelectorAll('.sb-i').forEach(function(el){el.classList.toggle('on',el.id==='sbi-'+p);});
   document.querySelectorAll('.bn').forEach(function(el){el.classList.toggle('on',el.id==='bni-'+p);});
-  var titles={dashboard:'Dashboard',ventas:'Ventas',terminales:'Terminales',cajas:'Cajas / Turnos',cierres:'Cierres de Turno',importar:'Importar productos',productos:'Productos',insumos:'Insumos',inventarios:'Inventarios',extracto:'Extracto de Producto',compras:'Compras',movstock:'Movimientos de Stock',conteo:'Conteo Físico','rep-productos':'Ventas por Producto','rep-compras':'Reporte de Compras',gastos:'Gastos Fijos','plan-gastos':'Plan de Gastos',balance:'Balance P&G',iva:'Liquidación IVA',tutoriales:'Tutoriales',admin:'Administración','factura-electronica':'Factura Electrónica',config:'Configuración'};
+  var titles={dashboard:'Dashboard',ventas:'Ventas',terminales:'Terminales',cajas:'Cajas / Turnos',cierres:'Cierres de Turno',importar:'Importar productos',productos:'Productos',insumos:'Insumos',inventarios:'Inventarios',extracto:'Extracto de Producto',compras:'Compras',movstock:'Movimientos de Stock',conteo:'Conteo Físico','rep-productos':'Ventas por Producto','rep-compras':'Reporte de Compras',rg90:'RG 90 — Libro de Ventas',gastos:'Gastos Fijos','plan-gastos':'Plan de Gastos',balance:'Balance P&G',iva:'Liquidación IVA',tutoriales:'Tutoriales',admin:'Administración','factura-electronica':'Factura Electrónica',config:'Configuración'};
   document.getElementById('topTitle').textContent=titles[p]||p;
   var c=document.getElementById('content');
   c.innerHTML='<div class="loading"><span class="sp"></span>Cargando...</div>';
@@ -560,6 +563,7 @@ function renderPage(p){
   else if(p==='conteo') renderConteo();
   else if(p==='rep-productos') renderRepProductos();
   else if(p==='rep-compras') renderRepCompras();
+  else if(p==='rg90') renderRepRG90();
   else if(p==='gastos') renderGastos();
   else if(p==='plan-gastos') renderPlanGastos();
   else if(p==='balance') renderBalance();

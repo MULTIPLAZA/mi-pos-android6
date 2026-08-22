@@ -116,18 +116,12 @@
     <p><strong>Por qué van juntos:</strong> ambos venden productos físicos con stock y se apoyan 100% en lo que mi-pos ya hace bien (catálogo, stock, cobro, factura SIFEN, turno). La Fase 0 ya les saca mesas/cocina/delivery. El único músculo nuevo común es el <strong>código de barras de verdad</strong> en la venta.</p>
   </div>
 
-  <h3>Estado actual</h3>
+  <h3>Estado actual — ACTUALIZADO 2026-08-21</h3>
   <ul>
     <li>El producto <span class="ok">ya tiene campo "Código de barras / Referencia"</span> <span class="ref">(admin-productos.js:79, index.html:948)</span> y se busca por código en la gestión <span class="ref">(productos.js:569)</span>.</li>
-    <li>Pero el <span class="no">buscador de venta del POS no agrega por código</span> <span class="ref">(asistente.js no matchea por codigo)</span>. Hoy el cajero busca por nombre.</li>
+    <li><span class="ok">Fase 1 ya está construida</span> (verificado leyendo el código, no estaba cuando se escribió este reporte el 2/6): <code>app.js:_procesarCodigoScanner</code> + <code>sinputKeydown</code> matchean por <code>p.codigo</code> Y por el array <code>p.codigos[]</code> (multi-código por producto, ni siquiera estaba planeado acá), agregan al carrito directo en match exacto, integran con balanza (EAN-13 de peso) si el rubro la usa, y si no hay match local consultan una API externa (<code>_buscarCodigoEnAPI</code>). Está más completo que lo que pedía este plan — no hace falta retomarlo.</li>
   </ul>
-
-  <h3>Paso a paso — Retail general (Fase 1)</h3>
-  <div class="step"><div class="num">1</div><div class="body"><strong>Buscar por código en el POS.</strong> Que el buscador principal (<code>asistente.js</code>) matchee también <code>p.codigo</code>, no solo el nombre.</div></div>
-  <div class="step"><div class="num">2</div><div class="body"><strong>Modo lector.</strong> Un lector USB/Bluetooth "tipea" el código + Enter. Capturar ese Enter en el input de búsqueda: si hay match exacto por código, <strong>agregar al carrito directo</strong> (sin abrir lista). Ese es el 90% del flujo de un kiosco/minimercado.</div></div>
-  <div class="step"><div class="num">3</div><div class="body"><strong>Alta de producto con foco en código.</strong> En el form de producto, permitir escanear para llenar el campo código. Validar unicidad del código por licencia.</div></div>
-  <div class="step"><div class="num">4</div><div class="body"><strong>Packs de catálogo semilla</strong> (opcional): categorías típicas por rubro al activar (librería, bazar, etc.).</div></div>
-  <p>Con esto, retail general queda <strong>plenamente vendible</strong>. Esfuerzo <span class="tag t-s">S</span>.</p>
+  <p>Con esto, retail general y electrónica en su parte de código de barras quedan <strong>plenamente vendibles</strong>. Lo que sigue pendiente de este grupo es solo el paquete específico de electrónica (serie/IMEI + garantía, ver abajo).</p>
 
   <h3>Paso a paso — Electrónica (Fase 1 + extra)</h3>
   <p>Todo lo de retail general, más estas piezas chicas para artículos de valor con número de serie:</p>
@@ -161,11 +155,11 @@
     <p><strong>Esto no es un POS de productos — es casi otro producto.</strong> Acá no se vende mercadería con stock: se venden <strong>servicios</strong> (corte, color, masaje) que ejecuta una <strong>persona</strong> (el barbero/estilista), normalmente con <strong>comisión</strong>, y muchas veces con <strong>cita previa (agenda)</strong>. mi-pos hoy <span class="no">no tiene ninguno de esos tres conceptos</span>: no hay identidad de empleados (el login es por licencia/dispositivo), no hay comisiones, no hay agenda.</p>
   </div>
 
-  <h3>Estado actual</h3>
+  <h3>Estado actual — ACTUALIZADO 2026-08-21</h3>
   <ul>
-    <li><span class="no">No hay profesionales/empleados</span> como entidad (el "cajero" es solo el conteo de caja, <code>turno.usuario</code> = email de la cuenta).</li>
-    <li><span class="no">No hay comisiones</span> ni liquidación por persona.</li>
-    <li><span class="no">No hay agenda/citas</span> (el "turno" de mi-pos es apertura/cierre de caja, no una reserva).</li>
+    <li><span class="warn" style="color:var(--warn);font-weight:700;">Las tablas YA EXISTEN en Supabase pero sin ningún frontend</span>: <code>pos_profesionales</code> (<code>_EJECUTAR_EN_SUPABASE/04_barberia_profesionales.sql</code>, <code>supabase-migrations/pos_profesionales_setup.sql</code>) y <code>pos_citas</code> (<code>05_barberia_citas.sql</code>, <code>pos_citas_setup.sql</code>) — esta última con el ciclo de estados completo (reservado→confirmado→en_atencion→completado→cobrado / cancelado / no_show) ya diseñado. Ningún archivo <code>.js</code> ni pantalla del admin las referencia todavía (confirmado con grep sobre todo el repo). Es trabajo de <strong>backend hecho, feature abandonada a medio camino</strong> — reduce el esfuerzo real de C1/C2 (ya no hay que diseñar el modelo de datos), pero sigue sin construirse el ABM de profesionales, el picker en el POS, el reporte de comisiones ni la agenda.</li>
+    <li><span class="no">No hay comisiones</span> ni liquidación por persona todavía en el frontend.</li>
+    <li><code>es_servicio</code> <span class="ok">sí existe</span> como capacidad de rubro.js (barbería y hospedaje ya lo tienen prendido por default), pero no hay UI que lo use de forma distinta a un producto común.</li>
   </ul>
 
   <h3>Estrategia: partirlo en C1 (sin agenda) y C2 (con agenda)</h3>

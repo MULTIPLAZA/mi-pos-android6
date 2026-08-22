@@ -222,6 +222,14 @@ function supaInsertVenta(data){
     tiene_factura:  !!(data.factura && data.factura.ruc),
     factura_ruc:    data.factura ? (data.factura.ruc||'')   : '',
     factura_nombre: data.factura ? (data.factura.nombre||'') : '',
+    // factura_numero/factura_timbrado: timbrado + numero "001-001-0000123" ya
+    // calculados en getFacturaData() (cobro.js) para TODA venta facturada
+    // (autoimpresor o electronica) -- antes se descartaban aca y se perdian
+    // para siempre, dejando sin datos cualquier reporte fiscal (RG90/Marangatu).
+    // Requiere pos_ventas.factura_numero/factura_timbrado (ver
+    // add_factura_numero_timbrado.sql).
+    factura_numero:   data.factura ? (data.factura.nro_factura||'') : '',
+    factura_timbrado: data.factura ? (data.factura.timbrado||'')    : '',
   };
 
   // También guardar en IndexedDB local y guardar el id en turnoData
