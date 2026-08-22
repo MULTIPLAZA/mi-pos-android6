@@ -495,16 +495,24 @@ function renderInvTabla(lista){
     else if(q<=0) pct=0;
     var barCls=estCss==='cero'?'red':estCss==='bajo'?'orange':'';
     var valorFila = Math.max(0,q) * (r.costo_unitario||0);
-    var nombreSafe=String(r.nombre_producto||'Producto '+r.producto_id).replace(/'/g,"\\'");
+    // nombreSafe va dentro de onclick="...('...')" -- doble contexto (atributo
+    // HTML + string JS). El navegador decodifica entidades HTML del atributo
+    // ANTES de compilarlo como JS, así que escapar solo con esc() no alcanza:
+    // un &#39; sobrevive el decode y vuelve a ser ' rompiendo el string JS.
+    // Por eso se escapa la capa JS primero (\ y ') y recién después la capa
+    // HTML (& " < >) para que el atributo en sí no se rompa.
+    var nombreSafe=String(r.nombre_producto||'Producto '+r.producto_id)
+      .replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+      .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     return '<tr class="inv-row '+estCss+'">'
       +'<td>'
         +'<div class="inv-prd">'
           +'<span class="inv-dot" style="background:'+(r.color||'#546e7a')+'"></span>'
           +'<div>'
-            +'<div class="inv-prd-name">'+(r.nombre_producto||'Producto '+r.producto_id)+'</div>'
+            +'<div class="inv-prd-name">'+esc(r.nombre_producto||'Producto '+r.producto_id)+'</div>'
             +'<div class="inv-prd-meta">'
-              +(r.codigo?'#'+r.codigo+' ':'')
-              +(r.categoria?'<span class="inv-cat">'+r.categoria+'</span>':'')
+              +(r.codigo?'#'+esc(r.codigo)+' ':'')
+              +(r.categoria?'<span class="inv-cat">'+esc(r.categoria)+'</span>':'')
             +'</div>'
           +'</div>'
         +'</div>'
@@ -739,7 +747,7 @@ async function cargarHistorial(){
       return '<tr style="cursor:pointer" onclick="togHistRow(\''+r.id+'\')">'
         +'<td style="font-size:12px;color:var(--muted);white-space:nowrap">'+fechaStr+'</td>'
         +'<td><span class="mh-mov-type '+r.tipo+'">'+lbl+'</span></td>'
-        +'<td style="font-size:12px;font-weight:600">'+(r.referencia||'-')+'</td>'
+        +'<td style="font-size:12px;font-weight:600">'+esc(r.referencia||'-')+'</td>'
         +'<td style="text-align:right" class="mh-mov-cant '+(pos?'pos':'neg')+'">'+(pos?'+':'-')+Math.abs(r.cantidad)+'</td>'
         +'<td style="text-align:right" class="mh-mov-saldo '+(r.saldo<0?'neg':'')+'">'+r.saldo+'</td>'
       +'</tr>'
@@ -2188,7 +2196,7 @@ async function movFiltrarLista(tiposStr){
       return '<tr style="opacity:'+(anulado?'0.5':'1')+'">'
         +'<td style="font-size:12px;white-space:nowrap">'+fmtDT(c.fecha)+'</td>'
         +'<td><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:'+tc.bg+';color:'+tc.col+'">'+tc.lbl+'</span></td>'
-        +'<td style="font-weight:600;font-size:13px">'+(c.referencia||'—')+'</td>'
+        +'<td style="font-weight:600;font-size:13px">'+esc(c.referencia||'—')+'</td>'
         +'<td style="font-size:12px;color:var(--muted)">'+dep+'</td>'
         +'<td style="text-align:center;font-weight:700">'+(itemsCount[c.id]||0)+'</td>'
         +totCell
@@ -2250,14 +2258,14 @@ async function movVerDetalle(compId){
           +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:8px">Encabezado</div>'
           +'<div class="cj-dr"><span style="color:var(--muted)">Fecha</span><span>'+fmtDT(c.fecha)+'</span></div>'
           +'<div class="cj-dr"><span style="color:var(--muted)">Tipo</span><span style="font-weight:700">'+(tcfg[c.tipo]||c.tipo)+'</span></div>'
-          +'<div class="cj-dr"><span style="color:var(--muted)">Comprobante</span><span style="font-weight:600">'+(c.referencia||'—')+'</span></div>'
+          +'<div class="cj-dr"><span style="color:var(--muted)">Comprobante</span><span style="font-weight:600">'+esc(c.referencia||'—')+'</span></div>'
         +'</div>'
         +'<div style="background:var(--card2);border-radius:8px;padding:12px">'
           +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;font-weight:700;margin-bottom:8px">Depósito / Sucursal</div>'
           +'<div class="cj-dr"><span style="color:var(--muted)">Depósito</span><span style="font-weight:600">'+dep+'</span></div>'
           +(suc?'<div class="cj-dr"><span style="color:var(--muted)">Sucursal</span><span>'+suc+'</span></div>':'')
-          +'<div class="cj-dr"><span style="color:var(--muted)">Terminal</span><span>'+(c.terminal||'—')+'</span></div>'
-          +'<div class="cj-dr"><span style="color:var(--muted)">Usuario</span><span>'+(c.usuario||'—')+'</span></div>'
+          +'<div class="cj-dr"><span style="color:var(--muted)">Terminal</span><span>'+esc(c.terminal||'—')+'</span></div>'
+          +'<div class="cj-dr"><span style="color:var(--muted)">Usuario</span><span>'+esc(c.usuario||'—')+'</span></div>'
         +'</div>'
       +'</div>'
       +(c.observacion?'<div style="background:var(--card2);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px;color:var(--text2)">'+esc(c.observacion)+'</div>':'')
