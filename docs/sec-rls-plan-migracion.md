@@ -57,6 +57,11 @@ acceso de todos los clientes el mismo día.
 - Guardar esos tokens (localStorage, mismo lugar donde hoy vive `lic_token`) y
   manejar refresh (el `access_token` expira, típicamente 1 hora — hay que renovarlo
   con el `refresh_token` antes de que expire, o interceptar 401 y renovar ahí).
+- **No hay que inventar este patrón: ya existe y funciona en `super-admin.html`**
+  (`saSignIn`, `saRefrescarToken`, `_saFetch`, `_saAutoLogin` — agregado/endurecido
+  2026-08-22, commit `a555efa`, incluye manejo de refresh ante 401). Es la mejor
+  plantilla de partida para el login principal del POS en vez de escribir el flujo
+  de Auth desde cero.
 
 ### 3. Usar el token de sesión en vez de la anon key para las requests autenticadas
 - **Punto de cambio centralizado, buena noticia:** todas las requests pasan por
