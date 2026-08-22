@@ -545,8 +545,10 @@ async function _guardarProd(){
   var nom=(document.getElementById('ppNom').value||'').trim().toUpperCase();
   if(!nom){ toast('Ingresá un nombre'); document.getElementById('ppNom').focus(); return; }
   var cat=(document.getElementById('ppCat').value||'').trim().toUpperCase()||'Sin categoría';
-  var pre=parseFloat(document.getElementById('ppPre').value)||0;
-  var cos=parseFloat(document.getElementById('ppCos').value)||0;
+  // Math.max(0,...): el input tiene min="0" pero no impide tipear un
+  // negativo -- ver mismo fix en productos.js guardarArticulo().
+  var pre=Math.max(0, parseFloat(document.getElementById('ppPre').value)||0);
+  var cos=Math.max(0, parseFloat(document.getElementById('ppCos').value)||0);
   var iva=document.getElementById('ppIva').value||'10';
   var preV=document.getElementById('ppPreV').checked;
   var com=document.getElementById('ppCom').checked;
@@ -807,7 +809,7 @@ async function _guardarInsumo(){
   var nom=(document.getElementById('ipNom').value||'').trim().toUpperCase();
   if(!nom){ toast('Ingresá un nombre'); document.getElementById('ipNom').focus(); return; }
   var cat=(document.getElementById('ipCat').value||'').trim().toUpperCase()||'Sin categoría';
-  var cos=parseFloat(document.getElementById('ipCos').value)||0;
+  var cos=Math.max(0, parseFloat(document.getElementById('ipCos').value)||0);
   var col=document.getElementById('ipCol').value||'#546e7a';
   var cod=(document.getElementById('ipCod').value||'').trim();
 

@@ -810,9 +810,13 @@ function selCat(cat){
 function guardarArticulo(){
   const nombre = document.getElementById('artNombre').value.trim();
   const precioStr = document.getElementById('artPrecio').value.trim();
-  const precio = parseInt(precioStr) || 0;
+  // Math.max(0,...): el input tiene min="0" pero eso no impide tipear un
+  // negativo -- sin el clamp, un precio negativo queda guardado en el
+  // catálogo y CUALQUIER venta futura de ese producto resta en vez de sumar
+  // al ticket (mismo patrón que se encontró y arregló en hospedaje.js).
+  const precio = Math.max(0, parseInt(precioStr) || 0);
   const precioVariable = precioStr === '';
-  const costo = parseInt(document.getElementById('artCosto').value) || 0;
+  const costo = Math.max(0, parseInt(document.getElementById('artCosto').value) || 0);
   // Leer códigos del textarea: uno por línea, limpiar vacíos y duplicados
   const codigos = document.getElementById('artCodigo').value
     .split('\n').map(function(c){ return c.trim(); }).filter(Boolean)
