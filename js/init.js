@@ -677,7 +677,7 @@ async function renderVentasList(){
       const esPresupuesto = !!t.esPresupuesto;
       const itemsHTML = items.map(it => `
         <div class="venta-det-item">
-          <span class="venta-det-name">${it.name||it.nombre||''}${it.obs?`<span class="venta-det-obs">↳ ${it.obs}</span>`:''}</span>
+          <span class="venta-det-name">${esc(it.name||it.nombre||'')}${it.obs?`<span class="venta-det-obs">↳ ${esc(it.obs)}</span>`:''}</span>
           <span class="venta-det-qty">x${it.qty}</span>
           <span class="venta-det-price">${gs((it.price||it.precio||0)*it.qty)}</span>
         </div>`).join('');
@@ -694,7 +694,7 @@ async function renderVentasList(){
                 Ticket #${String(t.nro||i+1).padStart(4,'0')}
                 ${esPresupuesto ? `<span style="font-size:11px;background:rgba(103,58,183,.15);color:#9c27b0;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> Presupuesto</span>` : ''}
                 ${t.esSatelite ? `<span style="font-size:11px;background:rgba(83,74,183,.15);color:#534AB7;padding:1px 7px;border-radius:10px;font-weight:700;margin-left:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg> ${t.terminalOrigen||'Satélite'}</span>` : ''}
-                ${t.obs?' — '+t.obs:''}
+                ${t.obs?' — '+esc(t.obs):''}
               </div>
               <div class="venta-card-sub">${fecha} · ${items.length} artículo${items.length!==1?'s':''}</div>
             </div>
@@ -862,7 +862,7 @@ async function renderVentasList(){
 
     const itemsHTML = items.map(it => `
       <div class="venta-det-item">
-        <span class="venta-det-name">${it.nombre||it.name||''}${it.obs?`<span class="venta-det-obs">↳ ${it.obs}</span>`:''}</span>
+        <span class="venta-det-name">${esc(it.nombre||it.name||'')}${it.obs?`<span class="venta-det-obs">↳ ${esc(it.obs)}</span>`:''}</span>
         <span class="venta-det-qty">x${it.qty||it.cantidad||1}</span>
         <span class="venta-det-price">${gs((it.precio||it.price||0)*(it.qty||it.cantidad||1))}</span>
       </div>`).join('');
@@ -881,7 +881,7 @@ async function renderVentasList(){
     const facturaDetalle = facturada ? `
       <div style="background:rgba(33,150,243,.06);border:1px solid rgba(33,150,243,.2);border-radius:6px;padding:8px 12px;margin-top:8px;margin-bottom:4px;font-size:12px;">
         <div style="font-weight:700;color:#2196f3;margin-bottom:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2 1 1V2H4z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="14" y2="15"/></svg> Factura ${nroFact}</div>
-        ${rucFact ? `<div style="color:var(--text);">RUC: <b>${rucFact}</b>${nombreFact?' · '+nombreFact:''}</div>` : ''}
+        ${rucFact ? `<div style="color:var(--text);">RUC: <b>${esc(rucFact)}</b>${nombreFact?' · '+esc(nombreFact):''}</div>` : ''}
       </div>` : '';
 
     // Comprobante si existe
@@ -927,7 +927,7 @@ async function renderVentasList(){
               ${anulada ? ` <span style="font-size:11px;color:#ef5350;font-weight:700;">ANULADA</span>` : ''}
               ${v._remoto ? ` <span style="font-size:11px;background:rgba(255,152,0,.15);color:#ff9800;padding:1px 7px;border-radius:10px;font-weight:700;" title="Hecha en otro dispositivo — sin acciones desde acá">Otra terminal</span>` : ''}
             </div>
-            <div class="venta-card-sub">${fecha} · ${items.length} artículo${items.length!==1?'s':''}${rucFact?' · '+rucFact:''}</div>
+            <div class="venta-card-sub">${fecha} · ${items.length} artículo${items.length!==1?'s':''}${rucFact?' · '+esc(rucFact):''}</div>
           </div>
           <div class="venta-card-right">
             <div class="venta-card-total">${totalDisplay}</div>
@@ -985,7 +985,7 @@ async function anularVenta(id){
       ${tieneFac ? `
         <div style="background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.3);border-radius:8px;padding:10px 12px;margin-bottom:14px;">
           <div style="font-size:12px;font-weight:800;color:#ef5350;margin-bottom:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>️ Esta venta tiene factura asociada</div>
-          <div style="font-size:12px;color:var(--text);">Factura <b>${nroFac||'—'}</b>${rucFac?' · RUC '+rucFac:''}</div>
+          <div style="font-size:12px;color:var(--text);">Factura <b>${esc(nroFac)||'—'}</b>${rucFac?' · RUC '+esc(rucFac):''}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px;">La factura quedará marcada como anulada en el registro.</div>
         </div>` : ''}
 
@@ -1119,7 +1119,7 @@ async function cambiarMetodoPago(id){
 
       <div id="cpComprobanteWrap" style="display:${metodoActual!=='EFECTIVO'?'block':'none'};margin-bottom:14px;">
         <label style="font-size:11px;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:6px;">Nro. Comprobante / Referencia</label>
-        <input id="cpComprobante" type="text" value="${venta.comprobante||''}"
+        <input id="cpComprobante" type="text" value="${esc(venta.comprobante||'')}"
           placeholder="Ej: 123456 / REF-ABC"
           style="width:100%;background:var(--bg-dark);border:none;border-bottom:1.5px solid var(--border2);color:var(--text);font-family:'Barlow',sans-serif;font-size:15px;padding:8px 2px;outline:none;">
       </div>

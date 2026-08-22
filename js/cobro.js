@@ -1043,8 +1043,8 @@ function renderTimbradoBanner(el, selected, todos) {
   const opts = todos.map((t, i) => {
     const nro   = pad3(t.sucursal) + '-' + pad3(t.punto_exp) + '-' + padN(t.nro_actual || t.desde);
     const label = 'Timb. ' + t.nro + ' · ' + nro
-      + (t.nombre_suc ? ' (' + t.nombre_suc + ')' : '')
-      + (t.asignado_a ? ' — ' + t.asignado_a : '');
+      + (t.nombre_suc ? ' (' + esc(t.nombre_suc) + ')' : '')
+      + (t.asignado_a ? ' — ' + esc(t.asignado_a) : '');
     const sel = selected && selected.nro === t.nro ? 'selected' : '';
     return '<option value="' + i + '" ' + sel + '>' + label + '</option>';
   }).join('');
