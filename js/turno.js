@@ -700,7 +700,7 @@ async function renderTurno(){
       var _ing = turnoData.ingresos[_ci];
       var _ingNom = (_ing.desc||'').replace('Cobro fiado — ','') || 'Cliente';
       var _ingMet = _ing.metodo ? (' · ' + _ing.metodo.charAt(0).toUpperCase() + _ing.metodo.slice(1)) : '';
-      html += '<div class="turno-row"><span class="turno-row-label">' + _ingNom + '<span style="font-weight:400;color:#555;font-size:10px;">' + _ingMet + '</span></span><span class="turno-row-val green">+' + gnT(_ing.monto) + '</span></div>';
+      html += '<div class="turno-row"><span class="turno-row-label">' + esc(_ingNom) + '<span style="font-weight:400;color:#555;font-size:10px;">' + esc(_ingMet) + '</span></span><span class="turno-row-val green">+' + gnT(_ing.monto) + '</span></div>';
     }
     html += '<div class="turno-row" style="border-top:1px solid var(--border2);margin-top:2px;"><span class="turno-row-label" style="font-weight:700;">Total cobrado</span><span class="turno-row-val green" style="font-weight:900;">+' + gnT(totalIngresos) + '</span></div>';
     html += '</div>';
@@ -801,7 +801,7 @@ async function renderTurno(){
       var esBRLEgr = e.monedaOriginal === 'BRL' && e.montoOriginal;
       var montoEgr = esBRLEgr ? 'R$ ' + e.montoOriginal.toLocaleString('es-PY') : gnT(e.monto);
       html += '<div class="turno-egreso-row" style="display:flex;align-items:center;gap:10px;">';
-      html += '<div class="turno-egreso-info" style="flex:1;"><div class="turno-egreso-desc">' + e.desc + '</div><div class="turno-egreso-fecha">' + fmtFecha(e.fecha) + '</div></div>';
+      html += '<div class="turno-egreso-info" style="flex:1;"><div class="turno-egreso-desc">' + esc(e.desc) + '</div><div class="turno-egreso-fecha">' + fmtFecha(e.fecha) + '</div></div>';
       html += '<div class="turno-egreso-monto">−' + montoEgr + '</div>';
       html += '<button onclick="anularEgreso('+idx+')" title="Anular egreso" style="background:none;border:none;cursor:pointer;padding:6px;color:#ef5350;display:flex;align-items:center;flex-shrink:0;" >';
       html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></button>';
@@ -1206,7 +1206,7 @@ function imprimirPresupuesto(idx){
   lineas += '<p class="hr"></p>';
   lineas += '<p class="s">NRO: #'+String(t.nro||idx+1).padStart(4,'0')+'</p>';
   lineas += '<p class="s">FECHA: '+fecha+' HORA: '+hora+'</p>';
-  if(t.obs) lineas += '<p class="s">REF: '+t.obs+'</p>';
+  if(t.obs) lineas += '<p class="s">REF: '+esc(t.obs)+'</p>';
   lineas += '<p class="hr"></p>';
 
   // Items
@@ -1221,8 +1221,11 @@ function imprimirPresupuesto(idx){
     const nombre = (it.name||it.nombre||'').substring(0,c2);
     const subtot = (it.price||it.precio||0)*(it.qty||1);
     total += subtot;
-    lineas += '<p class="s">'+padL(nombre,c2)+' '+padR(String(it.qty||1),c3)+' '+padR(gs(subtot),c4)+'</p>';
-    if(it.obs) lineas += '<p class="s" style="padding-left:4px;color:#777;">  ↳ '+it.obs+'</p>';
+    // esc() DESPUES de padL/padR -- si escapamos antes, el padding cuenta
+    // caracteres de la entidad HTML (ej. "&lt;" = 4) en vez del caracter
+    // visual real, rompiendo el alineado columnar del ticket termico.
+    lineas += '<p class="s">'+esc(padL(nombre,c2))+' '+esc(padR(String(it.qty||1),c3))+' '+esc(padR(gs(subtot),c4))+'</p>';
+    if(it.obs) lineas += '<p class="s" style="padding-left:4px;color:#777;">  ↳ '+esc(it.obs)+'</p>';
   });
 
   lineas += '<p class="hr"></p>';
@@ -1291,7 +1294,7 @@ async function anularEgreso(idx){
         </div>
         <div>
           <div style="font-size:15px;font-weight:800;color:var(--text);">Anular egreso</div>
-          <div style="font-size:12px;color:var(--muted);">${e.desc} · ${gs(e.monto)}</div>
+          <div style="font-size:12px;color:var(--muted);">${esc(e.desc)} · ${gs(e.monto)}</div>
         </div>
       </div>
       <div style="background:var(--bg-dark);border-radius:8px;padding:10px 12px;margin-bottom:16px;font-size:13px;color:var(--muted);">
