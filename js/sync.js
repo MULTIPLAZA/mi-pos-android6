@@ -486,9 +486,31 @@ async function syncConSupabase(){
         } else if(item.operacion === 'update'){
           const { id: itemId, ...datosUpdate } = datos;
           await _conReintento(function(){ return supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId }); });
-        } else {
-          // insert — usar return=representation para obtener el ID asignado por Supabase
+        } else if(item.operacion === 'upsert'){
+          // upsert (productos/categorias): acá `id` SÍ es válido reenviarlo —
+          // ya es el id real de Supabase asignado la primera vez que se guardó
+          // el producto, no un autoincrement local recién creado.
           const res = await _conReintento(function(){ return supaFetch('POST', tabla, datos, null, 'return=representation'); });
+          try {
+            const inserted = await res.clone().json();
+            if(inserted && inserted[0]) supaId = inserted[0].id;
+          } catch(e){ /* safe to ignore: optional ID extraction from response */ }
+        } else {
+          // insert (turno/egresos/ingresos) — NUNCA reenviar `id`: es el
+          // autoincrement local de IndexedDB, arranca en 1 en cada dispositivo,
+          // así que dos tenants/dispositivos distintos casi siempre chocan
+          // (mismo id=1,2,3...). Supabase lo acepta literal si no lo omitimos
+          // (columna identity/serial "by default", no "always") y responde
+          // 23505 duplicate key cuando ya existe una fila ajena con ese id —
+          // el catch de abajo (esDuplicado) interpretaba ese 23505 como "ya
+          // sincronizado" y lo marcaba OK, aunque el insert había sido
+          // RECHAZADO por completo: el egreso/ingreso/turno se perdía en
+          // silencio, sin aviso, y nunca más se podía recuperar desde
+          // Supabase. Confirmado en vivo (23/08/2026): un id ya usado por
+          // otro tenant en pos_egresos devuelve 409/23505 real. Dejar que
+          // Supabase asigne el id vía DEFAULT saca la colisión de raíz.
+          const { id: _localId, ...datosInsert } = datos;
+          const res = await _conReintento(function(){ return supaFetch('POST', tabla, datosInsert, null, 'return=representation'); });
           try {
             const inserted = await res.clone().json();
             if(inserted && inserted[0]) supaId = inserted[0].id;
