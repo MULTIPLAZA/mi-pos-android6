@@ -85,6 +85,23 @@ function goCobrar(){
 //   Esto evita conflictos de edición simultánea mozo↔caja.
 // ══════════════════════════════════════════════════════════════════════════════
 async function sateliteEnviarPedido(){
+  // _running: hay 2 await antes de marcar los items como enviados
+  // (sateliteVerificarCajaActiva() + el POST a pos_pedidos) -- un
+  // doble-tap en cualquiera de los 3 botones COBRAR/ENVIAR que llaman
+  // a esto via goCobrar() creaba 2 pedidos duplicados en pos_pedidos
+  // (cocina recibe la comanda 2 veces, mesa queda cobrada de más).
+  // Mismo patron ya aplicado varias veces esta sesión (confirmarPago,
+  // guardarAjuste, hospAgregarCargo, confirmarCobrarFiado, guardarEgreso).
+  if(sateliteEnviarPedido._running) return;
+  sateliteEnviarPedido._running = true;
+  try{
+    await _sateliteEnviarPedidoInterno();
+  } finally {
+    sateliteEnviarPedido._running = false;
+  }
+}
+
+async function _sateliteEnviarPedidoInterno(){
   // ── Validación básica ────────────────────────────────────────────────────
   if(!cart || cart.length === 0){
     toast('Agrega productos primero');
