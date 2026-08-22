@@ -1016,7 +1016,11 @@ async function guardarL(){
   const rubro    =document.getElementById('mRubro').value;
   const tipo     =document.getElementById('mTipo').value;
   const tipoPOS  =document.getElementById('mTipoPOS').value;
-  const monto    =parseInt(document.getElementById('mMonto').value)||0;
+  // Math.max(0,...): el input tiene min="0" pero eso no impide tipear un
+  // negativo -- sin el clamp, un monto negativo corrompe totalCobrado/MRR/ARR
+  // en la pantalla de Reportes (mismo patron ya encontrado y arreglado varias
+  // veces en mi-pos-android6 esta sesion, ver hospedaje.js/productos.js).
+  const monto    =Math.max(0, parseInt(document.getElementById('mMonto').value)||0);
   if(!clave){toast('Generá una clave');return;}
   if(!vence){toast('Seleccioná la fecha de vencimiento');return;}
   if(!tipoPOS){toast('Seleccioná el Tipo POS');return;}
@@ -1033,8 +1037,8 @@ async function guardarL(){
     fecha_vence:vence,notas:notas||null,rubro:rubro||null,tipo_pago:tipo,
     tipo_negocio:tipoPOS,
     monto:monto||null,
-    monto_soporte:parseInt(document.getElementById('mSoporte').value)||null,
-    precio_terminal:parseInt(document.getElementById('mPrecioTer').value)||null};
+    monto_soporte:Math.max(0, parseInt(document.getElementById('mSoporte').value)||0)||null,
+    precio_terminal:Math.max(0, parseInt(document.getElementById('mPrecioTer').value)||0)||null};
 
   const backend = document.getElementById('mBackend').value; // 'cloudflare' | 'supabase'
   try{
