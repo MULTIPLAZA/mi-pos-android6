@@ -65,7 +65,12 @@ function _hospFallbackEncolar(estadiaId, patch){
 // directo para cambios que solo viven en memoria (cargos/abonos/total).
 async function _hospPatchEstadiaResiliente(estadiaId, patch){
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, patch, true);
+    // licencia_email=ilike. en el filtro: sin acotar por tenant (RLS
+    // desactivado en Supabase), un estadiaId de otra licencia se podia
+    // patchear igual -- mismo hueco encontrado y arreglado en otros PATCH/
+    // DELETE de admin-finanzas.js/mesas.js/admin-dashboard.js esta sesión.
+    var _email = localStorage.getItem('lic_email') || '';
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId+'&licencia_email=ilike.'+encodeURIComponent(_email), patch, true);
   }catch(e){
     _hospFallbackEncolar(estadiaId, patch);
     console.warn('[Hospedaje] Patch a estadía falló, encolado para reintentar:', e.message);
@@ -79,10 +84,11 @@ async function _hospReintentarPendientes(){
   var pendientes = _hospFallbackCargar();
   if(!pendientes.length) return;
   var quedan = [];
+  var _emailReint = localStorage.getItem('lic_email') || '';
   for(var i=0;i<pendientes.length;i++){
     var e = pendientes[i];
     try{
-      await supaPatch('pos_estadias', 'id=eq.'+e.estadiaId, e.patch, true);
+      await supaPatch('pos_estadias', 'id=eq.'+e.estadiaId+'&licencia_email=ilike.'+encodeURIComponent(_emailReint), e.patch, true);
       _log && _log('[Hospedaje] Reintento OK: estadía', e.estadiaId);
     }catch(err){
       quedan.push(e);
@@ -532,7 +538,7 @@ async function hospCambiarEstadoHabitacion(habId, estado){
   const h = hospHabitaciones.find(function(x){ return x.id === habId; });
   if(h) h.estado = estado; // optimista
   _hospRefrescarVista();
-  try{ await supaPatch('pos_habitaciones', 'id=eq.'+habId, { estado: estado }, true); }
+  try{ await supaPatch('pos_habitaciones', 'id=eq.'+habId+'&licencia_email=ilike.'+encodeURIComponent(localStorage.getItem('lic_email')||''), { estado: estado }, true); }
   catch(e){ toast('Error al cambiar estado: '+e.message); }
 }
 
@@ -1006,7 +1012,7 @@ async function confirmarEditarReserva(){
   const txtOriginal = btn ? btn.textContent : '';
   if(btn){ btn.disabled = true; btn.textContent = 'Guardando...'; }
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, payload, true);
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId+'&licencia_email=ilike.'+encodeURIComponent(localStorage.getItem('lic_email')||''), payload, true);
     for(var k in payload){ est[k] = payload[k]; }
     cerrarCheckIn();
     _hospRefrescarVista();
@@ -1022,7 +1028,7 @@ async function hospCancelarReserva(){
   if(!res) return;
   if(!confirm('¿Cancelar la reserva de ' + res.huesped_nombre + '?')) return;
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'cancelado' }, true);
+    await supaPatch('pos_estadias', 'id=eq.'+res.id+'&licencia_email=ilike.'+encodeURIComponent(localStorage.getItem('lic_email')||''), { estado: 'cancelado' }, true);
     hospEstadias = hospEstadias.filter(function(e){ return e.id !== res.id; });
     cerrarReserva();
     _hospRefrescarVista();
@@ -1044,7 +1050,7 @@ async function hospConvertirReservaEnCheckin(){
     cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
   }];
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+res.id, { estado: 'en_estadia', cargos: cargos, total: tarifaNoche }, true);
+    await supaPatch('pos_estadias', 'id=eq.'+res.id+'&licencia_email=ilike.'+encodeURIComponent(localStorage.getItem('lic_email')||''), { estado: 'en_estadia', cargos: cargos, total: tarifaNoche }, true);
     res.estado = 'en_estadia'; res.cargos = cargos; res.total = tarifaNoche;
     cerrarReserva();
     _hospRefrescarVista();
@@ -1304,7 +1310,7 @@ async function hospConfirmarConsumoDesdeCart(){
   est.total = est.cargos.reduce(function(s, c){ return s + (c.monto || 0); }, 0);
 
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
+    await supaPatch('pos_estadias', 'id=eq.'+est.id+'&licencia_email=ilike.'+encodeURIComponent(localStorage.getItem('lic_email')||''), { cargos: est.cargos, total: est.total }, true);
   }catch(e){
     toast('Error al guardar el consumo: ' + e.message); return;
   }
@@ -1381,7 +1387,7 @@ async function hospAgregarCargo(cargo){
   renderFolioCargos();
   _hospRefrescarVista();
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+est.id, { cargos: est.cargos, total: est.total }, true);
+    await supaPatch('pos_estadias', 'id=eq.'+est.id+'&licencia_email=ilike.'+encodeURIComponent(localStorage.getItem('lic_email')||''), { cargos: est.cargos, total: est.total }, true);
     toast('+ ' + cargo.descripcion + ' · ' + gs(cargo.monto));
   }catch(e){
     toast('Error al guardar el cargo: ' + e.message);
@@ -1432,9 +1438,10 @@ async function hospAnularEstadia(){
   if(!est) return;
   if(!confirm('¿Anular la estadía de ' + est.huesped_nombre + '? Se van a perder todos los cargos registrados (' + gs(est.total||0) + ') sin cobrar nada. Esta acción no se puede deshacer.')) return;
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+est.id, { estado: 'cancelado' }, true);
+    var _emailAnul = localStorage.getItem('lic_email')||'';
+    await supaPatch('pos_estadias', 'id=eq.'+est.id+'&licencia_email=ilike.'+encodeURIComponent(_emailAnul), { estado: 'cancelado' }, true);
     if(est.habitacion_id){
-      await supaPatch('pos_habitaciones', 'id=eq.'+est.habitacion_id, { estado: 'libre' }, true);
+      await supaPatch('pos_habitaciones', 'id=eq.'+est.habitacion_id+'&licencia_email=ilike.'+encodeURIComponent(_emailAnul), { estado: 'libre' }, true);
       const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
       if(h) h.estado = 'libre';
     }
@@ -1612,14 +1619,15 @@ async function hospedajeRegistrarAbonoTrasVenta(estadiaId, monto, comprobante){
  */
 async function hospedajeLiquidarEstadiaTrasVenta(estadiaId, comprobante){
   const est = hospEstadias.find(function(e){ return e.id === estadiaId; });
+  var _emailLiq = localStorage.getItem('lic_email')||'';
   try{
-    await supaPatch('pos_estadias', 'id=eq.'+estadiaId, {
+    await supaPatch('pos_estadias', 'id=eq.'+estadiaId+'&licencia_email=ilike.'+encodeURIComponent(_emailLiq), {
       estado: 'checkout',
       checkout_real: new Date().toISOString(),
       comprobante_venta: comprobante || null,
     }, true);
     if(est && est.habitacion_id){
-      await supaPatch('pos_habitaciones', 'id=eq.'+est.habitacion_id, { estado: 'limpieza' }, true);
+      await supaPatch('pos_habitaciones', 'id=eq.'+est.habitacion_id+'&licencia_email=ilike.'+encodeURIComponent(_emailLiq), { estado: 'limpieza' }, true);
       const h = hospHabitaciones.find(function(x){ return x.id === est.habitacion_id; });
       if(h) h.estado = 'limpieza';
     }
@@ -1757,7 +1765,7 @@ async function guardarHabitacion(){
   };
   try{
     if(id){
-      await supaPatch('pos_habitaciones', 'id=eq.'+id, payload, true);
+      await supaPatch('pos_habitaciones', 'id=eq.'+id+'&licencia_email=ilike.'+encodeURIComponent(email||''), payload, true);
     } else {
       payload.estado = 'libre';
       await supaPost('pos_habitaciones', payload, null, true);
