@@ -1905,9 +1905,11 @@ function movLimpiar(){
 // ── GUARDAR ───────────────────────────────────────────────
 async function movGuardar(){
   if(!_mov.items.length){toast('Agregá al menos un producto');return;}
-  // Reintenta costo-updates de compras anteriores que hayan quedado encolados
-  // por un fallo de red — oportunista, no bloquea este guardado.
+  // Reintenta costo-updates y upserts de stock de compras/anulaciones
+  // anteriores que hayan quedado encolados por un fallo de red — oportunista,
+  // no bloquea este guardado.
   if(typeof supaReintentarResilientes==='function') supaReintentarResilientes('pos_costo_sync_fallback');
+  if(typeof supaReintentarResilientesPost==='function') supaReintentarResilientesPost('pos_stock_sync_fallback');
   var licId=await movGetLicId();
   var fecha=document.getElementById('movFecha').value||new Date().toISOString().split('T')[0];
   var comp=document.getElementById('movComp').value.trim();
@@ -1990,13 +1992,14 @@ async function movGuardar(){
           cantidad:cantMov, cantidad_antes:antes, cantidad_despues:desp,
           costo_unitario:it.costo||0   // costo de ESTA compra (registro histórico)
         });
-        // Upsert stock con el costo promedio (fire and forget)
-        supaPost('stock',{
+        // Upsert stock con el costo promedio (fire and forget, con cola de
+        // respaldo — ver supaPostResiliente en config.js)
+        supaPostResiliente('stock',{
             deposito_id:depId, sucursal_id:sucId, licencia_id:licId,
             producto_id:it.prodId, nombre_producto:it.nombre,
             cantidad:desp, costo_unitario:costoStock,
             updated_at:now
-        },'deposito_id,producto_id',true).catch(function(e){console.warn('[Stock upsert]',e.message);});
+        },'deposito_id,producto_id','pos_stock_sync_fallback');
       }
 
       // Insertar items en bloque
@@ -2322,6 +2325,9 @@ async function movEjecutarAnulacion(compId){
   if(!motivo.trim()){toast('El motivo de anulación es obligatorio');return;}
   var btn=document.querySelector('[onclick="movEjecutarAnulacion('+compId+')"]');
   if(btn){btn.disabled=true;btn.textContent='Procesando...';}
+  // Reintenta upserts de stock encolados de una anulación/compra anterior —
+  // oportunista, no bloquea esta anulación.
+  if(typeof supaReintentarResilientesPost==='function') supaReintentarResilientesPost('pos_stock_sync_fallback');
 
   try{
     var licId=await movGetLicId();
@@ -2382,12 +2388,12 @@ async function movEjecutarAnulacion(compId){
       var it=items[k];
       var antes2=stockMap[it.producto_id]||0;
       var cantInv2=-(it.cantidad||0);
-      supaPost('stock',{
+      supaPostResiliente('stock',{
           deposito_id:orig.deposito_id, sucursal_id:orig.sucursal_id,
           licencia_id:licId, producto_id:it.producto_id,
           nombre_producto:it.nombre_producto,
           cantidad:antes2+cantInv2, updated_at:now
-      },'deposito_id,producto_id',true).catch(function(e){console.warn('[Stock anul]',e.message);});
+      },'deposito_id,producto_id','pos_stock_sync_fallback');
     }
 
     // Marcar comprobante original como anulado

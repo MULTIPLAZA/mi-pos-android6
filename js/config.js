@@ -169,6 +169,39 @@ async function supaReintentarResilientes(fallbackKey) {
   try { localStorage.setItem(fallbackKey, JSON.stringify(quedan)); } catch (e) {}
 }
 
+// ── POST/upsert resiliente (mismo patron que supaPatchResiliente arriba) ──
+// Encontrado 2026-08-22: admin-inventario.js actualizaba `stock` tras una
+// compra/transferencia/anulación con un upsert "fire and forget"
+// (`.catch(function(e){console.warn(...)})`, sin cola de respaldo). Si ese
+// upsert fallaba (corte de red momentáneo), el comprobante de compra quedaba
+// igual registrado (se guarda con `await` sin catch, así que si falla corta
+// todo el flujo) pero la cantidad real en `stock` NUNCA se actualizaba —
+// inventario desincronizado del historial de compras, sin aviso, sin
+// reintento, mismo patrón que ya se repitió varias veces este mes.
+async function supaPostResiliente(tabla, data, onConflict, fallbackKey) {
+  try {
+    await supaPost(tabla, data, onConflict, true);
+  } catch (e) {
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(fallbackKey) || '[]'); } catch (e2) {}
+    arr.push({ tabla: tabla, data: data, onConflict: onConflict, encolado: new Date().toISOString() });
+    try { localStorage.setItem(fallbackKey, JSON.stringify(arr)); } catch (e3) {}
+    console.warn('[' + tabla + '] Post falló, encolado en ' + fallbackKey + ':', e.message);
+  }
+}
+async function supaReintentarResilientesPost(fallbackKey) {
+  var arr = [];
+  try { arr = JSON.parse(localStorage.getItem(fallbackKey) || '[]'); } catch (e) { return; }
+  if (!arr.length) return;
+  var quedan = [];
+  for (var i = 0; i < arr.length; i++) {
+    var it = arr[i];
+    try { await supaPost(it.tabla, it.data, it.onConflict, true); }
+    catch (e) { quedan.push(it); }
+  }
+  try { localStorage.setItem(fallbackKey, JSON.stringify(quedan)); } catch (e) {}
+}
+
 // DELETE: supaDelete('pos_productos', 'id=eq.123')
 async function supaDelete(tabla, filtro) {
   var r = await fetch(backendBaseUrl() + '/rest/v1/' + tabla + '?' + filtro, {
