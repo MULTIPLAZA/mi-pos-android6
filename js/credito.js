@@ -262,7 +262,7 @@ function renderCreditoScreen() {
     var cnt = 0;
     for (var fi = 0; fi < fiados.length; fi++) { if (fiados[fi].clienteId === c.id) cnt++; }
     html += '<div onclick="abrirDetalleCliente('+c.id+')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
-    html += '<div><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:2px;">'+c.nombre+'</div>';
+    html += '<div><div style="font-size:15px;font-weight:800;color:var(--text);margin-bottom:2px;">'+esc(c.nombre)+'</div>';
     html += '<div style="font-size:11px;color:var(--muted);">'+cnt+' venta'+(cnt!==1?'s':'')+'</div></div>';
     html += '<div style="text-align:right;"><div style="font-size:17px;font-weight:900;color:#e53935;">'+numGs(sal)+'</div>';
     if (c.limiteGs > 0) {
@@ -276,7 +276,7 @@ function renderCreditoScreen() {
     for (var si = 0; si < sinSaldo.length; si++) {
       var c2 = sinSaldo[si];
       html += '<div onclick="abrirDetalleCliente('+c2.id+')" style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;">';
-      html += '<span style="font-size:14px;font-weight:600;color:var(--text);">'+c2.nombre+'</span>';
+      html += '<span style="font-size:14px;font-weight:600;color:var(--text);">'+esc(c2.nombre)+'</span>';
       html += '<span style="font-size:12px;color:#4caf50;font-weight:700;">✓ Sin deuda</span></div>';
     }
   }
@@ -308,7 +308,7 @@ function abrirDetalleCliente(clienteId) {
   var html = '';
   // ── Cabecera ──
   html += '<div style="background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:12px;">';
-  html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">'+c.nombre+'</div>';
+  html += '<div style="font-size:18px;font-weight:900;color:var(--text);margin-bottom:10px;">'+esc(c.nombre)+'</div>';
   html += '<div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:12px;">';
   html += '<div><div style="font-size:10px;color:var(--muted);text-transform:uppercase;font-weight:700;">Saldo</div>';
   html += '<div style="font-size:28px;font-weight:900;color:'+(saldo>0?'#e53935':'#4caf50')+';">'+(saldo>0?numGs(saldo):'✓ Al día')+'</div></div>';
@@ -544,7 +544,7 @@ function renderClientePickerList() {
     var afterSale = saldo + total;
     var over      = c.limiteGs > 0 && afterSale > c.limiteGs;
     html += '<div onclick="seleccionarClienteCredito('+c.id+')" style="padding:14px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center;'+(over?'opacity:.5;':'')+'">';
-    html += '<div><div style="font-size:15px;font-weight:700;color:var(--text);">'+c.nombre+'</div>';
+    html += '<div><div style="font-size:15px;font-weight:700;color:var(--text);">'+esc(c.nombre)+'</div>';
     html += '<div style="font-size:11px;color:'+(saldo>0?'#e53935':'#4caf50')+';">'+(saldo>0?'Saldo: '+numGs(saldo):'Sin deuda')+'</div></div>';
     if (over) html += '<span style="font-size:10px;background:#e53935;color:#fff;padding:3px 7px;border-radius:10px;font-weight:700;">LÍMITE</span>';
     html += '</div>';
