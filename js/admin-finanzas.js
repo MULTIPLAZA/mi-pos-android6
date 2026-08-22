@@ -60,7 +60,7 @@ async function renderPlanGastos(){
             return '<div style="border-bottom:1px solid var(--border)">'
               // Categoría header
               +'<div style="display:flex;align-items:center;gap:10px;padding:10px 18px;background:var(--card2)">'
-                +'<div style="font-size:14px;font-weight:800;flex:1">'+cat.nombre+'</div>'
+                +'<div style="font-size:14px;font-weight:800;flex:1">'+esc(cat.nombre)+'</div>'
                 +'<span style="font-size:11px;color:var(--muted)">'+cons.length+' conceptos</span>'
                 +'<button onclick="planEliminarCat('+cat.id+')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:2px 6px" title="Eliminar categoría"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
               +'</div>'
@@ -68,15 +68,15 @@ async function renderPlanGastos(){
               +'<div style="padding:4px 18px 8px 36px">'
                 +cons.map(function(con){
                   return '<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
-                    +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+con.nombre+'</div>'
-                      +(con.descripcion?'<div style="font-size:11px;color:var(--muted)">'+con.descripcion+'</div>':'')
+                    +'<div style="flex:1"><div style="font-size:13px;font-weight:600">'+esc(con.nombre)+'</div>'
+                      +(con.descripcion?'<div style="font-size:11px;color:var(--muted)">'+esc(con.descripcion)+'</div>':'')
                     +'</div>'
                     +'<button onclick="planEliminarCon('+con.id+')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px" title="Eliminar concepto"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'
                   +'</div>';
                 }).join('')
                 // Input para agregar concepto a esta categoría
                 +'<div style="display:flex;gap:6px;margin-top:8px">'
-                  +'<input type="text" id="planNomCon'+cat.id+'" class="d-inp" placeholder="Nuevo concepto en '+cat.nombre+'..." style="flex:1;font-size:12px">'
+                  +'<input type="text" id="planNomCon'+cat.id+'" class="d-inp" placeholder="Nuevo concepto en '+esc(cat.nombre)+'..." style="flex:1;font-size:12px">'
                   +'<input type="text" id="planDescCon'+cat.id+'" class="d-inp" placeholder="Descripción (opcional)" style="width:180px;font-size:12px">'
                   +'<button onclick="planCrearCon('+cat.id+')" style="background:var(--b2);border:1px solid var(--blue);border-radius:6px;color:var(--blue);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:6px 12px;cursor:pointer;white-space:nowrap">+ Concepto</button>'
                 +'</div>'
@@ -192,8 +192,8 @@ async function renderGastos(tab){
     _plan.cats.forEach(function(cat){
       var cons=_plan.cons.filter(function(c){return c.categoria_id===cat.id;});
       if(!cons.length) return;
-      conOpts+='<optgroup label="'+cat.nombre+'">';
-      cons.forEach(function(con){ conOpts+='<option value="'+con.id+'">'+con.nombre+'</option>'; });
+      conOpts+='<optgroup label="'+esc(cat.nombre)+'">';
+      cons.forEach(function(con){ conOpts+='<option value="'+con.id+'">'+esc(con.nombre)+'</option>'; });
       conOpts+='</optgroup>';
     });
     if(!_plan.cats.length){
@@ -239,7 +239,7 @@ async function renderGastos(tab){
   var fdDef=d1.getFullYear()+'-'+pad(d1.getMonth()+1)+'-'+pad(d1.getDate());
   var fhDef=hoy.getFullYear()+'-'+pad(hoy.getMonth()+1)+'-'+pad(hoy.getDate());
   var catFiltOpts='<option value="">Todas las categorías</option>'
-    +_plan.cats.map(function(cat){return '<option value="'+cat.id+'">'+cat.nombre+'</option>';}).join('');
+    +_plan.cats.map(function(cat){return '<option value="'+cat.id+'">'+esc(cat.nombre)+'</option>';}).join('');
 
   c.innerHTML=tabs
     +'<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px">'
@@ -333,11 +333,11 @@ async function gastosBuscar(){
       var cat=_plan.cats.find(function(c){return c.id===r.categoria_id;})||{nombre:r.categoria||'—'};
       return '<tr>'
         +'<td style="font-size:12px;white-space:nowrap;color:var(--muted)">'+fmt(r.fecha)+'</td>'
-        +'<td><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:var(--b2);color:var(--blue)">'+cat.nombre+'</span></td>'
-        +'<td style="font-size:12px;font-weight:600">'+con.nombre+'</td>'
-        +'<td style="font-size:12px">'+r.concepto+'</td>'
+        +'<td><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:var(--b2);color:var(--blue)">'+esc(cat.nombre)+'</span></td>'
+        +'<td style="font-size:12px;font-weight:600">'+esc(con.nombre)+'</td>'
+        +'<td style="font-size:12px">'+esc(r.concepto)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:var(--red)">'+gs(r.monto)+'</td>'
-        +'<td style="font-size:11px;color:var(--muted)">'+(r.observacion||'')+'</td>'
+        +'<td style="font-size:11px;color:var(--muted)">'+esc(r.observacion||'')+'</td>'
         +'<td style="text-align:center">'
           +'<button onclick="gastoEliminar('+r.id+')" style="background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 9px;cursor:pointer">Eliminar</button>'
         +'</td>'
@@ -1404,9 +1404,9 @@ async function renderRepCompras(fdKey){
           ],
           rows: rows.map(function(r){
             var fch = r.fecha ? (function(){ var d=new Date(r.fecha); return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear(); })() : '--';
-            var desc = r.proveedor||r.concepto||r.descripcion||'—';
+            var desc = esc(r.proveedor||r.concepto||r.descripcion||'—');
             var monto = parseFloat(r.total_monto)||r.total||r.monto||0;
-            var tipo = (r.tipo||'compra').replace('_',' ');
+            var tipo = esc((r.tipo||'compra').replace('_',' '));
             return '<tr>'+
               '<td style="color:#666;font-size:11px;white-space:nowrap;">'+fch+'</td>'+
               '<td style="font-weight:600;">'+desc+'</td>'+
@@ -1444,9 +1444,9 @@ async function renderRepCompras(fdKey){
       '</tr></thead><tbody>'+
       rows.map(function(r){
         var fch = r.fecha ? (function(){ var d=new Date(r.fecha); return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear(); })() : '--';
-        var desc = r.proveedor||r.concepto||r.descripcion||'—';
+        var desc = esc(r.proveedor||r.concepto||r.descripcion||'—');
         var monto = r.total||r.monto||0;
-        var tipo = (r.tipo||'compra').replace('_',' ');
+        var tipo = esc((r.tipo||'compra').replace('_',' '));
         return '<tr style="border-top:1px solid var(--border);">'+
           '<td style="padding:10px 14px;color:var(--muted);font-size:12px;white-space:nowrap;">'+fch+'</td>'+
           '<td style="padding:10px 14px;font-weight:600;color:var(--text);">'+desc+'</td>'+
