@@ -1176,9 +1176,20 @@ async function cancelarPedidoSatelite(idx){
   if(!t || !t.esSatelite) return;
 
   if(t.supabasePedidoId){
-    try{
-      await supaPatch('pos_pedidos', 'id=eq.'+t.supabasePedidoId, {estado:'cancelado'}, true);
-    } catch(e){ console.warn('[cancelarPedido]', e.message); }
+    // supaPatchResiliente (js/config.js): mismo patron ya usado en
+    // marcarPedidoSateliteCobrado() (pedidos.js) para la transicion a
+    // 'cobrado' -- si el PATCH falla (corte de red), encola en
+    // pos_pedidos_sync_fallback en vez de perderse. Sin esto, un corte de
+    // red al cancelar dejaba el pedido "abierto" en Supabase para siempre
+    // (resucitaba en otras terminales/mesas) aunque la caja ya lo hubiera
+    // quitado de su lista local, sin ningun aviso ni reintento. El reintento
+    // ya corre desde cajaSyncPedidosSatelite() (pedidos.js), no hace falta
+    // agregar uno nuevo aca.
+    const _email = localStorage.getItem('lic_email') || localStorage.getItem(SK.email) || '';
+    await supaPatchResiliente('pos_pedidos',
+      'id=eq.'+t.supabasePedidoId+'&licencia_email=eq.'+encodeURIComponent(_email),
+      {estado:'cancelado', updated_at:new Date().toISOString()},
+      'pos_pedidos_sync_fallback');
   }
 
   pendientes.splice(idx, 1);
