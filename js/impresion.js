@@ -331,7 +331,7 @@ function lineasPago(data, gn){
       // navegador/USB/Android/Bluetooth directo el cliente no veia el tipo de
       // cambio usado, y en credito no se repetia el nombre junto al metodo de pago.
       if(metodo === 'CREDITO' && data.clienteNombre){
-        lineas += '<p class="s" style="padding-left:8px;">A cuenta: '+data.clienteNombre+'</p>';
+        lineas += '<p class="s" style="padding-left:8px;">A cuenta: '+esc(data.clienteNombre)+'</p>';
       }
       if(data.pixMpPagos){
         const pm = data.pixMpPagos;
@@ -375,13 +375,13 @@ function generarHTMLTicket(data, size){
   var _cli = (data.clienteNombre && String(data.clienteNombre).trim())
           || (data.factura && data.factura.nombre)
           || 'SIN NOMBRE';
-  lineas += '<p class="s b">CLIENTE: '+_cli+'</p>';
+  lineas += '<p class="s b">CLIENTE: '+esc(_cli)+'</p>';
   lineas += '<p class="s">FECHA: '+fecha+' - HORA: '+hora+'</p>';
   if(data.tipoPedido && data.tipoPedido!=='llevar' && data.tipoPedido!=='local'){
-    lineas += '<p class="s b">TIPO: '+data.tipoPedido.toUpperCase()+'</p>';
+    lineas += '<p class="s b">TIPO: '+esc(data.tipoPedido.toUpperCase())+'</p>';
   }
-  if(data.mesa) lineas += '<p class="s b">MESA: '+data.mesa+'</p>';
-  if(data.obs)  lineas += '<p class="s">OBS: '+data.obs+'</p>';
+  if(data.mesa) lineas += '<p class="s b">MESA: '+esc(data.mesa)+'</p>';
+  if(data.obs)  lineas += '<p class="s">OBS: '+esc(data.obs)+'</p>';
   lineas += '<p class="hr"></p>';
 
   // Encabezado columnas
@@ -400,7 +400,7 @@ function generarHTMLTicket(data, size){
   // acá y otra vez bien formateado en el resumen de descuentos.
   data.items.filter(i=>!i.esDescuento).forEach(item => {
     const subtot = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : Math.round(item.price*item.qty);
-    lineas += '<p class="it-nom">'+item.name+'</p>';
+    lineas += '<p class="it-nom">'+esc(item.name)+'</p>';
     if(item.esKilo){
       const kg = parseFloat(item.qty)||0;
       lineas += '<p class="it-det">'
@@ -416,7 +416,7 @@ function generarHTMLTicket(data, size){
         +'</p>';
     }
     if(item.desc>0) lineas += '<p class="obs">  Desc: '+item.desc+'%</p>';
-    if(item.obs)    lineas += '<p class="obs">  '+item.obs+'</p>';
+    if(item.obs)    lineas += '<p class="obs">  '+esc(item.obs)+'</p>';
   });
   lineas += '<p class="hr"></p>';
 
@@ -434,7 +434,7 @@ function generarHTMLTicket(data, size){
     if(totalDescuentos>0){
       // Mostrar cada descuento aplicado
       data.items.filter(i=>i.esDescuento).forEach(d=>{
-        lineas += '<p class="row s"><span class="l1">(-) '+d.name+'</span><span class="l2">'+gn(d.montoDesc)+'</span></p>';
+        lineas += '<p class="row s"><span class="l1">(-) '+esc(d.name)+'</span><span class="l2">'+gn(d.montoDesc)+'</span></p>';
       });
     }
     if(data.descTicket>0){
@@ -550,7 +550,7 @@ function generarHTMLFactura(data, size){
   lineas += '<p class="c b" style="font-size:11pt;">NRO: '+nroF+'</p>';
   lineas += '<p class="s">Fecha: '+fecha+' - Hora: '+hora+'</p>';
   if(data.tipoPedido && data.tipoPedido!=='llevar') lineas += '<p class="s">Tipo: '+data.tipoPedido.toUpperCase()+'</p>';
-  if(data.mesa) lineas += '<p class="s">Mesa: '+data.mesa+'</p>';
+  if(data.mesa) lineas += '<p class="s">Mesa: '+esc(data.mesa)+'</p>';
   lineas += '<p class="hr"></p>';
 
   // Encabezado items
@@ -561,7 +561,7 @@ function generarHTMLFactura(data, size){
   data.items.filter(i=>!i.esDescuento).forEach(item=>{
     const sub = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : item.price*item.qty;
     const ivaLabel = item.iva==='exento'?'Exnt':(item.iva||'10')+'%';
-    lineas += '<p class="if-nom">'+item.name+'</p>';
+    lineas += '<p class="if-nom">'+esc(item.name)+'</p>';
     // esKilo: mostrar "X kg x precio/kg" en vez de "cant x precio" — faltaba acá
     // (generarHTMLTicket, generarHTMLFacturaA4 y BTPrinter.buildTicket ya lo hacen).
     const cantLabel = item.esKilo ? (parseFloat(item.qty)||0).toFixed(3)+' kg × '+gn(item.price)+'/kg' : item.qty+'×'+gn(item.price);
@@ -570,7 +570,7 @@ function generarHTMLFactura(data, size){
       +'<span>'+gn(sub)+'</span>'
       +'<span>'+ivaLabel+'</span>'
       +'</p>';
-    if(item.obs) lineas += '<p class="obs">  '+item.obs+'</p>';
+    if(item.obs) lineas += '<p class="obs">  '+esc(item.obs)+'</p>';
   });
   lineas += '<p class="hr"></p>';
 
@@ -975,8 +975,8 @@ function generarHTMLComanda(data, size){
                 || (data.factura && data.factura.nombre)
                 || data.cliente
                 || '';
-  if(cliente) lineas += '<p class="c b s" style="margin-top:2px;word-break:break-word;">Cliente: '+cliente+'</p>';
-  if(data.obs) lineas += '<p class="c b s" style="word-break:break-word;">OBS: '+data.obs+'</p>';
+  if(cliente) lineas += '<p class="c b s" style="margin-top:2px;word-break:break-word;">Cliente: '+esc(cliente)+'</p>';
+  if(data.obs) lineas += '<p class="c b s" style="word-break:break-word;">OBS: '+esc(data.obs)+'</p>';
 
   lineas += '<p class="hr"></p>';
 
@@ -993,10 +993,13 @@ function generarHTMLComanda(data, size){
               + '<span style="font-size:14px;font-weight:900;">' + item.qty + '</span>'
               + '<span style="font-size:11pt;font-weight:800;"> PIZZA MITAD</span>'
               + '</p>';
-      lineas += '<p class="s" style="padding-left:16px;font-weight:800;">½ ' + (item._mitad1||'') + '</p>';
-      lineas += '<p class="s" style="padding-left:16px;font-weight:800;">½ ' + (item._mitad2||'') + '</p>';
+      lineas += '<p class="s" style="padding-left:16px;font-weight:800;">½ ' + esc(item._mitad1||'') + '</p>';
+      lineas += '<p class="s" style="padding-left:16px;font-weight:800;">½ ' + esc(item._mitad2||'') + '</p>';
     } else {
-      const nombre = wrapText(item.name, maxNom, '   ');
+      // esc() DESPUES de wrapText -- wrapText calcula el ancho con .length,
+      // escapar antes haria que una entidad HTML (ej. "&lt;" = 4 caracteres)
+      // cuente distinto al caracter visual real y corte mal el wrap.
+      const nombre = esc(wrapText(item.name, maxNom, '   '));
       lineas += '<p style="margin:3px 0;">'
               + '<span style="font-size:14px;font-weight:900;">' + item.qty + '</span>'
               + '<span style="font-size:11pt;font-weight:800;"> ' + nombre + '</span>'
@@ -1007,11 +1010,11 @@ function generarHTMLComanda(data, size){
       const obsLines = item.obs.split(' · ');
       obsLines.forEach(ob => {
         lineas += '<p class="s" style="padding-left:16px;font-weight:700;">-&gt; '
-                + wrapText(ob, maxNom - 2, '  ') + '</p>';
+                + esc(wrapText(ob, maxNom - 2, '  ')) + '</p>';
       });
     } else if(item.obs && item._esMitad === undefined && item.obs){
       lineas += '<p class="s" style="padding-left:16px;font-weight:700;">-&gt; '
-              + wrapText(item.obs, maxNom - 2, '  ') + '</p>';
+              + esc(wrapText(item.obs, maxNom - 2, '  ')) + '</p>';
     }
   });
 
