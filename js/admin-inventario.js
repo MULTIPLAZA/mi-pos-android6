@@ -915,7 +915,7 @@ async function guardarAjuste(){
       updated_at:      new Date().toISOString()
     };
     if(sr && sr.id){
-      await supaPatch('stock','id=eq.'+sr.id,{cantidad:qNueva,updated_at:new Date().toISOString()});
+      await supaPatch('stock','id=eq.'+sr.id+'&licencia_id=eq.'+_inv.licId,{cantidad:qNueva,updated_at:new Date().toISOString()});
     } else {
       await supaPost('stock', stockRow, null);
     }
@@ -945,7 +945,7 @@ async function guardarStockMinimo(){
   var sr = _inv.prds.find(function(r){ return String(r.producto_id)===String(_inv.prodActivo.id); });
   try{
     if(sr && sr.id){
-      await supaPatch('stock','id=eq.'+sr.id,{cantidad_minima:minimo,updated_at:new Date().toISOString()});
+      await supaPatch('stock','id=eq.'+sr.id+'&licencia_id=eq.'+_inv.licId,{cantidad_minima:minimo,updated_at:new Date().toISOString()});
       sr.cantidad_minima = minimo;
     } else {
       var nuevaFila = {
@@ -1062,18 +1062,18 @@ async function ejecutarTransferencia(){
     // destino, se intenta revertir el descuento en origen antes de avisar,
     // y el mensaje de error dice exactamente qué quedó aplicado.
     try{
-      if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id,{cantidad:qOrigNueva,updated_at:ts});
+      if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id+'&licencia_id=eq.'+_inv.licId,{cantidad:qOrigNueva,updated_at:ts});
       else await supaPost('stock',{licencia_id:_inv.licId,deposito_id:origenId,sucursal_id:depOrigen.sucursal_id,producto_id:prodId,nombre_producto:prodNom,cantidad:qOrigNueva},null);
     }catch(eOrig){
       throw new Error('No se pudo descontar el stock de origen -- no se aplicó ningún cambio de stock (solo quedó el registro de auditoría en Movimientos). '+eOrig.message);
     }
     try{
-      if(rowsDest&&rowsDest.length) await supaPatch('stock','id=eq.'+rowsDest[0].id,{cantidad:qDestNueva,updated_at:ts});
+      if(rowsDest&&rowsDest.length) await supaPatch('stock','id=eq.'+rowsDest[0].id+'&licencia_id=eq.'+_inv.licId,{cantidad:qDestNueva,updated_at:ts});
       else await supaPost('stock',{licencia_id:_inv.licId,deposito_id:destinoId,sucursal_id:depDestino.sucursal_id,producto_id:prodId,nombre_producto:prodNom,cantidad:qDestNueva},null);
     }catch(eDest){
       // Compensar: devolver el stock a origen para no dejar unidades perdidas en el limbo.
       try{
-        if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id,{cantidad:qOrig,updated_at:new Date().toISOString()});
+        if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id+'&licencia_id=eq.'+_inv.licId,{cantidad:qOrig,updated_at:new Date().toISOString()});
         throw new Error('No se pudo acreditar el stock en destino -- se revirtió el descuento en origen, no se perdió stock, pero reintentá la transferencia. '+eDest.message);
       }catch(eRevert){
         if(eRevert.message.indexOf('reintentá la transferencia')>=0) throw eRevert;
@@ -2420,7 +2420,10 @@ async function movEjecutarAnulacion(compId){
     }
 
     // Marcar comprobante original como anulado
-    await supaPatch('stock_comprobantes','id=eq.'+compId,{
+    // licencia_id=eq. en el filtro: mismo hueco de tenant faltante ya
+    // arreglado en admin-finanzas.js/mesas.js/admin-dashboard.js/hospedaje.js
+    // esta sesión (RLS desactivado en Supabase).
+    await supaPatch('stock_comprobantes','id=eq.'+compId+'&licencia_id=eq.'+licId,{
       observacion:(orig.observacion?orig.observacion+' ':'')+'[ANULADO] '+now+' | '+motivo
     });
 

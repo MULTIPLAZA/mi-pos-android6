@@ -1002,7 +1002,7 @@ async function ivaCalcular(){
     try{
       var existe=await sg('iva_liquidaciones','licencia_id=eq.'+licId+'&periodo=eq.'+periodo+'&select=id');
       if(existe&&existe.length){
-        await supaPatch('iva_liquidaciones','id=eq.'+existe[0].id,data);
+        await supaPatch('iva_liquidaciones','id=eq.'+existe[0].id+'&licencia_id=eq.'+licId,data);
         data.id=existe[0].id;
       } else {
         var r=await supaPost('iva_liquidaciones',data,null);
@@ -1112,7 +1112,8 @@ function ivaFila(label, valor1, valor2, color2){
 async function ivaCerrar(id){
   if(!confirm('¿Cerrar el período? Una vez cerrado no se recalcula automáticamente.')) return;
   try{
-    await supaPatch('iva_liquidaciones','id=eq.'+id,{estado:'cerrado',updated_at:new Date().toISOString()});
+    var licId=await ivaGetLicId();
+    await supaPatch('iva_liquidaciones','id=eq.'+id+'&licencia_id=eq.'+licId,{estado:'cerrado',updated_at:new Date().toISOString()});
     toast('Período cerrado');
     await ivaCalcular();
   }catch(e){ toast('Error: '+e.message); }
