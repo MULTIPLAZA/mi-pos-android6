@@ -538,6 +538,31 @@ async function saSignIn(email, password){
   return { ok:true, access_token: d.access_token, refresh_token: d.refresh_token, user: d.user };
 }
 
+// El access_token de Supabase Auth expira (default 1h) y hasta ahora nada lo
+// renovaba -- una sesion abierta mas de una hora empezaba a fallar con 401 en
+// CADA accion (sg/spost/spatch/srpc), sin ningun mensaje claro ni reintento,
+// aunque el refresh_token siguiera guardado y vigente. saRefrescarToken() usa
+// ese refresh_token para pedir un access_token nuevo; _saFetch() (mas abajo,
+// wrapper de sg/spost/spatch/srpc) lo dispara automaticamente ante un 401 y
+// reintenta la request original UNA vez.
+async function saRefrescarToken(){
+  let s;
+  try { s = JSON.parse(localStorage.getItem('sa_session') || 'null'); } catch(e){ s = null; }
+  if(!s || !s.refresh_token) return false;
+  try {
+    const r = await fetch(SURL + '/auth/v1/token?grant_type=refresh_token', {
+      method:'POST',
+      headers:{ 'apikey': SKEY, 'Content-Type':'application/json' },
+      body: JSON.stringify({ refresh_token: s.refresh_token })
+    });
+    if(!r.ok) return false;
+    const d = await r.json();
+    if(!d.access_token) return false;
+    _saGuardarSesion(d.access_token, d.refresh_token || s.refresh_token, d.user || s.user);
+    return true;
+  } catch(e){ return false; }
+}
+
 async function saValidarSuperAdmin(email){
   // Llamar a la RPC is_super_admin() — true si el JWT pertenece a un super_admin activo
   const r = await sbAuthRequest('/rest/v1/rpc/is_super_admin', { method:'POST', body:'{}' });
@@ -637,7 +662,15 @@ function logout(){
     SA_TOKEN = s.access_token;
     SA_USER  = s.user;
     // Validar que sigue siendo super_admin (token vigente + en tabla)
-    const ok = await saValidarSuperAdmin(s.user.email);
+    let ok = await saValidarSuperAdmin(s.user.email);
+    if(!ok){
+      // El access_token guardado puede haber vencido (dura ~1h) sin que el
+      // refresh_token (mucho mas duradero) tambien lo haya hecho -- antes esto
+      // forzaba un re-login aunque la sesion siguiera siendo valida. Intentar
+      // refrescar antes de tirar la sesion.
+      const refrescado = await saRefrescarToken();
+      if(refrescado) ok = await saValidarSuperAdmin(SA_USER.email);
+    }
     if(!ok){
       _saLimpiarSesion();
       return;
@@ -676,9 +709,31 @@ function _saHeaders(extra){
     'Accept': 'application/json'
   }, extra || {});
 }
+// Fetch autenticado con reintento automático ante 401 (token vencido): pide un
+// access_token nuevo con el refresh_token guardado y reintenta UNA sola vez.
+// Si el refresh tambien falla (refresh_token vencido/revocado), fuerza logout
+// con un mensaje claro en vez de dejar la sesión "viva" tirando 401 en todo.
+async function _saFetch(url, method, headersExtra, body){
+  const doFetch = () => fetch(url, {
+    method: method || 'GET',
+    headers: _saHeaders(headersExtra),
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  });
+  let r = await doFetch();
+  if(r.status === 401 && SA_TOKEN){
+    const refrescado = await saRefrescarToken();
+    if(refrescado) r = await doFetch();
+    else {
+      _saLimpiarSesion();
+      _saMostrarLogin();
+      throw new Error('Tu sesión expiró. Volvé a ingresar.');
+    }
+  }
+  return r;
+}
 async function sg(t,q){
   try{
-    const r=await fetch(SURL+'/rest/v1/'+t+(q?'?'+q:''),{ headers: _saHeaders() });
+    const r = await _saFetch(SURL+'/rest/v1/'+t+(q?'?'+q:''));
     if(!r.ok){ const e=await r.text(); throw new Error('HTTP '+r.status+': '+e.substring(0,80)); }
     const d=await r.json();
     return Array.isArray(d)?d:[];
@@ -689,24 +744,16 @@ async function sg(t,q){
   }
 }
 async function spost(t,b){
-  const r=await fetch(SURL+'/rest/v1/'+t,{
-    method:'POST',
-    headers: _saHeaders({ 'Prefer':'return=representation' }),
-    body: JSON.stringify(b)
-  });
+  const r = await _saFetch(SURL+'/rest/v1/'+t, 'POST', { 'Prefer':'return=representation' }, b);
   if(!r.ok)throw new Error(await r.text());
   return await r.json();
 }
 async function spatch(t,id,b){
-  const r=await fetch(SURL+'/rest/v1/'+t+'?id=eq.'+id,{
-    method:'PATCH', headers: _saHeaders(), body: JSON.stringify(b)
-  });
+  const r = await _saFetch(SURL+'/rest/v1/'+t+'?id=eq.'+id, 'PATCH', null, b);
   if(!r.ok)throw new Error(await r.text());
 }
 async function srpc(fn,p){
-  const r=await fetch(SURL+'/rest/v1/rpc/'+fn,{
-    method:'POST', headers: _saHeaders(), body: JSON.stringify(p)
-  });
+  const r = await _saFetch(SURL+'/rest/v1/rpc/'+fn, 'POST', null, p);
   if(!r.ok)throw new Error(await r.text());
   return await r.json();
 }
