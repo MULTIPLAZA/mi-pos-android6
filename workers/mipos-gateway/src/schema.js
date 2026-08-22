@@ -71,7 +71,7 @@ export const TABLES = {
       'motivo_anulacion', 'div_pagos', 'cliente_nombre', 'fe_cdc', 'fe_estado',
       'fe_numero', 'fe_qr', 'fe_lote_id', 'fe_error', 'fe_respuesta',
       'fe_fecha_emision', 'fe_nc_cdc', 'fe_nc_numero', 'fe_nc_estado', 'mm_pagos',
-      'pix_mp_pagos',
+      'pix_mp_pagos', 'factura_numero', 'factura_timbrado',
     ],
     booleans: ['tiene_factura', 'anulada'],
   },
