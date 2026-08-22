@@ -1034,17 +1034,39 @@ async function ejecutarTransferencia(){
       cantidad_antes:qDest, cantidad_despues:qDestNueva,
       referencia:ref, observacion:obs, terminal:'admin', usuario:SE, fecha:ts
     },null);
-    // Actualizar stock en ambos depósitos
-    if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id,{cantidad:qOrigNueva,updated_at:ts});
-    else await supaPost('stock',{licencia_id:_inv.licId,deposito_id:origenId,sucursal_id:depOrigen.sucursal_id,producto_id:prodId,nombre_producto:prodNom,cantidad:qOrigNueva},null);
-    if(rowsDest&&rowsDest.length) await supaPatch('stock','id=eq.'+rowsDest[0].id,{cantidad:qDestNueva,updated_at:ts});
-    else await supaPost('stock',{licencia_id:_inv.licId,deposito_id:destinoId,sucursal_id:depDestino.sucursal_id,producto_id:prodId,nombre_producto:prodNom,cantidad:qDestNueva},null);
+
+    // ── Actualizar stock en ambos depósitos -- SIN transacción real (Supabase
+    // vía REST no da eso desde el cliente). Si el paso de destino falla
+    // DESPUÉS de que origen ya se descontó, el stock quedaría "perdido"
+    // (restado de un lado, nunca sumado al otro) sin que el operador se
+    // entere más que por un toast genérico. Se compensa a mano: si falla
+    // destino, se intenta revertir el descuento en origen antes de avisar,
+    // y el mensaje de error dice exactamente qué quedó aplicado.
+    try{
+      if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id,{cantidad:qOrigNueva,updated_at:ts});
+      else await supaPost('stock',{licencia_id:_inv.licId,deposito_id:origenId,sucursal_id:depOrigen.sucursal_id,producto_id:prodId,nombre_producto:prodNom,cantidad:qOrigNueva},null);
+    }catch(eOrig){
+      throw new Error('No se pudo descontar el stock de origen -- no se aplicó ningún cambio de stock (solo quedó el registro de auditoría en Movimientos). '+eOrig.message);
+    }
+    try{
+      if(rowsDest&&rowsDest.length) await supaPatch('stock','id=eq.'+rowsDest[0].id,{cantidad:qDestNueva,updated_at:ts});
+      else await supaPost('stock',{licencia_id:_inv.licId,deposito_id:destinoId,sucursal_id:depDestino.sucursal_id,producto_id:prodId,nombre_producto:prodNom,cantidad:qDestNueva},null);
+    }catch(eDest){
+      // Compensar: devolver el stock a origen para no dejar unidades perdidas en el limbo.
+      try{
+        if(rowsOrig&&rowsOrig.length) await supaPatch('stock','id=eq.'+rowsOrig[0].id,{cantidad:qOrig,updated_at:new Date().toISOString()});
+        throw new Error('No se pudo acreditar el stock en destino -- se revirtió el descuento en origen, no se perdió stock, pero reintentá la transferencia. '+eDest.message);
+      }catch(eRevert){
+        if(eRevert.message.indexOf('reintentá la transferencia')>=0) throw eRevert;
+        throw new Error('CRÍTICO: se descontó de "'+depOrigen.nombre+'" pero no se pudo acreditar en "'+depDestino.nombre+'" NI revertir el descuento. Revisá el stock de '+prodNom+' en ambos depósitos a mano. '+eRevert.message);
+      }
+    }
 
     toast('Transferencia realizada: '+cant+' unidades');
     cerrarTransModal();
     // Refrescar si el depósito activo es origen o destino
     if(_inv.sel.depId===origenId||_inv.sel.depId===destinoId) await cargarStockDeposito();
-  }catch(e){ toast('Error: '+e.message); }
+  }catch(e){ toast('Error: '+e.message, 7000); }
 }
 
 
