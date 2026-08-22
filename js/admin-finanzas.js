@@ -2024,7 +2024,9 @@ async function agregarAsig(){
   var timIdx=parseInt(document.getElementById('mAsignarOv').dataset.timIdx);
   var terminal=document.getElementById('asigTerminal').value.trim();
   var ptoExp=(document.getElementById('asigPtoExp').value||'001').replace(/\D/g,'').padStart(3,'0');
-  var desde=parseInt(document.getElementById('asigDesde').value)||1;
+  // Math.max(1,...): sembra nro_actual de la terminal directo (linea de
+  // abajo) -- mismo motivo que el clamp de "desde" en guardarTim().
+  var desde=Math.max(1, parseInt(document.getElementById('asigDesde').value)||1);
   if(!terminal){alert('Ingresá el nombre de la terminal');return;}
   if(!ptoExp||ptoExp==='000'){alert('Ingresá el punto de expedición');return;}
 
@@ -2040,7 +2042,7 @@ async function agregarAsig(){
       licencia_email:SE,nro:String(t.nro),tipo:t.tipo||'autoimpresor',
       vig_ini:t.vig_ini||null,vig_fin:t.tipo==='electronico'?null:(t.vig_fin||null),
       sucursal:String(t.sucursal||'001'),nombre_suc:t.nombre_suc||null,
-      desde:parseInt(t.desde)||1,hasta:parseInt(t.hasta)||5000,activo:true
+      desde:Math.max(1, parseInt(t.desde)||1),hasta:parseInt(t.hasta)||5000,activo:true
     },'licencia_email,nro');
     var dbId=Array.isArray(r1)?(r1[0]&&r1[0].id):(r1&&r1.id);
     if(!dbId) throw new Error('Sin ID del timbrado. Respuesta: '+JSON.stringify(r1));
@@ -2091,7 +2093,11 @@ async function guardarTim(){
   var vigIni=document.getElementById('mVigIni').value;
   var vigFin=document.getElementById('mVigFin').value;
   var suc=pad3(document.getElementById('mSuc').value||'001');
-  var desde=parseInt(document.getElementById('mDesde').value)||1;
+  // Math.max(1,...): "desde" siembra nro_actual de cada terminal asignada
+  // (ver mas abajo) y ese numero se estampa tal cual en la factura impresa
+  // (padN(nro_actual)) -- un negativo produce un numero de documento
+  // deforme que puede terminar rechazado por SIFEN.
+  var desde=Math.max(1, parseInt(document.getElementById('mDesde').value)||1);
   var hasta=parseInt(document.getElementById('mHasta').value)||5000;
   var nomSuc=document.getElementById('mNomSuc').value.trim();
   var tipo=document.getElementById('mTipo').value;
@@ -2101,6 +2107,7 @@ async function guardarTim(){
   if(!nro||nro.length!==8){alert('El timbrado debe tener 8 dígitos');return;}
   if(!vigIni){alert('Ingresá inicio de vigencia');return;}
   if(tipo!=='electronico'&&!vigFin){alert('Ingresá fin de vigencia');return;}
+  if(tipo!=='electronico'&&hasta<=desde){alert('El número "hasta" debe ser mayor que "desde"');return;}
 
   var btnG=document.querySelector('button[onclick="guardarTim()"]');
   if(btnG){btnG.disabled=true;btnG.textContent='Guardando...';}
