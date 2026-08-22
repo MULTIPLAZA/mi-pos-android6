@@ -822,7 +822,7 @@ async function loadDashChartsData(f){
           var col=catColors[catIdx>=0?catIdx%catColors.length:0];
           return '<div style="padding:8px 16px;'+(i<prodEntries.length-1?'border-bottom:1px solid var(--border);':'')+'">'+
             '<div style="display:flex;justify-content:space-between;margin-bottom:5px;">'+
-            '<span style="font-size:12px;font-weight:700;color:var(--text);max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+e[0]+'</span>'+
+            '<span style="font-size:12px;font-weight:700;color:var(--text);max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+_esc(e[0])+'</span>'+
             '<span style="font-size:12px;font-weight:700;color:var(--text);">'+gs(e[1].tot)+'</span>'+
             '</div>'+
             '<div style="display:flex;align-items:center;gap:8px;">'+
@@ -1457,8 +1457,8 @@ function renderVT(v){
       : '<button class="vh-btn-anul" onclick="event.stopPropagation();vAnularVenta('+x.id+')" title="Anular esta venta">Anular</button>';
     return '<tr'+rowCls+' onclick="vDetalle(\''+x.id+'\')">'+
       '<td><div class="vh-fc-d">'+dt.d+'</div><div class="vh-fc-h">'+dt.h+' hs</div></td>'+
-      '<td><div class="vh-tm-n">'+(x.terminal||'--')+'</div>'+
-        (x.sucursal?'<div class="vh-tm-s">'+x.sucursal+'</div>':'')+
+      '<td><div class="vh-tm-n">'+_esc(x.terminal||'--')+'</div>'+
+        (x.sucursal?'<div class="vh-tm-s">'+_esc(x.sucursal)+'</div>':'')+
       '</td>'+
       '<td>'+(function(){var n=cliName(x);return n?'<div class="vh-tm-n">'+_esc(n)+'</div>':'<span style="color:var(--muted)">—</span>';})()+'</td>'+
       '<td>'+tipoTag(x)+'</td>'+
@@ -2030,8 +2030,8 @@ function renderCajasData(){
         '<div class="cj-cell">'+
           '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'+
             '<div>'+
-              '<div class="cj-tname">'+(c.terminal||'Terminal')+'</div>'+
-              (c.sucursal?'<div class="cj-tsuc">'+c.sucursal+'</div>':'')+
+              '<div class="cj-tname">'+_esc(c.terminal||'Terminal')+'</div>'+
+              (c.sucursal?'<div class="cj-tsuc">'+_esc(c.sucursal)+'</div>':'')+
             '</div>'+
             '<span class="cj-bdg-live"><span class="cj-blink"></span>EN CURSO</span>'+
           '</div>'+
@@ -2153,13 +2153,13 @@ function _renderCierreCard(c,i){
     '<div class="cj-cell">'+
       '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">'+
         '<div>'+
-          '<div class="cj-tname">'+(c.terminal||'Terminal')+'</div>'+
-          (c.sucursal?'<div class="cj-tsuc">'+c.sucursal+'</div>':'')+
+          '<div class="cj-tname">'+_esc(c.terminal||'Terminal')+'</div>'+
+          (c.sucursal?'<div class="cj-tsuc">'+_esc(c.sucursal)+'</div>':'')+
         '</div>'+
         '<span class="cj-bdg-closed">CERRADO</span>'+
       '</div>'+
       '<div class="cj-tmeta">'+hh2(c.fecha_apertura)+' &rarr; '+hh2(c.fecha_cierre)+(durTxt?' &middot; <strong>'+durTxt+'</strong>':'')+'</div>'+
-      (c.nombre_operador?'<div class="cj-tmeta">Operador: <strong>'+c.nombre_operador+'</strong></div>':'')+
+      (c.nombre_operador?'<div class="cj-tmeta">Operador: <strong>'+_esc(c.nombre_operador)+'</strong></div>':'')+
     '</div>'+
     // Cell 2: total + ops + saldo
     '<div class="cj-cell">'+
@@ -2254,7 +2254,7 @@ async function verVentasTurno(idx){
     ventas.forEach(function(v){
       var items=[];
       try{items=typeof v.items==='string'?JSON.parse(v.items):(v.items||[]);}catch(e){console.warn('[VentasTurno] items parse:',e.message);}
-      var prodsTxt=items.filter(function(it){return !it.esDescuento;}).map(function(it){return (it.nombre||it.name||'?')+' x'+(it.qty||1);}).join(', ');
+      var prodsTxt=items.filter(function(it){return !it.esDescuento;}).map(function(it){return _esc(it.nombre||it.name||'?')+' x'+(it.qty||1);}).join(', ');
       if(prodsTxt.length>55) prodsTxt=prodsTxt.substring(0,53)+'…';
       html+='<tr style="border-top:1px solid var(--border);">'
         +'<td style="padding:7px 12px;color:var(--muted);white-space:nowrap;">'+fmtH(v.fecha)+'</td>'
