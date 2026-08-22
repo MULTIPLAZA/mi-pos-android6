@@ -603,7 +603,7 @@ async function loadStockBajoDash(){
       } else {
         listWrap.innerHTML = bajos.slice(0,8).map(function(p){
           var agotado = p.cantidad<=0;
-          return '<div class="dsh-cg-row"><span class="ds">'+p.nombre+(agotado?' <span style="color:var(--red);font-weight:800;">· AGOTADO</span>':'')+'</span>'
+          return '<div class="dsh-cg-row"><span class="ds">'+esc(p.nombre)+(agotado?' <span style="color:var(--red);font-weight:800;">· AGOTADO</span>':'')+'</span>'
             +'<span class="mt" style="color:'+(agotado?'var(--red)':'var(--orange)')+';">'+p.cantidad+' / mín. '+p.minima+'</span></div>';
         }).join('') + (bajos.length>8 ? '<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px;">+'+(bajos.length-8)+' más — ver en Inventarios</div>' : '');
       }
@@ -1439,8 +1439,8 @@ function renderVT(v){
         '<th style="text-align:right">P.Unit</th><th style="text-align:right">Subtotal</th>'+
       '</tr></thead><tbody>'+
       (items.filter(function(it){return !it.esDescuento;}).map(function(it){
-        return '<tr><td style="font-weight:600;">'+(it.name||it.nombre||'—')+'</td>'+
-          '<td style="color:var(--muted);">'+(it.cat||it.categoria||'—')+'</td>'+
+        return '<tr><td style="font-weight:600;">'+_esc(it.name||it.nombre||'—')+'</td>'+
+          '<td style="color:var(--muted);">'+_esc(it.cat||it.categoria||'—')+'</td>'+
           '<td style="text-align:center;">'+(it.qty||1)+'</td>'+
           '<td style="text-align:right;">'+gs(it.price||it.precio||0)+'</td>'+
           '<td style="text-align:right;font-weight:700;">'+gs((it.price||it.precio||0)*(it.qty||1))+'</td></tr>';
@@ -1695,13 +1695,13 @@ async function _cargarYRenderTerminales(){
     document.getElementById('terBody').innerHTML='<div class="tg">'+items.map(function(t){
       var ul=t.ul?new Date(t.ul):null;
       var on=ul&&(now-ul)<25*3600000;
-      var nombreMostrado=t.nombre||'<span style="color:var(--muted);font-style:italic;">Sin nombre</span>';
+      var nombreMostrado=t.nombre?_esc(t.nombre):'<span style="color:var(--muted);font-style:italic;">Sin nombre</span>';
       return '<div class="tc '+(on&&t.activa?'on':'')+'" style="'+(t.activa?'':'opacity:.6;')+'">'
         +'<div class="tc-h"><div style="flex:1;min-width:0;">'
           +'<div class="tc-n" style="display:flex;align-items:center;gap:6px;">'+nombreMostrado
             +'<button onclick="renombrarTerminal('+t.id+')" title="Renombrar" style="background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'
           +'</div>'
-          +'<div class="tc-s">'+t.sucursal+(t.device_id?'<br><span style="font-size:10px;color:var(--muted);font-family:monospace;">'+t.device_id+'</span>':'')+'</div>'
+          +'<div class="tc-s">'+_esc(t.sucursal)+(t.device_id?'<br><span style="font-size:10px;color:var(--muted);font-family:monospace;">'+_esc(t.device_id)+'</span>':'')+'</div>'
         +'</div>'
         +'<span class="tag '+(on&&t.activa?'tag-g':'tag-gr')+'">'+(t.activa?(on?'Online':'Offline'):'Deshabilitada')+'</span></div>'
         +'<div class="tc-r"><span style="color:var(--muted)">Ventas</span><span style="color:var(--green);font-weight:700">'+gs(t.tot)+'</span></div>'
