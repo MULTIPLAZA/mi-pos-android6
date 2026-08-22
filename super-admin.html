@@ -930,12 +930,19 @@ function renovar(id,backend){
   document.getElementById('mMonto').value=l.monto||'';
   document.getElementById('mSoporte').value=l.monto_soporte||'';
   document.getElementById('mPrecioTer').value=l.precio_terminal||'';
-  // Calcular nueva fecha
-  const h=new Date();
+  // Calcular nueva fecha: sumar el periodo al vencimiento ACTUAL, no a hoy --
+  // si el cliente paga unos dias antes de vencer (algo normal), o si la
+  // renovacion se hace con la licencia ya vencida hace tiempo, calcular
+  // siempre desde "hoy" le hacia perder al cliente los dias que le quedaban
+  // (o le regalaba dias extra si vencio hace rato). Se toma el mas tardio
+  // entre hoy y el vencimiento actual como base.
+  const hoy=new Date();
+  const venceActual=l.fecha_vence?new Date(l.fecha_vence+'T00:00:00'):hoy;
+  const base=venceActual>hoy?venceActual:hoy;
   const tp=l.tipo_pago||'anual';
-  if(tp==='mensual') h.setMonth(h.getMonth()+1);
-  else h.setFullYear(h.getFullYear()+1);
-  document.getElementById('mVence').value=h.getFullYear()+'-'+pad(h.getMonth()+1)+'-'+pad(h.getDate());
+  if(tp==='mensual') base.setMonth(base.getMonth()+1);
+  else base.setFullYear(base.getFullYear()+1);
+  document.getElementById('mVence').value=base.getFullYear()+'-'+pad(base.getMonth()+1)+'-'+pad(base.getDate());
   document.getElementById('mBackend').value=editBackend;
   document.getElementById('mBackend').disabled=true;
   document.getElementById('mOv').style.display='flex';
