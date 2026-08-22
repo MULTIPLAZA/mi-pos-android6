@@ -842,11 +842,11 @@ function renderL(lista){
     const dias=vd?Math.ceil((vd-hoy)/(1000*60*60*24)):null;
     const pNom=l.planes?.nombre||PLANES[l.plan_id]||'Básico';
     const pCls=l.plan_id===1?'tag-g':l.plan_id===2?'tag-b':'tag-o';
-    const rb=l.rubro?`<span class="tag tag-gr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${RUBROS[l.rubro]||l.rubro}</span>`:'';
+    const rb=l.rubro?`<span class="tag tag-gr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${esc(RUBROS[l.rubro]||l.rubro)}</span>`:'';
     const _tn=l._tipo_negocio||l.tipo_negocio;
     const _tnInfo=_tn&&_tn!=='gastronomia'?(TIPO_POS_LABELS[_tn]||{t:_tn,c:'#ff9800'}):null;
-    const tn=_tnInfo?`<span class="tag" style="background:${_tnInfo.c}1f;color:${_tnInfo.c};border:1px solid ${_tnInfo.c}4d;">${_tnInfo.t}</span>`:'';
-    const tp=l.tipo_pago?`<span class="tag tag-gr">${TIPOS[l.tipo_pago]||l.tipo_pago}</span>`:'';
+    const tn=_tnInfo?`<span class="tag" style="background:${_tnInfo.c}1f;color:${_tnInfo.c};border:1px solid ${_tnInfo.c}4d;">${esc(_tnInfo.t)}</span>`:'';
+    const tp=l.tipo_pago?`<span class="tag tag-gr">${esc(TIPOS[l.tipo_pago]||l.tipo_pago)}</span>`:'';
     // Los ids de Supabase y de la D1 de Cloudflare son secuencias separadas — pueden
     // coincidir entre sí. Mostrar de dónde es cada licencia y pasar el backend a los
     // botones de acción evita que Editar/Suspender/Renovar toquen la fila equivocada.
@@ -866,9 +866,9 @@ function renderL(lista){
       <div class="lcard-h">
         <div class="lmain">
           <div class="lid">
-            <div class="lkey">${l.clave}</div>
-            <div class="lnom">${l.nombre_cliente||'Sin nombre'}</div>
-            <div class="lemail">${l.email_cliente||'—'}</div>
+            <div class="lkey">${esc(l.clave)}</div>
+            <div class="lnom">${esc(l.nombre_cliente||'Sin nombre')}</div>
+            <div class="lemail">${esc(l.email_cliente||'—')}</div>
           </div>
           <div class="lmeta">
             <span class="tag ${pCls}">${pNom}</span>
@@ -1176,8 +1176,8 @@ async function loadCli(){
         '<div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">'+
           '<div style="width:9px;height:9px;flex-shrink:0;'+actDot+';margin-top:4px;"></div>'+
           '<div class="li-inf">'+
-            '<div class="li-t" style="font-size:14px;font-weight:700;">'+(l.nombre_cliente||ter.neg||'Sin nombre')+'</div>'+
-            '<div class="li-s">'+(l.email_cliente||'—')+(l.rubro?' · '+( RUBROS[l.rubro]||l.rubro):'')+'</div>'+
+            '<div class="li-t" style="font-size:14px;font-weight:700;">'+esc(l.nombre_cliente||ter.neg||'Sin nombre')+'</div>'+
+            '<div class="li-s">'+esc(l.email_cliente||'—')+(l.rubro?' · '+esc(RUBROS[l.rubro]||l.rubro):'')+'</div>'+
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;">'+
               '<span class="tag '+pCls+'">'+pNom+'</span>'+
               vTag+
@@ -1222,7 +1222,7 @@ async function loadCli(){
       html+=demos.map(function(l){
         return '<div class="li" style="opacity:0.5;">'+
           '<div class="li-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>'+
-          '<div class="li-inf"><div class="li-t">'+(l.nombre_cliente||'Demo')+'</div><div class="li-s">'+(l.email_cliente||'—')+'</div></div>'+
+          '<div class="li-inf"><div class="li-t">'+esc(l.nombre_cliente||'Demo')+'</div><div class="li-s">'+esc(l.email_cliente||'—')+'</div></div>'+
           '<span class="tag tag-gr">DEMO</span></div>';
       }).join('');
     }
