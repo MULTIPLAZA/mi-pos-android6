@@ -607,9 +607,9 @@ function generarHTMLFactura(data, size){
   lineas += '<p class="hr"></p>';
 
   // Cliente
-  lineas += '<p class="s"><b>Cliente:</b> '+(f.nombre||'CONSUMIDOR FINAL')+'</p>';
-  lineas += '<p class="s">RUC: '+(f.ruc||'0000000-0')+'</p>';
-  if(f.direccion) lineas += '<p class="s">Dir: '+f.direccion+'</p>';
+  lineas += '<p class="s"><b>Cliente:</b> '+esc(f.nombre||'CONSUMIDOR FINAL')+'</p>';
+  lineas += '<p class="s">RUC: '+esc(f.ruc||'0000000-0')+'</p>';
+  if(f.direccion) lineas += '<p class="s">Dir: '+esc(f.direccion)+'</p>';
   lineas += '<p class="hr"></p>';
 
   // Footer
@@ -1671,10 +1671,10 @@ function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
   lineas += '<p class="hr"></p>';
 
   lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+(habitacion?habitacion.numero:'?')+'</span></p>';
-  lineas += '<p class="s">Huésped: '+(estadia.huesped_nombre||'')+'</p>';
-  if(estadia.huesped_documento) lineas += '<p class="s">Documento: '+estadia.huesped_documento+'</p>';
-  if(estadia.huesped_tel)       lineas += '<p class="s">Teléfono: '+estadia.huesped_tel+'</p>';
-  if(estadia.huesped_nacionalidad) lineas += '<p class="s">Nacionalidad: '+estadia.huesped_nacionalidad+'</p>';
+  lineas += '<p class="s">Huésped: '+esc(estadia.huesped_nombre||'')+'</p>';
+  if(estadia.huesped_documento) lineas += '<p class="s">Documento: '+esc(estadia.huesped_documento)+'</p>';
+  if(estadia.huesped_tel)       lineas += '<p class="s">Teléfono: '+esc(estadia.huesped_tel)+'</p>';
+  if(estadia.huesped_nacionalidad) lineas += '<p class="s">Nacionalidad: '+esc(estadia.huesped_nacionalidad)+'</p>';
   lineas += '<p class="hr"></p>';
 
   lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
@@ -1738,7 +1738,7 @@ function generarHTMLComprobanteCuenta(estadia, habitacion, size){
   lineas += '<p class="hr"></p>';
 
   lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+(habitacion?habitacion.numero:'?')+'</span></p>';
-  lineas += '<p class="s">Huésped: '+(estadia.huesped_nombre||'')+'</p>';
+  lineas += '<p class="s">Huésped: '+esc(estadia.huesped_nombre||'')+'</p>';
   lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
   lineas += '<p class="hr"></p>';
 
