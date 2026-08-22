@@ -1076,12 +1076,16 @@ async function cargarTicket(i, opts) {
     pendientes[i].esSatelite = false;
     pendientes[i]._tomadoPorCaja = true;
     if(typeof guardarPendientesLocal === 'function') guardarPendientesLocal();
-    if(t.supabasePedidoId && navigator.onLine && typeof USAR_DEMO !== 'undefined' && !USAR_DEMO && typeof supaPatch === 'function'){
-      supaPatch('pos_pedidos',
+    // supaPatchResiliente (js/config.js), mismo fallback key 'pos_pedidos_sync_fallback'
+    // que marcarPedidoSateliteCobrado()/cancelarPedidoSatelite() -- un PATCH que fallaba
+    // acá dejaba el pedido "abierto" en Supabase mientras esta terminal ya lo tenía
+    // tomado localmente: otra caja corriendo cajaSyncPedidosSatelite() (poll 30s) podía
+    // ver el mismo pedido como disponible y tomarlo también, doble-cobro potencial.
+    if(t.supabasePedidoId && navigator.onLine && typeof USAR_DEMO !== 'undefined' && !USAR_DEMO && typeof supaPatchResiliente === 'function'){
+      supaPatchResiliente('pos_pedidos',
         'id=eq.' + encodeURIComponent(t.supabasePedidoId),
         { estado: 'en_cobro', updated_at: new Date().toISOString() },
-        true
-      ).catch(function(e){ console.warn('[Caja] No se pudo marcar en_cobro:', e.message); });
+        'pos_pedidos_sync_fallback');
     }
   }
 
@@ -1164,14 +1168,16 @@ function cajaAbrirPedidoSatelite(i, opts) {
   if(typeof guardarPendientesLocal === 'function') guardarPendientesLocal();
 
   // Informar a Supabase (best-effort, no bloquea la UI) — pasa de 'abierto' a 'en_cobro'.
-  // Si está offline o falla, no importa: la dueñería local ya está aplicada.
+  // supaPatchResiliente (js/config.js): si falla, encola en pos_pedidos_sync_fallback en
+  // vez de perderse -- la dueñería local ya está aplicada, pero si esta PATCH nunca llega
+  // a Supabase, el pedido sigue viéndose "abierto" para otra caja que corra
+  // cajaSyncPedidosSatelite() (poll 30s), habilitando un doble-cobro del mismo pedido.
   if(t.supabasePedidoId && navigator.onLine && typeof USAR_DEMO !== 'undefined' && !USAR_DEMO){
-    if(typeof supaPatch === 'function'){
-      supaPatch('pos_pedidos',
+    if(typeof supaPatchResiliente === 'function'){
+      supaPatchResiliente('pos_pedidos',
         'id=eq.' + encodeURIComponent(t.supabasePedidoId),
         { estado: 'en_cobro', updated_at: new Date().toISOString() },
-        true
-      ).catch(function(e){ console.warn('[Caja] No se pudo marcar en_cobro:', e.message); });
+        'pos_pedidos_sync_fallback');
     }
   }
 
