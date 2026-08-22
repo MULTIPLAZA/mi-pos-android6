@@ -586,12 +586,12 @@ function renderTkt(){
       `</div>`
     : '';
   tl.innerHTML = bannerLectura + headerCliente + cart.map(i=>i.esDescuento
-    ? `<div class="titem" style="border-left:2px solid #ef5350;"><div class="tiname" style="color:#ef9a9a;">${i.name}</div><div class="tictrl"><button class="qbtn" onclick="chgQty(${i.lineId},-1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div class="tiprice" style="color:#ef5350;">-${gs(i.montoDesc)}</div></div>`
+    ? `<div class="titem" style="border-left:2px solid #ef5350;"><div class="tiname" style="color:#ef9a9a;">${esc(i.name)}</div><div class="tictrl"><button class="qbtn" onclick="chgQty(${i.lineId},-1)"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div><div class="tiprice" style="color:#ef5350;">-${gs(i.montoDesc)}</div></div>`
     : `<div class="titem" style="${i.enviado?'opacity:.6;':''}">`+
         `<div class="tiname">`+
           (i.enviado ? '<span style="font-size:9px;color:#4caf50;font-weight:700;letter-spacing:.3px;text-transform:uppercase;display:block;line-height:1.2;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><polyline points="20 6 9 17 4 12"/></svg> enviado</span>' : '')+
-          i.name+
-          (i.obs?'<div style="font-size:11px;color:#888;font-weight:400;text-transform:none;margin-top:2px;">'+i.obs+'</div>':'')+
+          esc(i.name)+
+          (i.obs?'<div style="font-size:11px;color:#888;font-weight:400;text-transform:none;margin-top:2px;">'+esc(i.obs)+'</div>':'')+
         `</div>`+
         `<div class="tictrl">`+
           `<button class="qbtn" onclick="abrirObsRapida(${i.lineId})" title="${i.obs?'Editar observación':'Agregar observación'}" style="color:${i.obs?'var(--orange)':'var(--muted)'};">`+
@@ -964,13 +964,13 @@ function _tileProd(p){
     return '<div class="ptile ptile-img" style="background:'+getProductColor(p)+';" onclick="addCart('+p.id+',this)">'+
       '<img src="'+imgSrc+'" class="ptile-img-bg" onerror="this.style.display=\'none\'" loading="lazy">'+
       '<div class="ptile-img-overlay"></div>'+
-      '<span class="pname ptile-img-name">'+p.name+'</span>'+
+      '<span class="pname ptile-img-name">'+esc(p.name)+'</span>'+
     '</div>';
   }
   if(p.itemLibre){
-    return '<div class="ptile" style="background:#37474f;border:2px dashed #78909c;box-sizing:border-box;" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span></div>';
+    return '<div class="ptile" style="background:#37474f;border:2px dashed #78909c;box-sizing:border-box;" onclick="addCart('+p.id+',this)"><span class="pname">'+esc(p.name)+'</span></div>';
   }
-  return '<div class="ptile" style="background:'+getProductColor(p)+'" onclick="addCart('+p.id+',this)"><span class="pname">'+p.name+'</span></div>';
+  return '<div class="ptile" style="background:'+getProductColor(p)+'" onclick="addCart('+p.id+',this)"><span class="pname">'+esc(p.name)+'</span></div>';
 }
 
 function renderP(list){
@@ -1054,7 +1054,7 @@ function renderDescuentosTiles(){
       ? (d.tipo==='%' ? d.valor+'%' : gs(d.valor))
       : 'valor al vender';
     return '<div class="ptile" style="background:#b71c1c;" onclick="addDescuento('+d.id+')">'+
-      '<span class="pname" style="font-size:11px;">'+d.name+'<br>'+
+      '<span class="pname" style="font-size:11px;">'+esc(d.name)+'<br>'+
       '<span style="font-size:13px;font-weight:800;">'+valStr+'</span></span>'+
     '</div>';
   }).join('');
@@ -1364,16 +1364,16 @@ function renderDetalle(){
     const delIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>';
     if(item.esDescuento){
       div.style.borderLeft = '3px solid #ef5350';
-      div.innerHTML = '<div class="det-item-main"><div class="det-item-color" style="background:#e53935;font-size:9px;font-weight:800;">%</div><div class="det-item-name" style="color:#ef9a9a;">'+item.name+'</div><div class="det-item-subtotal" style="color:#ef5350;">-'+gs(item.montoDesc)+'</div></div><div class="det-item-controls"><button class="det-qbtn del" onclick="detChgQty('+item.lineId+',-1)">'+delIcon+'</button></div>';
+      div.innerHTML = '<div class="det-item-main"><div class="det-item-color" style="background:#e53935;font-size:9px;font-weight:800;">%</div><div class="det-item-name" style="color:#ef9a9a;">'+esc(item.name)+'</div><div class="det-item-subtotal" style="color:#ef5350;">-'+gs(item.montoDesc)+'</div></div><div class="det-item-controls"><button class="det-qbtn del" onclick="detChgQty('+item.lineId+',-1)">'+delIcon+'</button></div>';
       list.appendChild(div); return;
     }
     div.innerHTML =
-      '<div class="det-item-main"><div class="det-item-color" style="background:'+item.color+'"></div><div class="det-item-name">'+item.name+'</div><div class="det-item-subtotal">'+gs(item.price*item.qty)+'</div></div>' +
+      '<div class="det-item-main"><div class="det-item-color" style="background:'+item.color+'"></div><div class="det-item-name">'+esc(item.name)+'</div><div class="det-item-subtotal">'+gs(item.price*item.qty)+'</div></div>' +
       '<div class="det-item-controls"><div class="det-qty-row"><button class="det-qbtn del" onclick="detChgQty('+item.lineId+',-1)">'+(item.qty===1?delIcon:'−')+'</button><span class="det-qnum">'+item.qty+'</span><button class="det-qbtn" onclick="detChgQty('+item.lineId+',1)">+</button></div>' +
       '<span class="det-unit-price">'+gs(item.price)+' c/u</span>' +
-      '<button class="det-obs-toggle" onclick="toggleDetObs('+item.lineId+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+(item.obs?'Obs: '+item.obs.substring(0,20):'Observación')+'</button>' +
+      '<button class="det-obs-toggle" onclick="toggleDetObs('+item.lineId+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+(item.obs?'Obs: '+esc(item.obs.substring(0,20)):'Observación')+'</button>' +
       '<button class="det-obs-toggle" style="color:'+(item.desc>0?'var(--orange)':'var(--muted)')+'" onclick="toggleDetDesc('+item.lineId+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>'+(item.desc>0?'Desc: '+item.desc+'%':'Descuento')+'</button></div>' +
-      '<div class="det-obs-box'+(item.obs?' open':'')+'\" id="detObs_'+item.lineId+'"><input class="det-obs-input" type="text" placeholder="Ej: Sin cebolla, bien cocido..." maxlength="60" value="'+(item.obs||'')+'" oninput="saveDetObs('+item.lineId+', this.value)"></div>' +
+      '<div class="det-obs-box'+(item.obs?' open':'')+'\" id="detObs_'+item.lineId+'"><input class="det-obs-input" type="text" placeholder="Ej: Sin cebolla, bien cocido..." maxlength="60" value="'+esc(item.obs||'')+'" oninput="saveDetObs('+item.lineId+', this.value)"></div>' +
       '<div class="det-obs-box'+(item.desc>0?' open':'')+'\" id="detDesc_'+item.lineId+'" style="display:'+(item.desc>0?'block':'none')+';"><div style="display:flex;align-items:center;gap:8px;padding:6px 0;"><span style="font-size:12px;color:var(--muted);flex-shrink:0;">Descuento %</span><input class="det-obs-input" type="number" min="0" max="100" placeholder="0" value="'+(item.desc||'')+'" style="width:70px;text-align:center;" oninput="saveDetDesc('+item.lineId+', this.value)"><span style="font-size:12px;color:var(--orange);flex-shrink:0;">= '+gs(calcItemTotal(item))+'</span></div></div>';
     list.appendChild(div);
   });
