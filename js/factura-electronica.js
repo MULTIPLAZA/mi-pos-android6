@@ -633,6 +633,39 @@ async function feProcesarAnulacionFiscal(venta, motivo, email) {
   var estab = (venta.fe_numero || '').split('-')[0];
   var tim = tims.find(function(t){ return String(t.sucursal).padStart(3, '0') === estab; }) || tims[0];
 
+  return _emitirNotaCreditoSerializado(venta, email, estab, tim);
+}
+
+// _emitirNotaCreditoSerializado / _emitirNotaCreditoImpl: el correlativo de NC
+// (pos_config.fe_nc_correlativo, un JSON {"estab-punto": nro} genérico) se lee,
+// se incrementa en memoria y recién se persiste DESPUÉS de emitir a SIFEN
+// (feEmitir es una llamada de red lenta) -- sin serializar, dos NC casi
+// simultáneas para el mismo estab-punto (dos sesiones admin distintas, o
+// incluso 2 taps seguidos en la misma) leen el mismo valor de partida y
+// arman 2 documentos con el MISMO número oficial, que SIFEN rechaza por
+// correlativo duplicado. Mismo patrón que avanzarNroFactura._chain (turno.js)
+// usa para el correlativo de factura -- serializa llamadas del mismo tab/
+// sesión. OJO: esto NO protege contra 2 SESIONES/DISPOSITIVOS distintos
+// corriendo en paralelo -- eso requeriría una función atómica del lado
+// servidor (RPC de Postgres, mismo tipo de infraestructura que ya existe
+// para avanzar_correlativo), que no se puede armar sin acceso a Supabase.
+async function _emitirNotaCreditoSerializado(venta, email, estab, tim){
+  // A diferencia de avanzarNroFactura._chain (que traga el error porque es
+  // fire-and-forget), acá el llamador SÍ necesita ver si falló -- por eso
+  // 'current' es la promesa real que se devuelve, y '_chain' guarda una
+  // versión neutralizada (catch mudo) solo para que el PRÓXIMO llamado
+  // pueda encadenarse aunque este haya fallado. Sin esto, una sola NC que
+  // falla dejaría _chain en rechazado para siempre y ninguna NC futura en
+  // esta pestaña volvería a intentarse.
+  var prev = _emitirNotaCreditoSerializado._chain || Promise.resolve();
+  var current = prev.catch(function(){}).then(function(){
+    return _emitirNotaCreditoImpl(venta, email, estab, tim);
+  });
+  _emitirNotaCreditoSerializado._chain = current.catch(function(){});
+  return current;
+}
+
+async function _emitirNotaCreditoImpl(venta, email, estab, tim){
   // Correlativo propio de NC por estab-punto (pos_config fe_nc_correlativo)
   var punto = (venta.fe_numero || '').split('-')[1];
   var key = estab + '-' + punto;
