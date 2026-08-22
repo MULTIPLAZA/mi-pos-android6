@@ -864,12 +864,22 @@ function abrirAjuste(){
 }
 
 async function guardarAjuste(){
-  if(!_inv.prodActivo) return;
+  // A diferencia de movGuardar/ejecutarTransferencia/movEjecutarAnulacion,
+  // esta funcion no tenia NINGUNA proteccion contra doble-submit (ni
+  // siquiera btn.disabled) -- un doble-tap podia disparar el ajuste de
+  // stock 2 veces, duplicando el movimiento y aplicando el delta de
+  // cantidad dos veces. Mismo patron _running que ya usa confirmarPago()
+  // en cobro.js.
+  if(guardarAjuste._running) return;
+  guardarAjuste._running = true;
+  if(!_inv.prodActivo){ guardarAjuste._running=false; return; }
   var tipo    = document.getElementById('ajTipo').value;
   var cant    = parseFloat(document.getElementById('ajCant').value)||0;
   var motivo  = document.getElementById('ajMotivo').value.trim();
-  if(cant<=0){toast('Ingresá una cantidad válida'); return;}
-  if(!motivo){toast('El motivo es obligatorio'); return;}
+  if(cant<=0){toast('Ingresá una cantidad válida'); guardarAjuste._running=false; return;}
+  if(!motivo){toast('El motivo es obligatorio'); guardarAjuste._running=false; return;}
+  var _btnAj=document.querySelector('[onclick="guardarAjuste()"]');
+  if(_btnAj){_btnAj.disabled=true;_btnAj.textContent='Guardando...';}
 
   var sr=_inv.prds.find(function(r){return String(r.producto_id)===String(_inv.prodActivo.id);});
   var qAct=sr?sr.cantidad||0:0;
@@ -921,6 +931,7 @@ async function guardarAjuste(){
     if(typeof renderInvTabla==='function' && _inv.prds) renderInvTabla(_inv.prds);
     await cargarHistorial();
   }catch(e){ toast('Error: '+e.message); }
+  finally{ guardarAjuste._running=false; if(_btnAj){_btnAj.disabled=false;_btnAj.textContent='Guardar ajuste';} }
 }
 
 // Guarda/actualiza cantidad_minima -- vacío o 0 significa "sin alerta" para
