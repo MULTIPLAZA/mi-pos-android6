@@ -401,16 +401,26 @@ function cerrarCobrarFiado() {
 }
 
 function confirmarCobrarFiado() {
-  if (!_cobFiadoCId) return;
+  // _running: fiadoCobrar() es auto-limitante (relee localStorage
+  // sincronicamente, asi que un segundo llamado con la deuda ya saldada
+  // simplemente no encuentra nada pendiente que marcar) pero
+  // cobroRegistrar()/registrarIngreso() de mas abajo NO lo son -- un
+  // doble-tap en "Confirmar cobro" duplicaba el historial de cobro Y el
+  // ingreso de caja (el dinero se contaba dos veces en el turno) aunque la
+  // deuda real solo se reducia una vez. Mismo patron que confirmarPago()
+  // en cobro.js.
+  if (confirmarCobrarFiado._running) return;
+  confirmarCobrarFiado._running = true;
+  if (!_cobFiadoCId) { confirmarCobrarFiado._running = false; return; }
   var monto = parseInt((document.getElementById('cobrarFiadoMonto').value||'').replace(/[^0-9]/g,'')) || 0;
-  if (monto <= 0) { if(typeof toast==='function') toast('Ingresá el monto'); return; }
+  if (monto <= 0) { if(typeof toast==='function') toast('Ingresá el monto'); confirmarCobrarFiado._running = false; return; }
   var saldo = cliSaldo(_cobFiadoCId);
-  if (saldo <= 0) { if(typeof toast==='function') toast('Cuenta ya está en cero'); cerrarCobrarFiado(); return; }
+  if (saldo <= 0) { if(typeof toast==='function') toast('Cuenta ya está en cero'); cerrarCobrarFiado(); confirmarCobrarFiado._running = false; return; }
   if (monto > saldo) {
-    if (!confirm('El monto '+numGs(monto)+' supera el saldo '+numGs(saldo)+'. Se registrará '+numGs(saldo)+'.')) return;
+    if (!confirm('El monto '+numGs(monto)+' supera el saldo '+numGs(saldo)+'. Se registrará '+numGs(saldo)+'.')) { confirmarCobrarFiado._running = false; return; }
     monto = saldo;
   }
-  if (monto <= 0) { if(typeof toast==='function') toast('Ingresá un monto válido'); return; }
+  if (monto <= 0) { if(typeof toast==='function') toast('Ingresá un monto válido'); confirmarCobrarFiado._running = false; return; }
   var metodo  = document.getElementById('cobrarFiadoMetodo').value || 'efectivo';
   var cobrado = fiadoCobrar(_cobFiadoCId, monto, metodo);
   var nomStr  = document.getElementById('cobrarFiadoNombre').textContent;
@@ -424,6 +434,7 @@ function confirmarCobrarFiado() {
   imprimirReciboCobro(nomStr, cobrado, metodo, nuevoSaldo);
   if (_detalleCliId) abrirDetalleCliente(_detalleCliId);
   else renderCreditoScreen();
+  confirmarCobrarFiado._running = false;
 }
 
 function imprimirReciboCobro(nombre, monto, metodo, nuevoSaldo) {
