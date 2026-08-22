@@ -77,7 +77,7 @@ function renderMesasScreen(){
     '<button class="salon-tab'+(mesaSalonSel===s.id?' sel':'')+
     '" style="border-bottom-color:'+(mesaSalonSel===s.id?s.color:'transparent')+
     ';color:'+(mesaSalonSel===s.id?s.color:'var(--muted)')+
-    '" onclick="mesaSelSalon('+s.id+')">'+s.nombre+'</button>'
+    '" onclick="mesaSelSalon('+s.id+')">'+esc(s.nombre)+'</button>'
   ).join('');
 
   // Mesas del salón seleccionado
@@ -117,7 +117,7 @@ function renderMesasScreen(){
         + ' ontouchmove="_mesaLpEnd()"'
       : '';
     return '<div class="mesa-tile '+estado+'" onclick="onMesaTap('+m.id+')"'+lpAttrs+'>' +
-      '<div class="mesa-tile-nombre">'+m.nombre+'</div>'+
+      '<div class="mesa-tile-nombre">'+esc(m.nombre)+'</div>'+
       (info ? '<div class="mesa-tile-info">'+info+'</div>' : '')+
       cliBloque+
       '</div>';
@@ -351,7 +351,7 @@ function renderModalGestion(){
   const salonItems = mesasSalones.map(s =>
     '<div class="mesas-salon-item">'+
     '<div class="mesas-salon-color" style="background:'+s.color+'"></div>'+
-    '<span class="mesas-salon-name">'+s.nombre+'</span>'+
+    '<span class="mesas-salon-name">'+esc(s.nombre)+'</span>'+
     '<button class="mesas-btn-sm" onclick="editarSalon('+s.id+')">Editar</button>'+
     '<button class="mesas-btn-sm danger" onclick="eliminarSalon('+s.id+')">Borrar</button>'+
     '</div>'
@@ -369,17 +369,17 @@ function renderModalGestion(){
       mesasSalones.map(s => {
         const mm = mesasMesas.filter(m => m.salon_id === s.id);
         return '<div style="margin-bottom:12px;">'+
-          '<div style="font-size:12px;font-weight:700;color:'+s.color+';margin-bottom:6px;text-transform:uppercase;">'+s.nombre+'</div>'+
+          '<div style="font-size:12px;font-weight:700;color:'+s.color+';margin-bottom:6px;text-transform:uppercase;">'+esc(s.nombre)+'</div>'+
           '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;">'+
           mm.map(m =>
             '<div style="display:flex;align-items:center;gap:4px;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px 8px;">'+
-            '<span style="font-size:13px;font-weight:700;color:var(--text);">'+m.nombre+'</span>'+
+            '<span style="font-size:13px;font-weight:700;color:var(--text);">'+esc(m.nombre)+'</span>'+
             '<button class="mesas-btn-sm" style="padding:3px 7px;" onclick="editarMesa('+m.id+')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>'+
             '<button class="mesas-btn-sm danger" style="padding:3px 7px;" onclick="eliminarMesa('+m.id+')"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>'+
             '</div>'
           ).join('')+
           '</div>'+
-          '<button class="mesas-btn-sm" onclick="abrirFormMesa('+s.id+')">+ Agregar mesa a '+s.nombre+'</button>'+
+          '<button class="mesas-btn-sm" onclick="abrirFormMesa('+s.id+')">+ Agregar mesa a '+esc(s.nombre)+'</button>'+
           '</div>';
       }).join('') : '')+
 
@@ -399,7 +399,7 @@ function abrirFormSalon(salonId){
     '<div class="mesas-modal-title">'+(s?'Editar':'Nuevo')+' Salón</div>'+
     '<div class="mesas-form-row">'+
       '<label class="mesas-form-label">Nombre del salón</label>'+
-      '<input class="mesas-form-input" id="formSalonNombre" placeholder="Ej: Terraza, Salón Principal" value="'+(s?s.nombre:'')+'" maxlength="40">'+
+      '<input class="mesas-form-input" id="formSalonNombre" placeholder="Ej: Terraza, Salón Principal" value="'+esc(s?s.nombre:'')+'" maxlength="40">'+
     '</div>'+
     '<div class="mesas-form-row">'+
       '<label class="mesas-form-label">Color del salón</label>'+
@@ -502,10 +502,10 @@ function abrirFormMesa(salonId, mesaId){
   const s = mesasSalones.find(x => x.id === (salonId || (m?m.salon_id:null)));
   const mc = document.getElementById('mesasModalContent');
   mc.innerHTML =
-    '<div class="mesas-modal-title">'+(m?'Editar':'Nueva')+' Mesa — '+(s?s.nombre:'')+' </div>'+
+    '<div class="mesas-modal-title">'+(m?'Editar':'Nueva')+' Mesa — '+esc(s?s.nombre:'')+' </div>'+
     '<div class="mesas-form-row">'+
       '<label class="mesas-form-label">Nombre de la mesa</label>'+
-      '<input class="mesas-form-input" id="formMesaNombre" placeholder="Ej: Mesa 1, Barra 2, VIP..." value="'+(m?m.nombre:'')+'" maxlength="30">'+
+      '<input class="mesas-form-input" id="formMesaNombre" placeholder="Ej: Mesa 1, Barra 2, VIP..." value="'+esc(m?m.nombre:'')+'" maxlength="30">'+
     '</div>'+
     '<div class="mesas-form-row">'+
       '<label class="mesas-form-label">Capacidad (personas)</label>'+
