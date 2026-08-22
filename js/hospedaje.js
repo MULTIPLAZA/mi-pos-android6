@@ -1354,16 +1354,27 @@ function hospAgregarNoche(){
   const tarifa = _hospEstadiaSel.tarifa_noche || (h && h.precio_noche) || 0;
   const fechaHoy = new Date().toISOString().substring(0,10);
   const tarifaNoche = tarifa;
+  const _btnNoche = document.getElementById('hospBtnAgregarNoche');
+  if(_btnNoche && _btnNoche.disabled) return; // ver hospAgregarCargo._running
+  if(_btnNoche) _btnNoche.disabled = true;
   hospAgregarCargo({
     fecha: fechaHoy,
     descripcion: (esMensual ? 'Mes — Hab. ' : 'Noche — Hab. ') + (h ? h.numero : ''),
     cantidad: 1, precio_unitario: tarifaNoche, monto: tarifaNoche, iva: '10',
-  });
+  }).finally(function(){ if(_btnNoche) _btnNoche.disabled = false; });
 }
 
 async function hospAgregarCargo(cargo){
+  // _running: sin esto, un doble-tap en "+ NOCHE" (el llamador mas comun,
+  // un boton de un solo tap sin ningun disabled) duplicaba el cargo -- ya
+  // que el push a est.cargos ocurre ANTES del primer await, dos llamadas
+  // casi simultaneas quedaban las dos adentro del array antes de que
+  // cualquiera de las dos terminara de guardar. Mismo patron que
+  // confirmarPago() en cobro.js / guardarAjuste() en admin-inventario.js.
+  if(hospAgregarCargo._running) return;
+  hospAgregarCargo._running = true;
   const est = _hospEstadiaSel;
-  if(!est) return;
+  if(!est){ hospAgregarCargo._running=false; return; }
   est.cargos = est.cargos || [];
   est.cargos.push(cargo);
   est.total = est.cargos.reduce(function(s, c){ return s + (c.monto || 0); }, 0);
@@ -1374,6 +1385,8 @@ async function hospAgregarCargo(cargo){
     toast('+ ' + cargo.descripcion + ' · ' + gs(cargo.monto));
   }catch(e){
     toast('Error al guardar el cargo: ' + e.message);
+  } finally {
+    hospAgregarCargo._running = false;
   }
 }
 
