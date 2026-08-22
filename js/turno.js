@@ -1251,10 +1251,14 @@ function descartarPendiente(i){
   const t = pendientes[i];
   if(!t) return;
   if(!confirm('¿Descartar el ticket #'+String(t.nro).padStart(4,'0')+'? Se eliminará de la lista de pendientes.')) return;
-  // Si es pedido satélite, marcar como cancelado en Supabase para que no vuelva al sync
+  // Si es pedido satélite, marcar como cancelado en Supabase para que no vuelva al sync.
+  // supaPatchResiliente (js/config.js), mismo fallback key 'pos_pedidos_sync_fallback'
+  // que marcarPedidoSateliteCobrado() (pedidos.js) -- así cajaSyncPedidosSatelite()
+  // ya lo reintenta ANTES de refetchear con el patch que arregló el mismo bug para
+  // "cobrado" (v1.15.156): sin la cola, un corte de red acá dejaba el pedido
+  // 'abierto'/'en_cobro' en Supabase para siempre y resucitaba en otras terminales.
   if(t.esSatelite && t.supabasePedidoId){
-    supaPatch('pos_pedidos', 'id=eq.'+t.supabasePedidoId, {estado:'cancelado', updated_at: new Date().toISOString()}, true)
-      .catch(e => console.warn('[descartarPendiente] Error cancelando en Supabase:', e.message));
+    supaPatchResiliente('pos_pedidos', 'id=eq.'+t.supabasePedidoId, {estado:'cancelado', updated_at: new Date().toISOString()}, 'pos_pedidos_sync_fallback');
   }
   // Si es el ticket activo actualmente, limpiar carrito
   if(currentTicketNro === t.nro){

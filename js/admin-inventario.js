@@ -1905,6 +1905,9 @@ function movLimpiar(){
 // ── GUARDAR ───────────────────────────────────────────────
 async function movGuardar(){
   if(!_mov.items.length){toast('Agregá al menos un producto');return;}
+  // Reintenta costo-updates de compras anteriores que hayan quedado encolados
+  // por un fallo de red — oportunista, no bloquea este guardado.
+  if(typeof supaReintentarResilientes==='function') supaReintentarResilientes('pos_costo_sync_fallback');
   var licId=await movGetLicId();
   var fecha=document.getElementById('movFecha').value||new Date().toISOString().split('T')[0];
   var comp=document.getElementById('movComp').value.trim();
@@ -2019,8 +2022,11 @@ async function movGuardar(){
             // Con id ya no globalmente único (ver database/PATCH_pos_productos_licencia_id_uq_v1.sql),
             // hay que filtrar también por licencia_email — si no, esto podía pisar
             // el costo de un producto de OTRO cliente que comparta el mismo id.
-            supaPatch('pos_productos','id=eq.'+it.prodId+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoFinal,updated_at:now},true)
-              .catch(function(e){console.warn('[Costo update]',e.message);});
+            // supaPatchResiliente (js/config.js): antes era un supaPatch suelto con
+            // catch mudo — si fallaba (red caída), la compra quedaba bien registrada
+            // (stock_comprobantes/items ya están AWAITED arriba) pero el producto se
+            // quedaba con el costo VIEJO para siempre, sin ningún reintento ni aviso.
+            supaPatchResiliente('pos_productos','id=eq.'+it.prodId+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoFinal,updated_at:now},'pos_costo_sync_fallback');
           }
         });
       }
