@@ -2864,7 +2864,15 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
 
 function _confirmarNuevoProducto(codigo){
   var nombre = (document.getElementById('_mnpNombre').value || '').trim().toUpperCase();
-  var precio  = parseFloat(document.getElementById('_mnpPrecio').value) || 0;
+  // Math.max(0,...): el numpad de este modal solo acumula dígitos (no se
+  // puede tipear "-" a mano), PERO el hidden #_mnpPrecio arranca precargado
+  // con precioPrefill -- que en _crearYVenderExterno() viene de un archivo
+  // externo importado (columnas Precio/PrecioVenta/Importe, etc). Si la caja
+  // acepta el precio sugerido SIN tocar el numpad (no dispara _mnpNum, que sí
+  // sanitiza a dígitos), un precio negativo/invalido en el archivo importado
+  // pasaba directo: `!precio` no lo atrapa (negativo es truthy), y ese item
+  // se agrega al carrito (addCart no valida precio), restando del total.
+  var precio  = Math.max(0, parseFloat(document.getElementById('_mnpPrecio').value) || 0);
   if(!nombre){ document.getElementById('_mnpNombre').style.border='1.5px solid #f44336'; return; }
   if(!precio){ document.getElementById('_mnpPrecioDisp').style.border='1.5px solid #f44336'; return; }
   document.getElementById('_modalNuevoProd').remove();
