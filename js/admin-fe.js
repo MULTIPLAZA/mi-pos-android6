@@ -223,7 +223,7 @@ function feBuildDocsLista(){
     var cliente = d.factura_nombre || d.cliente_nombre || 'Consumidor final';
     var resp = d.fe_respuesta ? '<div style="font-size:11px;color:'+(String(d.fe_estado)==='4'?'var(--red)':'var(--muted)')+';margin-top:6px;padding:8px 10px;background:var(--card2);border-radius:6px;line-height:1.5;">'+escapeHtml(d.fe_respuesta)+'</div>' : '';
     if(d.fe_nc_cdc){
-      resp += '<div style="font-size:11px;color:var(--orange);margin-top:6px;padding:8px 10px;background:var(--card2);border-radius:6px;line-height:1.5;">Nota de Crédito '+escapeHtml(d.fe_nc_numero||'')+' '+feEstadoBadge(d.fe_nc_estado)+'<br><span style="font-family:monospace;font-size:10px;color:var(--muted);word-break:break-all;">'+d.fe_nc_cdc+'</span></div>';
+      resp += '<div style="font-size:11px;color:var(--orange);margin-top:6px;padding:8px 10px;background:var(--card2);border-radius:6px;line-height:1.5;">Nota de Crédito '+escapeHtml(d.fe_nc_numero||'')+' '+feEstadoBadge(d.fe_nc_estado)+'<br><span style="font-family:monospace;font-size:10px;color:var(--muted);word-break:break-all;">'+escapeHtml(d.fe_nc_cdc)+'</span></div>';
     }
     return '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;">'+
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">'+
@@ -233,7 +233,7 @@ function feBuildDocsLista(){
       '</div>'+
       '<div style="font-size:14px;font-weight:800;color:var(--green);">'+gs(d.total)+'</div>'+
       '</div>'+
-      '<div onclick="feCopiarCDC(\''+d.fe_cdc+'\')" title="Copiar CDC" style="font-size:10px;font-family:monospace;color:var(--muted);margin-top:6px;cursor:pointer;word-break:break-all;">CDC: '+d.fe_cdc+'</div>'+
+      '<div onclick="feCopiarCDC(\''+escapeHtml(d.fe_cdc)+'\')" title="Copiar CDC" style="font-size:10px;font-family:monospace;color:var(--muted);margin-top:6px;cursor:pointer;word-break:break-all;">CDC: '+escapeHtml(d.fe_cdc)+'</div>'+
       resp+
       '</div>';
   }).join('');
