@@ -142,12 +142,32 @@ export async function actualizarRubro(db, tenant, params) {
   return { ok: true };
 }
 
+// Implementado 2026-08-21 -- ver d1-migrations/0003_correlativos.sql. Scopeado a
+// (licencia_id, terminal), NO a timbrado_id (el MVP Cloudflare todavia no tiene
+// catalogo de timbrados propio; el frontend solo manda p_terminal, ver
+// js/turno.js:70). El contrato de retorno replica el de Supabase (confirmado
+// empiricamente contra timbrado_terminales.nro_actual de un tenant real): el
+// numero devuelto es el que va a usar la PROXIMA factura, no la que se acaba de
+// emitir -- turno.js cachea `d.nro_actual` para el siguiente cobro.
+//
+// INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING es una sola sentencia SQL
+// atomica en SQLite/D1 -- evita la carrera read-then-write que causaba
+// comprobantes duplicados en el lado Supabase (ver PATCH_BackfillRG90 / bug ya
+// corregido en turno.js avanzarNroFactura._chain).
 export async function avanzarCorrelativo(db, tenant, params) {
-  // NO IMPLEMENTADO todavia - necesita leerse la funcion Postgres original para saber
-  // en que tabla/columna vive el correlativo (no hay tabla de correlativos en el MVP
-  // schema). db.batch() es la herramienta a usar aca para que el read-increment-write
-  // sea atomico y no se dupliquen numeros de comprobante entre terminales concurrentes.
-  throw new ShimError('avanzar_correlativo: pendiente de implementar (ver comentario en rpc.js)', 501);
+  const terminal = (params && params.p_terminal) || 'Terminal 1';
+  const row = await db
+    .prepare(
+      `INSERT INTO correlativos (licencia_id, terminal, nro_actual, updated_at)
+       VALUES (?, ?, 2, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+       ON CONFLICT(licencia_id, terminal) DO UPDATE SET
+         nro_actual = nro_actual + 1,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       RETURNING nro_actual`,
+    )
+    .bind(tenant.lid, terminal)
+    .first();
+  return { ok: true, nro_actual: row.nro_actual };
 }
 
 export async function descontarStockVenta(db, tenant, params) {
