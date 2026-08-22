@@ -1268,7 +1268,7 @@ async function loadTer(){
     const sel = document.getElementById('terFiltroEmp');
     sel.innerHTML = '<option value="">Todas las empresas</option>' +
       '<option value="__demo__">Solo demo</option>' +
-      emails.map(e=>`<option value="${e}">${allTer._reales.find(t=>t.email===e)?.nombre_negocio||e}</option>`).join('');
+      emails.map(e=>`<option value="${esc(e)}">${esc(allTer._reales.find(t=>t.email===e)?.nombre_negocio||e)}</option>`).join('');
     filtrTer();
   }catch(e){
     allTer = DEMO_TER;
@@ -1309,7 +1309,14 @@ function buildTerCard(t, g, hoy) {
   var act   = !!t.activa;
   var modo  = t.modo || 'caja';
   var nom   = t.nombre_terminal || 'Terminal';
-  var nomSafe = nom.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // nomSafe va dentro de varios onclick="...('...')" -- doble contexto
+  // (atributo HTML + string JS de un argumento). El navegador decodifica
+  // entidades HTML del atributo ANTES de compilarlo como JS, asi que
+  // escapar solo la comilla simple para JS no alcanza -- hace falta
+  // ademas escapar la capa HTML (& " < >) para que el atributo en si no
+  // se rompa. Mismo patron ya corregido en admin-inventario.js esta sesion.
+  var nomSafe = nom.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+    .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
   // ── Verificaciones de estado ─────────────────────────────────────────────
   var turnos  = allTer._turnos  || [];
@@ -1343,7 +1350,7 @@ function buildTerCard(t, g, hoy) {
 
   // Nombre + badge modo
   parts.push('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px;">');
-  parts.push('<span style="font-size:13px;font-weight:700;">' + nom + '</span>');
+  parts.push('<span style="font-size:13px;font-weight:700;">' + esc(nom) + '</span>');
   if (modo === 'satelite') {
     parts.push('<span style="font-size:10px;font-weight:800;');
     parts.push('background:rgba(83,74,183,0.15);border:1px solid rgba(83,74,183,0.4);');
@@ -1359,7 +1366,7 @@ function buildTerCard(t, g, hoy) {
 
   // Sucursal y última conexión
   parts.push('<div style="font-size:11px;color:var(--muted);">');
-  parts.push((t.sucursal || '—') + ' &middot; ' + (on ? 'Online' : 'Ultima: ' + fmt(t.ultima_consulta)));
+  parts.push(esc(t.sucursal || '—') + ' &middot; ' + (on ? 'Online' : 'Ultima: ' + fmt(t.ultima_consulta)));
   parts.push('</div>');
 
   // Device ID
@@ -1452,7 +1459,14 @@ function renderTer(lista){
     grupos[k].items.push(t);
   });
 
-  cont.innerHTML = Object.values(grupos).map(g=>`
+  cont.innerHTML = Object.values(grupos).map(g=>{
+    // emailJs: doble contexto (atributo onclick + string JS de un solo
+    // argumento) -- escapar la capa JS primero (\ y ') y despues la capa
+    // HTML (& " < >), mismo criterio ya usado en admin-inventario.js para
+    // el nombre de producto en un onclick similar.
+    const emailJs = String(g.email||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")
+      .replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    return `
     <div style="margin-bottom:18px;">
       <!-- Cabecera empresa -->
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border:1px solid var(--border);border-bottom:none;">
@@ -1460,16 +1474,17 @@ function renderTer(lista){
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${g.negocio||'Sin nombre'}</div>
-          <div style="font-size:11px;color:var(--muted);">${g.email} · ${g.items.length} terminal${g.items.length!==1?'es':''} · ${g.plan}</div>
+          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(g.negocio||'Sin nombre')}</div>
+          <div style="font-size:11px;color:var(--muted);">${esc(g.email)} · ${g.items.length} terminal${g.items.length!==1?'es':''} · ${esc(g.plan)}</div>
         </div>
         <span class="tag tag-g" style="flex-shrink:0;">${g.items.filter(t=>t.activa).length} activas</span>
-        ${g.items.length > 3 ? '<button onclick="limpiarDuplicadas(\'' + g.email + '\')" style="background:var(--r2);border:1px solid var(--red);color:var(--red);font-size:10px;font-weight:800;padding:4px 8px;cursor:pointer;flex-shrink:0;">LIMPIAR DUPLICADAS</button>' : ''}
+        ${g.items.length > 3 ? '<button onclick="limpiarDuplicadas(\'' + emailJs + '\')" style="background:var(--r2);border:1px solid var(--red);color:var(--red);font-size:10px;font-weight:800;padding:4px 8px;cursor:pointer;flex-shrink:0;">LIMPIAR DUPLICADAS</button>' : ''}
       </div>
       <!-- Terminales de esta empresa -->
       ${g.items.map(function(t){ return buildTerCard(t, g, hoy); }).join('')}
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 // ── cambiarModoTer — cambia el modo de una terminal (caja ↔ satélite) ──────
@@ -1804,7 +1819,7 @@ function calcRep(lics,terms){
     '<div class="sec-t" style="margin-top:16px;">Por rubro</div>'+
     Object.entries(pr).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`
       <div class="li"><div class="li-ic"><span style="font-size:16px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span></div>
-      <div class="li-inf"><div class="li-t">${RUBROS[r]||r}</div></div>
+      <div class="li-inf"><div class="li-t">${esc(RUBROS[r]||r)}</div></div>
       <div class="li-r"><div class="li-v" style="color:var(--green)">${c}</div><div class="li-s2">licencias</div></div></div>`).join('');
 }
 
@@ -1992,9 +2007,9 @@ async function buscarRucAdmin(q){
       el.innerHTML = rows.map(r=>{
         const color = r.estado==='ACTIVO'?'var(--green)':r.estado==='CANCELADO'?'var(--red)':'var(--orange)';
         return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);">'+
-          '<div><div style="font-size:13px;font-weight:700;color:#fff;">'+r.razon_social+'</div>'+
-          '<div style="font-size:12px;color:var(--muted);">RUC: '+r.ruc+(r.dv?'-'+r.dv:'')+'</div></div>'+
-          '<span style="font-size:11px;background:rgba(0,0,0,.3);color:'+color+';padding:3px 8px;font-weight:700;">'+r.estado+'</span>'+
+          '<div><div style="font-size:13px;font-weight:700;color:#fff;">'+esc(r.razon_social)+'</div>'+
+          '<div style="font-size:12px;color:var(--muted);">RUC: '+esc(r.ruc)+(r.dv?'-'+esc(r.dv):'')+'</div></div>'+
+          '<span style="font-size:11px;background:rgba(0,0,0,.3);color:'+color+';padding:3px 8px;font-weight:700;">'+esc(r.estado)+'</span>'+
           '</div>';
       }).join('');
     } catch(e){ el.innerHTML='<div style="color:var(--red);font-size:13px;">Error: '+e.message+'</div>'; }
