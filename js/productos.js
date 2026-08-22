@@ -2047,8 +2047,13 @@ async function supaLoadProductos(){
   var email = localStorage.getItem(SK.email);
   if(!email) return;
   try {
+    // limit=5000 explicito: sin esto, PostgREST aplica su propio tope por
+    // defecto server-side (invisible desde el cliente) -- un tenant con un
+    // catalogo grande podia perder productos de la venta en silencio, sin
+    // ningun error ni aviso, solo "no aparecen". Mismo limite ya usado para
+    // pos_ventas en varios reportes admin (admin-finanzas.js).
     var data = await supaGet('pos_productos',
-      'licencia_email=eq.'+encodeURIComponent(email)+'&order=nombre.asc&select=*'
+      'licencia_email=eq.'+encodeURIComponent(email)+'&order=nombre.asc&select=*&limit=5000'
     );
     if(!data || !data.length) return;
 
@@ -2192,8 +2197,10 @@ async function supaLoadCategorias(){
   var email = localStorage.getItem(SK.email);
   if(!email){ console.warn('[supaLoadCategorias] Sin email en localStorage (SK.email='+SK.email+')'); return; }
   try {
+    // limit explicito: mismo motivo que supaLoadProductos() -- evitar
+    // depender del tope por defecto de PostgREST, invisible desde el cliente.
     var data = await supaGet('pos_categorias',
-      'licencia_email=eq.'+encodeURIComponent(email)+'&order=nombre.asc&select=*'
+      'licencia_email=eq.'+encodeURIComponent(email)+'&order=nombre.asc&select=*&limit=1000'
     );
     _log('[supaLoadCategorias] Supabase devolvió', (data||[]).length, 'categorías para email:', email);
     if(!data || !data.length){
