@@ -129,6 +129,46 @@ async function supaPatch(tabla, filtro, data, minimal) {
   try { return JSON.parse(txt); } catch(e) { return []; }
 }
 
+// ── PATCH resiliente (con cola de reintento en localStorage) ────────────
+// Mismo patron que se termino repitiendo (y a veces faltando) en varios
+// modulos por separado -- ver hallazgos 2026-08-22 en credito.js
+// (pos_cred_fiado/pos_cred_clientes) y hospedaje.js (pos_estadias): un
+// simple `.catch(function(){})` sin cola de respaldo hacia que un corte de
+// red momentaneo perdiera el cambio para siempre (o dejara datos
+// inconsistentes entre terminales) sin que nadie se enterara. Se centraliza
+// aca para que cualquier modulo nuevo lo use en vez de reinventarlo (o, peor,
+// olvidarse de manejarlo). credito.js/hospedaje.js ya tenian su propia
+// implementacion andando antes de que existiera esta -- no se tocaron para
+// no arriesgar una regresion sobre algo ya en produccion, pero el proximo
+// caso deberia usar esto.
+async function supaPatchResiliente(tabla, filtro, data, fallbackKey) {
+  try {
+    await supaPatch(tabla, filtro, data, true);
+  } catch (e) {
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(fallbackKey) || '[]'); } catch (e2) {}
+    arr.push({ tabla: tabla, filtro: filtro, data: data, encolado: new Date().toISOString() });
+    try { localStorage.setItem(fallbackKey, JSON.stringify(arr)); } catch (e3) {}
+    console.warn('[' + tabla + '] Patch falló, encolado en ' + fallbackKey + ':', e.message);
+  }
+}
+// Reintenta todo lo pendiente en `fallbackKey`. Llamar oportunísticamente
+// cada vez que la pantalla dueña de esos datos se recarga, ANTES de traer
+// datos frescos del servidor (si no, el refetch pisa el cambio local que
+// todavía no subió).
+async function supaReintentarResilientes(fallbackKey) {
+  var arr = [];
+  try { arr = JSON.parse(localStorage.getItem(fallbackKey) || '[]'); } catch (e) { return; }
+  if (!arr.length) return;
+  var quedan = [];
+  for (var i = 0; i < arr.length; i++) {
+    var it = arr[i];
+    try { await supaPatch(it.tabla, it.filtro, it.data, true); }
+    catch (e) { quedan.push(it); }
+  }
+  try { localStorage.setItem(fallbackKey, JSON.stringify(quedan)); } catch (e) {}
+}
+
 // DELETE: supaDelete('pos_productos', 'id=eq.123')
 async function supaDelete(tabla, filtro) {
   var r = await fetch(backendBaseUrl() + '/rest/v1/' + tabla + '?' + filtro, {

@@ -337,12 +337,17 @@ function marcarPedidoSateliteCobrado(pedidoId){
   if(!pedidoId || USAR_DEMO) return;
   // PATCH en Supabase
   var _email = localStorage.getItem('lic_email');
-  supaPatch('pos_pedidos', 'id=eq.' + encodeURIComponent(pedidoId) + '&licencia_email=eq.' + encodeURIComponent(_email || ''),
-    { estado: 'cobrado', updated_at: new Date().toISOString() }, true)
+  // supaPatchResiliente (js/config.js): si falla, encola en localStorage en
+  // vez de perderse -- sin esto un pedido satélite quedaba "abierto" para
+  // siempre en otras terminales/mesas aunque ya estuviera cobrado, con un
+  // simple corte de red al momento del cobro.
+  supaPatchResiliente('pos_pedidos',
+    'id=eq.' + encodeURIComponent(pedidoId) + '&licencia_email=eq.' + encodeURIComponent(_email || ''),
+    { estado: 'cobrado', updated_at: new Date().toISOString() },
+    'pos_pedidos_sync_fallback')
   .then(function(){
     _log('[CajaSync] Pedido satélite marcado cobrado:', pedidoId);
-  })
-  .catch(function(e){ console.warn('[CajaSync] Error marcando cobrado:', e.message); });
+  });
 
   // Eliminar de pendientes[] local inmediatamente (no esperar a Supabase)
   setPendientes(pendientes.filter(function(p){ return p.supabasePedidoId !== pedidoId; }));
@@ -375,6 +380,11 @@ async function cajaSyncPedidosSatelite(){
   const email    = localStorage.getItem(SK.email);
   const sucursal = localStorage.getItem('pos_sucursal') || 'Principal';
   if(!email) return;
+
+  // Reintentar "marcar cobrado" pendientes ANTES de refetchear -- si no, el
+  // refetch de abajo (que trae estado=in.(abierto,en_cobro)) resucita como
+  // "abierto" un pedido que en realidad ya se cobró pero cuyo PATCH falló.
+  try{ await supaReintentarResilientes('pos_pedidos_sync_fallback'); }catch(e){ console.warn('[CajaSync] Error reintentando pendientes:', e.message); }
 
   try{
     const rows = await supaGet('pos_pedidos',
