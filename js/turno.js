@@ -869,10 +869,17 @@ function closeEgresoModal(e){
 }
 
 function guardarEgreso(){
+  // _running: turnoData.egresos.push() es sincrónico, sin ningún await
+  // antes -- un doble-tap en cualquiera de los 2 botones "REGISTRAR" que
+  // llaman esta función duplicaba el egreso completo (mismo patrón ya
+  // encontrado y arreglado en hospAgregarCargo()/confirmarCobrarFiado()/
+  // guardarAjuste() en vueltas anteriores).
+  if(guardarEgreso._running) return;
+  guardarEgreso._running = true;
   const desc = document.getElementById('egresoDesc').value.trim();
   let monto = parseInt(document.getElementById('egresoMonto').value)||0;
-  if(!desc){ toast('Ingresá la descripción'); return; }
-  if(!monto){ toast('Ingresá el monto'); return; }
+  if(!desc){ toast('Ingresá la descripción'); guardarEgreso._running=false; return; }
+  if(!monto){ toast('Ingresá el monto'); guardarEgreso._running=false; return; }
   const egreso = { desc, fecha: new Date() };
   // Egreso siempre se guarda en Gs (mismo criterio que el resto de la caja) —
   // si se tipeó en R$ (toggle del modal), convertir y ADEMÁS preservar el
@@ -884,6 +891,7 @@ function guardarEgreso(){
       // Sin esto, el monto tipeado en R$ se guardaba tal cual como si
       // fueran Gs (subestimando el egreso real por el factor de cambio).
       toast('Configurá la cotización del Real en Configuración → Multi-moneda antes de continuar');
+      guardarEgreso._running=false;
       return;
     }
     egreso.monto = mmExtranjeraAGs(monto, cotBRL);
@@ -904,6 +912,7 @@ function guardarEgreso(){
   document.getElementById('egresoModal').classList.remove('open');
   renderTurno();
   toast('Egreso registrado');
+  guardarEgreso._running = false;
 }
 
 function registrarIngreso(desc, monto, metodo, montoOriginal, monedaOriginal) {
