@@ -1008,10 +1008,27 @@ async function anularVenta(id){
 }
 
 async function anularVentaConfirmar(id){
+  // _running: hay varios await antes de terminar (stockRevertirVenta,
+  // patch de estadias de hospedaje, reconstruirVentasTurno) sin ningun
+  // guard -- un doble-tap en "Anular venta" revertia el stock DOS veces
+  // para la misma venta (inflando el inventario), ademas de duplicar el
+  // resto de los efectos secundarios. Mismo patron ya aplicado varias
+  // veces esta sesion (ultima vez en sateliteEnviarPedido(), pedidos.js).
+  if(anularVentaConfirmar._running) return;
+  anularVentaConfirmar._running = true;
+  try{
+    await _anularVentaConfirmarInterno(id);
+  } finally {
+    anularVentaConfirmar._running = false;
+  }
+}
+
+async function _anularVentaConfirmarInterno(id){
   if(!db) return;
   try {
     const venta = await db.ventas.get(id);
     if(!venta) return toast('Venta no encontrada');
+    if(venta.anulada) return toast('Esta venta ya estaba anulada');
 
     // 1. Marcar venta como anulada en IndexedDB (NUNCA se borra)
     await db.ventas.update(id, {
