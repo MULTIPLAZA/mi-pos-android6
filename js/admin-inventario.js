@@ -1820,7 +1820,11 @@ function movAgregarDesdeInput(){
   var cant=parseFloat(document.getElementById('movCantAdd').value)||0;
   if(!cant||cant<=0){toast('Ingresá una cantidad válida');return;}
   var costoEl=document.getElementById('movCostoAdd');
-  var costo=costoEl?parseFloat(costoEl.value)||0:0;
+  // Math.max(0,...): un costo negativo entra al total_monto del comprobante
+  // de compra y al costo promedio ponderado del producto (ver procesarLado
+  // en movGuardar), subestimando el gasto real y arrastrando el costo
+  // guardado en pos_productos hacia abajo.
+  var costo=costoEl?Math.max(0, parseFloat(costoEl.value)||0):0;
   movAgregarItem(p,cant,costo);
   // limpiar
   document.getElementById('movBusqProd').value='';
@@ -1902,7 +1906,7 @@ function movAjustarCant(i,d){
   movRenderGrilla();
 }
 function movSetCant(i,v){ var it=_mov.items[i];if(it){it.cantidad=Math.max(0.001,parseFloat(v)||0);movRenderGrilla();} }
-function movSetCosto(i,v){ var it=_mov.items[i];if(it){it.costo=parseFloat(v)||0;movRenderGrilla();} }
+function movSetCosto(i,v){ var it=_mov.items[i];if(it){it.costo=Math.max(0, parseFloat(v)||0);movRenderGrilla();} }
 
 function movLimpiar(){
   _mov.items=[];
