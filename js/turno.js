@@ -1039,6 +1039,16 @@ async function fpConfirmar(ventaId){
 
   const tim = getTimbradoActivo();
   if(!tim){ toast('Sin timbrado configurado'); return; }
+  // Aviso (no bloqueante) si el timbrado autoimpresor/preimpreso llegó o superó
+  // el número autorizado -- el sistema hoy sigue incrementando nro_actual sin
+  // limite, pudiendo emitir facturas con numeración fuera del rango habilitado
+  // por la SET (documentos invalidos ante una fiscalizacion). No se bloquea la
+  // venta (evita frenar a un negocio real por un desfase de datos), pero se
+  // avisa para que el dueño renueve el timbrado a tiempo -- mismo umbral que
+  // la barra roja de "Uso de numeración" en Administración > Timbrados.
+  if(tim.tipo !== 'electronico' && tim.hasta && (tim.nro_actual||tim.desde||1) >= tim.hasta){
+    toast('⚠ Timbrado ' + tim.nro + ' llegó al límite autorizado (' + tim.hasta + '). Avisá al dueño para gestionar uno nuevo.');
+  }
 
   const pad3 = n=>String(n).padStart(3,'0');
   const padN = n=>String(n).padStart(7,'0');
