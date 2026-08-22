@@ -1141,7 +1141,7 @@ function _mostrarModalPendientesCierre(pendActivos){
           const idx = pendientes.indexOf(t);
           return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);">
             <div style="flex:1;">
-              <div style="font-size:13px;font-weight:700;color:var(--text);">#${String(t.nro).padStart(4,'0')}${t.obs?' — '+t.obs:''}</div>
+              <div style="font-size:13px;font-weight:700;color:var(--text);">#${String(t.nro).padStart(4,'0')}${t.obs?' — '+esc(t.obs):''}</div>
               <div style="font-size:11px;color:var(--muted);">${t.cart.length} art. · ${gs(t.total)}</div>
             </div>
             <button onclick="marcarPresupuesto(${idx},true)" style="padding:6px 10px;border-radius:6px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-family:'Barlow',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
