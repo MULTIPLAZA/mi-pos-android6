@@ -93,6 +93,7 @@ function renderDashboard(){
 </div>
 
 ${(typeof usaHabitaciones==='function' && usaHabitaciones()) ? _dshHospedajeHtml() : ''}
+${(typeof stockEstricto==='function' && stockEstricto()) ? _dshStockBajoHtml() : ''}
 
 <!-- Fila top: 3 métricas principales -->
 <div class="dsh-row dsh-row-3">
@@ -244,6 +245,8 @@ ${(typeof usaHabitaciones==='function' && usaHabitaciones()) ? _dshHospedajeHtml
     loadHotelDashData();
     loadHotelDashDataPeriodo(filtroD);
   }
+  // Stock bajo no depende del período de los pills -- es un estado "ahora".
+  if(typeof stockEstricto==='function' && stockEstricto()) loadStockBajoDash();
 }
 
 // Compat stub — los gráficos ahora cargan automáticamente al entrar al dashboard
@@ -541,6 +544,71 @@ async function loadHotelDashDataPeriodo(f){
     }
 
   }catch(e){ console.warn('[Dash Hotel Periodo] Error:', e.message); }
+}
+
+// ── Stock bajo (rubros con stock_estricto: despensa, autoservicio) ─────
+// El dato YA existe (tabla `stock`, columna cantidad_minima, usado en
+// Inventarios -- ver admin-inventario.js:_invEstadoDe) pero había que entrar
+// a esa pantalla para verlo. Acá solo se lo sube al dashboard principal, sin
+// duplicar la lógica de qué es "bajo" (mismo criterio: cantidad_minima>0 y
+// cantidad<=cantidad_minima).
+function _dshStockBajoHtml(){
+  return `
+<div class="dsh-row" style="grid-template-columns:1fr;">
+  <div class="dsh-cg" id="dshStockBajoCard" style="--c:var(--orange);background:linear-gradient(180deg,rgba(255,152,0,0.06),transparent 60%),var(--card);">
+    <div class="dsh-cg-hd">
+      <div>
+        <div class="dsh-cg-ttl">Stock bajo</div>
+        <div class="dsh-cg-val" id="stkBajoTotal" style="--c:var(--orange);">0</div>
+        <div class="dsh-cg-cnt" id="stkBajoCnt">Cargando...</div>
+      </div>
+      <div style="width:34px;height:34px;border-radius:8px;background:rgba(255,152,0,0.12);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      </div>
+    </div>
+    <div id="stkBajoList"><div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">Cargando...</div></div>
+  </div>
+</div>`;
+}
+
+async function loadStockBajoDash(){
+  var $$=function(id){ return document.getElementById(id); };
+  try{
+    var licRows = await sg('licencias','email_cliente=ilike.'+encodeURIComponent(SE)+'&select=id&limit=1');
+    if(!licRows || !licRows.length) return;
+    var licId = licRows[0].id;
+    var rows = await sg('stock',
+      'licencia_id=eq.'+licId+'&cantidad_minima=gt.0&select=producto_id,nombre_producto,cantidad,cantidad_minima&limit=3000');
+
+    // Un producto puede tener stock en varios depósitos -- se suma la
+    // cantidad total y se toma el mínimo más exigente configurado.
+    var map={};
+    rows.forEach(function(r){
+      var k=r.producto_id;
+      if(!map[k]) map[k]={nombre:r.nombre_producto||'—', cantidad:0, minima:0};
+      map[k].cantidad += r.cantidad||0;
+      if((r.cantidad_minima||0) > map[k].minima) map[k].minima = r.cantidad_minima;
+    });
+    var bajos = Object.keys(map).map(function(k){ return map[k]; })
+      .filter(function(p){ return p.cantidad <= p.minima; })
+      .sort(function(a,b){ return (a.cantidad-a.minima)-(b.cantidad-b.minima); }); // mas critico (mas negativo) primero
+
+    if($$('stkBajoTotal')) $$('stkBajoTotal').textContent = String(bajos.length);
+    if($$('stkBajoCnt'))   $$('stkBajoCnt').textContent = bajos.length===1 ? '1 producto por debajo del mínimo' : bajos.length+' productos por debajo del mínimo';
+
+    var listWrap=$$('stkBajoList');
+    if(listWrap){
+      if(!bajos.length){
+        listWrap.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px 0;">Todo el stock está por encima del mínimo</div>';
+      } else {
+        listWrap.innerHTML = bajos.slice(0,8).map(function(p){
+          var agotado = p.cantidad<=0;
+          return '<div class="dsh-cg-row"><span class="ds">'+p.nombre+(agotado?' <span style="color:var(--red);font-weight:800;">· AGOTADO</span>':'')+'</span>'
+            +'<span class="mt" style="color:'+(agotado?'var(--red)':'var(--orange)')+';">'+p.cantidad+' / mín. '+p.minima+'</span></div>';
+        }).join('') + (bajos.length>8 ? '<div style="font-size:11px;color:var(--muted);text-align:center;padding-top:6px;">+'+(bajos.length-8)+' más — ver en Inventarios</div>' : '');
+      }
+    }
+  }catch(e){ console.warn('[Dash StockBajo] Error:', e.message); }
 }
 
 async function loadDashData(f){

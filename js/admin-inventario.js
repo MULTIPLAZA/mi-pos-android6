@@ -314,6 +314,18 @@ function renderInvShell(){
               +'<button onclick="_invModalTab(\'mov\')" class="btn-dn">Cancelar</button>'
               +'<button onclick="guardarAjuste()" class="btn-sv">Guardar ajuste</button>'
             +'</div>'
+            // ── Stock mínimo (alerta) — separado del ajuste de cantidad,
+            // usa el mismo criterio que ya pinta de naranja/rojo la fila en
+            // la tabla y el dashboard (cantidad_minima>0 y cantidad<=minima).
+            +'<div style="margin-top:22px;padding-top:18px;border-top:1px solid var(--border)">'
+              +'<div style="font-size:13px;font-weight:800;margin-bottom:4px;color:var(--text)">Alerta de stock mínimo</div>'
+              +'<div style="font-size:11px;color:var(--muted);margin-bottom:12px">Cuando el stock caiga a este número o menos, el producto se marca "Stock bajo" acá y en el dashboard.</div>'
+              +'<div style="display:flex;gap:8px;align-items:flex-end">'
+                +'<div style="flex:1"><label style="font-size:11px;color:var(--muted);display:block;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Mínimo</label>'
+                  +'<input type="number" id="ajMinimo" class="cfg-inp" style="width:100%" min="0" placeholder="0 = sin alerta"></div>'
+                +'<button onclick="guardarStockMinimo()" class="btn-sv">Guardar mínimo</button>'
+              +'</div>'
+            +'</div>'
           +'</div>'
         +'</div>'
 
@@ -567,6 +579,8 @@ async function abrirHistorial(prodId, prodNom){
   _invModalTab('mov');
   document.getElementById('ajCant').value='';
   document.getElementById('ajMotivo').value='';
+  var minEl=document.getElementById('ajMinimo');
+  if(minEl) minEl.value = (sr && sr.cantidad_minima>0) ? sr.cantidad_minima : '';
 
   // Período default: Mes (últimos 30 días)
   _invSetPeriodo('mes',true);
@@ -898,6 +912,38 @@ async function guardarAjuste(){
     // Refrescar tabla principal de inventarios + historial
     if(typeof renderInvTabla==='function' && _inv.prds) renderInvTabla(_inv.prds);
     await cargarHistorial();
+  }catch(e){ toast('Error: '+e.message); }
+}
+
+// Guarda/actualiza cantidad_minima -- vacío o 0 significa "sin alerta" para
+// ese producto (mismo criterio que ya usa _invEstadoDe: m>0 && q<=m).
+// Escribe sobre el depósito actualmente seleccionado (mismo scope que usa
+// guardarAjuste()); si el producto todavía no tiene fila de stock en ese
+// depósito, se crea una con cantidad 0.
+async function guardarStockMinimo(){
+  if(!_inv.prodActivo) return;
+  var minimo = parseFloat(document.getElementById('ajMinimo').value) || 0;
+  var sr = _inv.prds.find(function(r){ return String(r.producto_id)===String(_inv.prodActivo.id); });
+  try{
+    if(sr && sr.id){
+      await supaPatch('stock','id=eq.'+sr.id,{cantidad_minima:minimo,updated_at:new Date().toISOString()});
+      sr.cantidad_minima = minimo;
+    } else {
+      var nuevaFila = {
+        licencia_id:     _inv.licId,
+        deposito_id:     _inv.sel.depId,
+        sucursal_id:     _inv.sel.sucId,
+        producto_id:     _inv.prodActivo.id,
+        nombre_producto: _inv.prodActivo.nombre,
+        cantidad:        0,
+        cantidad_minima: minimo,
+        updated_at:      new Date().toISOString()
+      };
+      await supaPost('stock', nuevaFila, null);
+      _inv.prds.push({...nuevaFila, id:Date.now()});
+    }
+    renderInvTabla(_inv.prds);
+    toast(minimo>0 ? 'Alerta configurada: avisa con '+minimo+' o menos' : 'Alerta de stock mínimo desactivada');
   }catch(e){ toast('Error: '+e.message); }
 }
 
