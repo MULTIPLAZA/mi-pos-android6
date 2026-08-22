@@ -952,8 +952,8 @@ function renderPendientes() {
       : '';
     // Info secundaria: obs · cant art. · (terminal si es satélite)
     var artCount = (t.cart || []).reduce(function(s, it) { return s + it.qty; }, 0);
-    var infoObs  = (t.obs || 'Sin observación') + ' · ' + artCount + ' art.';
-    if (esSat && t.terminalOrigen) infoObs += ' · ' + t.terminalOrigen;
+    var infoObs  = esc(t.obs || 'Sin observación') + ' · ' + artCount + ' art.';
+    if (esSat && t.terminalOrigen) infoObs += ' · ' + esc(t.terminalOrigen);
     // Bloque del cliente — destacado abajo del titulo si hay nombre
     var cliBadge = t.clienteNombre
       ? '<div style="display:flex;align-items:center;gap:4px;font-size:11.5px;color:var(--text);font-weight:700;margin-top:2px;">'+

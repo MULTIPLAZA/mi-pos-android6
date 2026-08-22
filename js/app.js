@@ -569,7 +569,7 @@ function renderTkt(){
     ? `<div style="display:flex;align-items:center;gap:6px;padding:6px 4px 8px;margin-bottom:4px;border-bottom:1px dashed var(--border);font-size:12px;color:var(--text);font-weight:700;">
          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="opacity:.7"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
          <span style="opacity:.6;font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Cliente:</span>
-         <span>${_nomCli}</span>
+         <span>${esc(_nomCli)}</span>
        </div>`
     : '';
   if(!cart.length){
