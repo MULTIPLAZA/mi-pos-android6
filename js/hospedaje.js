@@ -580,7 +580,13 @@ function hospCkRecalcEquivTarifa(){
 
 /** El monto de Tarifa/noche SIEMPRE en guaraníes, sin importar en qué moneda esté mostrado el input. */
 function hospCkTarifaEnGs(){
-  const val = parseFloat(document.getElementById('hospCkTarifa').value) || 0;
+  // El input tiene min="0", pero eso solo afecta el estado :invalid del form
+  // -- no impide tipear un "-" y un negativo. Sin el clamp, esa tarifa entra
+  // directo como el primer cargo del check-in Y queda guardada en
+  // tarifa_noche, así que cada "agregar noche" posterior de esa estadía
+  // también cobra en negativo (est.tarifa_noche || ... trata cualquier
+  // número negativo como valor válido, no solo 0/null caen al fallback).
+  const val = Math.max(0, parseFloat(document.getElementById('hospCkTarifa').value) || 0);
   if(_hospCkMonedaTarifa === 'brl') return mmExtranjeraAGs(val, mmCotizacion('BRL'));
   return Math.round(val);
 }
@@ -1703,7 +1709,10 @@ async function guardarPreciosTipoDesdeForm(){
     const pEl = document.getElementById('hospPT_precio_' + tipo);
     const cEl = document.getElementById('hospPT_capacidad_' + tipo);
     nuevo[tipo] = {
-      precio:    pEl.value !== '' ? parseInt(pEl.value) || 0 : null,
+      // Math.max(0,...): este precio por tipo de habitación se copia como
+      // default a hospFormPrecio (y de ahí a precio_noche) de cada
+      // habitación de ese tipo -- un negativo acá se propaga a todas.
+      precio:    pEl.value !== '' ? Math.max(0, parseInt(pEl.value) || 0) : null,
       capacidad: cEl.value !== '' ? parseInt(cEl.value) || null : null,
     };
   });
@@ -1726,7 +1735,11 @@ async function guardarHabitacion(){
     tipo: document.getElementById('hospFormTipo').value,
     piso: document.getElementById('hospFormPiso').value.trim() || null,
     capacidad: parseInt(document.getElementById('hospFormCapacidad').value) || 2,
-    precio_noche: parseInt(document.getElementById('hospFormPrecio').value) || 0,
+    // Math.max(0,...): sin esto, un precio negativo tipeado acá (el input
+    // tiene min="0" pero eso no bloquea el tipeo) queda guardado como la
+    // tarifa por defecto de la habitación y se propaga a todo check-in que
+    // no la sobrescriba (ver mismo fix en hospCkTarifaEnGs).
+    precio_noche: Math.max(0, parseInt(document.getElementById('hospFormPrecio').value) || 0),
     activo: true,
   };
   try{
