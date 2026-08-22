@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.165 (2026-08-22)';
+var APP_VERSION = 'v1.15.166 (2026-08-22)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -684,8 +684,8 @@ async function cargarSucursalesExistentes(email){
     // Poblar el select
     var opciones = '<option value="" disabled>Selecciona una sucursal...</option>';
     sucursales.forEach(function(s){
-      opciones += '<option value="' + (s.id||'__nombre__:'+s.nombre) + '" data-nombre="' + s.nombre.replace(/"/g,'&quot;') + '">'
-               + s.nombre + '</option>';
+      opciones += '<option value="' + (s.id||'__nombre__:'+esc(s.nombre)) + '" data-nombre="' + esc(s.nombre) + '">'
+               + esc(s.nombre) + '</option>';
     });
     opciones += '<option value="__nuevo__"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nueva sucursal</option>';
     sel.innerHTML = opciones;
@@ -800,8 +800,8 @@ async function _cargarDepositosSel(sucursalId, sucursalNombre){
   if(depositos.length){
     opciones = '<option value="" disabled>Selecciona un depósito...</option>';
     depositos.forEach(function(d){
-      opciones += '<option value="' + d.id + '" data-nombre="' + d.nombre.replace(/"/g,'&quot;') + '">'
-               + d.nombre + '</option>';
+      opciones += '<option value="' + d.id + '" data-nombre="' + esc(d.nombre) + '">'
+               + esc(d.nombre) + '</option>';
     });
     opciones += '<option value="__nuevo__"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nuevo depósito</option>';
     sel.innerHTML = opciones;
