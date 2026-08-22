@@ -877,7 +877,11 @@ function guardarEgreso(){
   if(guardarEgreso._running) return;
   guardarEgreso._running = true;
   const desc = document.getElementById('egresoDesc').value.trim();
-  let monto = parseInt(document.getElementById('egresoMonto').value)||0;
+  // Math.max(0,...): el input type="number" min="0" NO impide tipear "-" (min
+  // solo afecta el estado :invalid del form, no lo que parseInt recibe) -- sin
+  // este clamp, un egreso negativo pasaba el chequeo `!monto` (es truthy) y se
+  // guardaba tal cual, inflando el efectivo esperado en el cierre de caja.
+  let monto = Math.max(0, parseInt(document.getElementById('egresoMonto').value)||0);
   if(!desc){ toast('Ingresá la descripción'); guardarEgreso._running=false; return; }
   if(!monto){ toast('Ingresá el monto'); guardarEgreso._running=false; return; }
   const egreso = { desc, fecha: new Date() };
