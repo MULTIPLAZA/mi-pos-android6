@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.15.189 (2026-08-22)';
+var APP_VERSION = 'v1.15.190 (2026-08-22)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -286,6 +286,23 @@ async function licCheckPeriodico(){
   if(Date.now()<next) return;
   await licVerificarAhora();
 }
+
+// WATCHDOG — hasta ahora licCheckPeriodico()/licVerificarAhora() SOLO se
+// llamaban una vez, dentro de licInit() al arrancar la app. El gate de 24h
+// (SK.nextCheck) queda guardado pero nunca se vuelve a evaluar si el
+// dispositivo no recarga — un tablet dejado prendido con la pestaña/PWA
+// abierta durante días seguía operando con acceso completo aunque el dueño
+// suspendiera o desactivara esa licencia desde super-admin.html, hasta que
+// alguien la reiniciara a mano. Este intervalo no cambia la cadencia real
+// de verificación (licCheckPeriodico sigue respetando el gate de 24h) —
+// solo garantiza que ese gate se evalúe periódicamente en vez de solo al
+// arrancar. licMostrarBloqueo() ya funciona correctamente llamado a mitad
+// de sesión (pisa toda la UI con la pantalla de bloqueo), así que la
+// suspensión SÍ se aplica de inmediato una vez que este watchdog detecta el
+// vencimiento del gate.
+setInterval(function(){
+  licCheckPeriodico().catch(function(e){ console.warn('[Licencia] Error en watchdog periódico:', e.message); });
+}, 60*60*1000); // cada 1 hora
 
 // Verificación forzada — llama al servidor sin importar el timer
 async function licVerificarAhora(){
