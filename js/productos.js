@@ -60,7 +60,7 @@ function renderDescList(){
     return '<div class="art-item" onclick="editarDesc('+d.id+')" style="border-left:3px solid #e53935;">'+
       '<div class="art-item-color" style="background:#e53935;font-size:12px;font-weight:800;">%</div>'+
       '<div class="art-item-info">'+
-        '<div class="art-item-name">'+d.name+'</div>'+
+        '<div class="art-item-name">'+esc(d.name)+'</div>'+
         '<div class="art-item-meta">'+
           '<span>'+(d.tipo==='%'?'Porcentaje':'Monto fijo')+'</span>'+
           '<span>·</span><span>'+valorStr+'</span>'+
@@ -624,15 +624,15 @@ function buildArtItem(p, inact){
 
   div.innerHTML =
     '<div class="art-item-color" style="background:'+(inact?'#2a2a2a':getProductColor(p))+'">'+
-      '<span style="font-size:11px;font-weight:700;">'+(inact?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>':p.name.substring(0,2))+'</span>'+
+      '<span style="font-size:11px;font-weight:700;">'+(inact?'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>':esc(p.name.substring(0,2)))+'</span>'+
     '</div>'+
     '<div class="art-item-info">'+
-      '<div class="art-item-name">'+p.name+
+      '<div class="art-item-name">'+esc(p.name)+
         (inact?' <span style="font-size:10px;background:rgba(239,83,80,.2);color:#ef5350;'+
           'border-radius:3px;padding:1px 6px;font-weight:700;">INACTIVO</span>':'')+
       '</div>'+
       '<div class="art-item-meta">'+
-        '<span>'+p.cat+'</span><span>·</span><span>'+ivaStr+'</span>'+
+        '<span>'+esc(p.cat)+'</span><span>·</span><span>'+ivaStr+'</span>'+
         (p.codigo?'<span>·</span><span style="color:#555;">'+p.codigo+'</span>':'')+
       '</div>'+
     '</div>'+
@@ -1120,7 +1120,7 @@ function renderCatListScreen(){
     div.onclick = () => editarCategoria(i);
     div.innerHTML =
       '<div class="cat-list-dot" style="background:'+cat.color+'"></div>'+
-      '<div class="cat-list-info"><div class="cat-list-name">'+cat.nombre+'</div>'+
+      '<div class="cat-list-info"><div class="cat-list-name">'+esc(cat.nombre)+'</div>'+
       '<div class="cat-list-count">'+count+' artículo'+(count!==1?'s':'')+'</div></div>'+
       '<div class="cat-list-arrow"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>';
     list.appendChild(div);
@@ -1412,8 +1412,8 @@ function renderAsignarList(){
     div.className = 'asignar-item';
     div.onclick = () => toggleAsignar(p.id);
     div.innerHTML =
-      '<div class="art-item-color" style="background:'+getProductColor(p)+'">'+p.name.substring(0,2)+'</div>'+
-      '<div class="art-item-info"><div class="art-item-name">'+p.name+'</div><div class="art-item-meta"><span>'+p.cat+'</span></div></div>'+
+      '<div class="art-item-color" style="background:'+getProductColor(p)+'">'+esc(p.name.substring(0,2))+'</div>'+
+      '<div class="art-item-info"><div class="art-item-name">'+esc(p.name)+'</div><div class="art-item-meta"><span>'+esc(p.cat)+'</span></div></div>'+
       '<div class="asignar-checkbox '+(checked?'checked':'')+'" id="chk_'+p.id+'">'+
         (checked?'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':'')+
       '</div>';
@@ -1498,7 +1498,7 @@ function renderModifList(){
     <div onclick="editarModif(${m.id})" style="background:var(--bg-card);border-radius:10px;padding:14px 16px;margin-bottom:8px;border:1px solid var(--border);cursor:pointer;">
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div>
-          <div style="font-size:15px;font-weight:700;color:var(--text);">${m.nombre}</div>
+          <div style="font-size:15px;font-weight:700;color:var(--text);">${esc(m.nombre)}</div>
           <div style="font-size:12px;color:var(--muted);margin-top:3px;">
             ${m.tipo==='unico'?'Selección única':'Selección múltiple'} · 
             ${m.obligatorio?'<span style="color:#ff9800;">Obligatorio</span>':'Opcional'} · 
@@ -1576,7 +1576,7 @@ function renderModifOpciones(){
   }
   cont.innerHTML = modifOpciones.map((o,i) => `
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-      <input class="art-form-input modif-opc-nombre" placeholder="Nombre opción" value="${o.nombre||''}"
+      <input class="art-form-input modif-opc-nombre" placeholder="Nombre opción" value="${esc(o.nombre||'')}"
         oninput="modifOpciones[${i}].nombre=this.value"
         style="flex:2;margin:0;">
       <input class="art-form-input" placeholder="+precio" type="number" value="${o.precio_adicional||0}"
@@ -1798,11 +1798,11 @@ function _renderFlujoSheet(){
       <div style="display:flex;gap:0;border:1.5px solid var(--border2);margin-bottom:14px;">
         <div style="flex:1;padding:10px;text-align:center;border-right:1.5px solid var(--border2);">
           <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">1° mitad</div>
-          <div style="font-size:13px;font-weight:800;color:var(--green);">${prod.name}</div>
+          <div style="font-size:13px;font-weight:800;color:var(--green);">${esc(prod.name)}</div>
         </div>
         <div style="flex:1;padding:10px;text-align:center;background:${_flujo.prod2?'rgba(76,175,80,.06)':'var(--bg-dark)'};">
           <div style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;">2° mitad</div>
-          <div style="font-size:13px;font-weight:800;color:${_flujo.prod2?'var(--green)':'var(--muted)'};">${_flujo.prod2?_flujo.prod2.name:'elegir...'}</div>
+          <div style="font-size:13px;font-weight:800;color:${_flujo.prod2?'var(--green)':'var(--muted)'};">${_flujo.prod2?esc(_flujo.prod2.name):'elegir...'}</div>
         </div>
       </div>
       <input oninput="_filterMitadSearch(this.value)"
@@ -1817,7 +1817,7 @@ function _renderFlujoSheet(){
         cursor:pointer;border-left:3px solid ${sel?'var(--green)':'transparent'};
         background:${sel?'rgba(76,175,80,.06)':'var(--bg-card)'};
         border-bottom:0.5px solid var(--border);transition:all .12s;">
-        <div style="font-size:14px;font-weight:700;color:var(--text);">${p.name}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
         <div style="font-size:12px;color:var(--muted);">${gs(p.price)}</div>
       </div>`;
     }).join('');
@@ -1843,7 +1843,7 @@ function _renderFlujoSheet(){
             background:${sel?'rgba(76,175,80,.06)':'var(--bg-card)'};
             border-bottom:0.5px solid var(--border);transition:all .12s;">
             <div>
-              <div style="font-size:14px;font-weight:600;color:var(--text);">${o.nombre}</div>
+              <div style="font-size:14px;font-weight:600;color:var(--text);">${esc(o.nombre)}</div>
               ${o.precio_adicional>0?`<div style="font-size:12px;color:var(--green);font-weight:700;">+${gs(o.precio_adicional)}</div>`:''}
             </div>
             <div style="width:20px;height:20px;border:1.5px solid ${sel?'var(--green)':'var(--border2)'};
@@ -1910,7 +1910,7 @@ function _filterMitadSearch(q){
       cursor:pointer;border-left:3px solid ${sel?'var(--green)':'transparent'};
       background:${sel?'rgba(76,175,80,.06)':'var(--bg-card)'};
       border-bottom:0.5px solid var(--border);transition:all .12s;">
-      <div style="font-size:14px;font-weight:700;color:var(--text);">${p.name}</div>
+      <div style="font-size:14px;font-weight:700;color:var(--text);">${esc(p.name)}</div>
       <div style="font-size:12px;color:var(--muted);">${gs(p.price)}</div>
     </div>`;
   }).join('');
