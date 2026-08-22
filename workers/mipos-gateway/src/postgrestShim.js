@@ -175,8 +175,25 @@ export async function runInsert(db, table, rows, { onConflictCols, tenantValue, 
   return returnMinimal ? [] : out;
 }
 
+// Blindaje de rango de daño para tablas admin-only (tableDef.tenant === null,
+// ej. `licencias` -- ver schema.js). Esas tablas NO exigen autenticacion a
+// pedido explicito del dueño (2026-08-11, "riesgo aceptado": cualquiera con
+// la URL del Worker puede editar una licencia ajena sin login). Pero sin este
+// chequeo, un PATCH/DELETE sin NINGUN filtro no tiene tenant que lo acote y
+// tampoco ningun otro WHERE -- afecta TODAS las filas de la tabla de un solo
+// request, accidental o no. Esto NO reintroduce la friccion de auth que se
+// saco a proposito: super-admin.html siempre manda id=eq.X en estos casos,
+// asi que el panel real no se ve afectado -- solo bloquea el caso "sin
+// filtro = le pega a todos".
+function assertFiltroObligatorioSiSinTenant(tableDef, table, filters) {
+  if (tableDef.tenant === null && filters.length === 0) {
+    throw new ShimError(`${table}: falta filtro -- esta tabla no tiene tenant que acote el alcance, se exige al menos un filtro explicito para operaciones que modifican datos`, 400);
+  }
+}
+
 export async function runUpdate(db, table, query, data, tenantValue, { returnMinimal }) {
   const { tableDef, filters } = parseFilters(table, query);
+  assertFiltroObligatorioSiSinTenant(tableDef, table, filters);
   const patch = { ...data };
   delete patch[tableDef.tenant ? tableDef.tenant.column : '__none__']; // no se permite reescribir el tenant desde el cliente
   const cols = Object.keys(patch).filter((c) => {
@@ -200,6 +217,7 @@ export async function runUpdate(db, table, query, data, tenantValue, { returnMin
 
 export async function runDelete(db, table, query, tenantValue) {
   const { tableDef, filters } = parseFilters(table, query);
+  assertFiltroObligatorioSiSinTenant(tableDef, table, filters);
   const { sql: where, binds } = whereClause(tableDef, filters, tenantValue);
   await db.prepare(`DELETE FROM ${table} ${where}`).bind(...binds).run();
 }
