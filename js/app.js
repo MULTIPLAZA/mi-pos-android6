@@ -656,6 +656,16 @@ function abrirPantallaApertura(){
 }
 
 async function doOpenShift(){
+  // _running: el botón se reactivaba (disabled=false) apenas terminaba
+  // licVerificarAhora(), ANTES de terminar el chequeo de "turno ya abierto"
+  // de más abajo -- ese chequeo es un check-then-insert clásico (consulta
+  // Supabase, y recién después inserta si no encontró nada), así que un
+  // segundo tap durante esa ventana podía pasar el mismo chequeo y terminar
+  // creando un SEGUNDO turno abierto en paralelo -- exactamente el
+  // incidente real que este mismo chequeo dice prevenir (Hotel Nico
+  // Palace, ver comentario más abajo).
+  if(doOpenShift._running) return;
+  doOpenShift._running = true;
   const v   = _leerEfectivoInicialGs();
   const btn = document.querySelector('#scClosed .btn-abrir-outline') || document.querySelector('[onclick*="doOpenShift"]');
 
@@ -663,7 +673,7 @@ async function doOpenShift(){
     if(btn){ btn.textContent='Verificando...'; btn.disabled=true; }
     const ok = await licVerificarAhora();
     if(btn){ btn.textContent='ABRIR EL TURNO'; btn.disabled=false; }
-    if(!ok) return; // licMostrarBloqueo ya fue llamado
+    if(!ok){ doOpenShift._running = false; return; } // licMostrarBloqueo ya fue llamado
   }
 
   // Salvavidas: no crear un turno nuevo si ya hay uno "abierto" para esta
@@ -700,6 +710,7 @@ async function doOpenShift(){
           turnoGuardar();
           goTo('scSale'); renderCatPills(); filterP();
           toast('Ya había un turno abierto — se retomó en vez de abrir uno nuevo');
+          doOpenShift._running = false;
           return;
         }
       }
@@ -724,6 +735,7 @@ async function doOpenShift(){
   // Persistir en localStorage DESPUÉS de tener el dbId
   turnoGuardar();
   goTo('scSale'); renderCatPills(); filterP(); toast('Turno abierto ');
+  doOpenShift._running = false;
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
