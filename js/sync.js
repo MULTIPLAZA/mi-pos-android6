@@ -496,8 +496,14 @@ async function syncConSupabase(){
           if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
           await _conReintento(function(){ return supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) }); });
         } else if(item.operacion === 'update'){
+          // Mismo motivo que el DELETE de arriba: id es local por tenant,
+          // no único global -- sin acotar por licencia_email este PATCH
+          // podía pisar el turno/registro de OTRO tenant que tuviera el
+          // mismo id con los datos de éste (incluido reasignarle el
+          // licencia_email, ya que ese campo también viaja en el body).
           const { id: itemId, ...datosUpdate } = datos;
-          await _conReintento(function(){ return supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId }); });
+          if(!datosUpdate.licencia_email) throw new Error('Item de actualización sin licencia_email, no se puede acotar el PATCH de forma segura');
+          await _conReintento(function(){ return supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId, licencia_email: 'eq.'+encodeURIComponent(datosUpdate.licencia_email) }); });
         } else if(item.operacion === 'upsert'){
           // upsert (productos/categorias): acá `id` SÍ es válido reenviarlo —
           // ya es el id real de Supabase asignado la primera vez que se guardó
@@ -852,9 +858,11 @@ async function reintentarSyncItem(itemId){
       if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
       await supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) });
     } else if(item.operacion === 'update'){
+      // Mismo motivo que syncConSupabase(): id es local por tenant.
       var datosUpdate = Object.assign({}, datos);
       delete datosUpdate.id;
-      await supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+datos.id });
+      if(!datosUpdate.licencia_email) throw new Error('Item de actualización sin licencia_email, no se puede acotar el PATCH de forma segura');
+      await supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datosUpdate.licencia_email) });
     } else {
       await supaFetch('POST', tabla, datos, null, 'return=representation');
     }
