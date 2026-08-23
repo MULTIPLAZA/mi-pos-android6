@@ -2460,16 +2460,25 @@ function saveGeneralConfig(){
     var _cfgARS = document.getElementById('cfgCotARS');
     var _cfgUSD = document.getElementById('cfgCotUSD');
     var _mmHuboActualizacion = false;
+    // Math.max(0,...): el input no tiene min real (igual que precio/costo de
+    // producto) -- una cotización negativa/mal tipeada no se rechaza en
+    // ningún consumidor central (mmGsAExtranjera/mmExtranjeraAGs en
+    // lib/moneda.js sí guardan cot<=0 y devuelven null/0), pero varios
+    // lugares de cobro.js leen mm_cotBRL/ARS/USD directo de localStorage
+    // (parseFloat(...)||0) y lo multiplican sin volver a chequear el signo
+    // -- una cotización negativa ahí resta en vez de sumar en el total
+    // recibido durante un cobro multi-moneda. Se clampea acá, en el único
+    // punto de entrada real (el resto del código ya asume valor >= 0).
     if(_cfgBRL && _cfgBRL.value !== '') {
-      localStorage.setItem('mm_cotBRL', _cfgBRL.value);
+      localStorage.setItem('mm_cotBRL', String(Math.max(0, parseFloat(_cfgBRL.value) || 0)));
       _mmHuboActualizacion = true;
     }
     if(_cfgARS && _cfgARS.value !== '') {
-      localStorage.setItem('mm_cotARS', _cfgARS.value);
+      localStorage.setItem('mm_cotARS', String(Math.max(0, parseFloat(_cfgARS.value) || 0)));
       _mmHuboActualizacion = true;
     }
     if(_cfgUSD && _cfgUSD.value !== '') {
-      localStorage.setItem('mm_cotUSD', _cfgUSD.value);
+      localStorage.setItem('mm_cotUSD', String(Math.max(0, parseFloat(_cfgUSD.value) || 0)));
       _mmHuboActualizacion = true;
     }
     if(_mmHuboActualizacion){
