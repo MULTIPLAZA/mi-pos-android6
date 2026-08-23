@@ -22,6 +22,8 @@ Los 4 secrets (`TOKEN_SECRET`, `SUPA_URL`, `SUPA_ANON`, `ADMIN_SECRET`) ya está
 
 Si en el futuro rotás algún secret, corré de nuevo el `wrangler secret put <NOMBRE>` correspondiente — sobreescribe sin downtime.
 
+**OJO (2026-08-22, actualizado tras auditoría) — `ADMIN_SECRET` quedó DESACTUALIZADO desde el 2026-08-11:** ese día se tomó la decisión explícita de sacarle toda autenticación a `licencias` en el REST genérico del Worker ("cero fricción sobre protección", ver el comentario "RIESGO ACEPTADO" en `src/index.js` / `handleRest()`), y `super-admin.html` **nunca implementó** el flujo de `prompt()` descrito arriba — no hay ningún `gw_admin_key` en localStorage ni ningún request con el header que fuera a llevar `ADMIN_SECRET`. El secret sigue cargado en el Worker (`wrangler secret list` lo muestra) pero **ningún código lo lee ni lo compara con nada** — confirmado grepeando `ADMIN_SECRET` en todo `src/` (cero comparaciones, solo esta mención en docs). Si algún día se decide volver a proteger `licencias` con esto, hay que escribir el chequeo server-side desde cero (no asumir que ya existe) y agregar el `prompt()` real en `super-admin.html`. Hasta entonces, tratar esta sección como histórica, no como el estado actual.
+
 ## 4. Deploy en modo "solo vos" (Fase 5, paso 1 del plan)
 
 ```
