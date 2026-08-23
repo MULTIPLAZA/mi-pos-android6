@@ -1012,8 +1012,15 @@ function genClave(){
   const pv=parseInt(document.getElementById('mPlan').value)||2;
   const pref={1:'BASIC',2:'PRO',3:'FULL'}[pv]||'PRO';
   const y=new Date().getFullYear();
-  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let r=''; for(let i=0;i<4;i++) r+=c[Math.floor(Math.random()*c.length)];
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // 32 caracteres (potencia de 2)
+  // crypto.getRandomValues en vez de Math.random(): esto genera la CLAVE real
+  // de activacion de una licencia (el secreto que protege el negocio de un
+  // cliente) -- Math.random() es un PRNG no criptografico, nunca pensado para
+  // generar secretos (no da garantia de impredecibilidad). c.length=32 es
+  // potencia de 2, asi que "% 32" sobre un byte de crypto.getRandomValues no
+  // introduce sesgo de modulo (256 es multiplo exacto de 32).
+  const rnd=new Uint8Array(4); crypto.getRandomValues(rnd);
+  let r=''; for(let i=0;i<4;i++) r+=c[rnd[i]%c.length];
   document.getElementById('mClave').value=pref+'-'+y+'-'+r;
 }
 
