@@ -2588,9 +2588,9 @@ async function reconCargar(){
         var difCol=d.diff>0?'var(--green)':'var(--red)';
         var difSign=d.diff>0?'+':'';
         return '<tr style="border-bottom:1px solid var(--border)">'
-          +'<td style="padding:10px 12px;font-weight:600">'+d.prodNom+'</td>'
-          +'<td style="padding:10px 12px"><div style="font-weight:600;font-size:13px">'+d.depNom+'</div>'
-            +(d.sucNom?'<div style="font-size:11px;color:var(--muted)">'+d.sucNom+'</div>':'')+'</td>'
+          +'<td style="padding:10px 12px;font-weight:600">'+esc(d.prodNom)+'</td>'
+          +'<td style="padding:10px 12px"><div style="font-weight:600;font-size:13px">'+esc(d.depNom)+'</div>'
+            +(d.sucNom?'<div style="font-size:11px;color:var(--muted)">'+esc(d.sucNom)+'</div>':'')+'</td>'
           +'<td style="padding:10px 12px;text-align:center;font-size:15px;font-weight:700">'+d.enStock+'</td>'
           +'<td style="padding:10px 12px;text-align:center;font-size:15px;font-weight:800;color:var(--green)">'+d.enComp+'</td>'
           +'<td style="padding:10px 12px;text-align:center;font-size:15px;font-weight:800;color:'+difCol+'">'+difSign+d.diff+'</td>'
@@ -2849,8 +2849,8 @@ function cntRenderFormulario(){
     +'<div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:16px">'
       +'<div>'
         +'<div style="font-size:20px;font-weight:800">'+ct.numero+'</div>'
-        +'<div style="font-size:13px;color:var(--muted);margin-top:2px">'+ct.depNom+(ct.sucNom?' · '+ct.sucNom:'')+'  &nbsp;·&nbsp;  '+fmt(ct.fecha)+'</div>'
-        +(ct.obs?'<div style="font-size:12px;color:var(--muted);margin-top:2px;font-style:italic">'+ct.obs+'</div>':'')
+        +'<div style="font-size:13px;color:var(--muted);margin-top:2px">'+esc(ct.depNom)+(ct.sucNom?' · '+esc(ct.sucNom):'')+'  &nbsp;·&nbsp;  '+fmt(ct.fecha)+'</div>'
+        +(ct.obs?'<div style="font-size:12px;color:var(--muted);margin-top:2px;font-style:italic">'+esc(ct.obs)+'</div>':'')
       +'</div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
         +'<div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px">'
