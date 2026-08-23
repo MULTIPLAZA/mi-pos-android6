@@ -97,6 +97,43 @@ test.describe('XSS escape (SEC-002)', () => {
     expect(html).toContain('&lt;img');
   });
 
+  // Hallazgo real de la auditoría 2026-08-23: generarHTMLComprobanteCheckIn()
+  // y generarHTMLComprobanteCuenta() (js/impresion.js) escapaban casi todos
+  // los campos de la estadía, pero NO habitacion.numero -- a diferencia de
+  // hospedaje.js, que SÍ lo escapa en cada innerHTML. Esto es explotable de
+  // verdad: imprimirAndroidNativo() (mismo archivo) hace tmp.innerHTML=... con
+  // este HTML para convertirlo a comandos ESC/POS, así que un <img onerror>
+  // en habitacion.numero se ejecutaba en el momento de imprimir un
+  // comprobante de check-in o de cuenta -- el path de impresión nativa de
+  // Android, el uso real de este fork.
+  test('generarHTMLComprobanteCheckIn() escapa habitacion.numero', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.generarHTMLComprobanteCheckIn === 'function', { timeout: 8000 });
+
+    const html = await page.evaluate(() => {
+      const estadia = { huesped_nombre: 'Huésped de prueba', checkin: '2026-08-01', estado: 'checkin' };
+      const habitacion = { numero: "<img src=x onerror=window.__xss_executed=true>" };
+      return window.generarHTMLComprobanteCheckIn(estadia, habitacion, '58');
+    });
+
+    expect(html).not.toContain('<img src=x onerror');
+    expect(html).toContain('&lt;img');
+  });
+
+  test('generarHTMLComprobanteCuenta() escapa habitacion.numero', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.generarHTMLComprobanteCuenta === 'function', { timeout: 8000 });
+
+    const html = await page.evaluate(() => {
+      const estadia = { huesped_nombre: 'Huésped de prueba', checkin: '2026-08-01', total: 50000, cargos: [] };
+      const habitacion = { numero: "<img src=x onerror=window.__xss_executed=true>" };
+      return window.generarHTMLComprobanteCuenta(estadia, habitacion, '58');
+    });
+
+    expect(html).not.toContain('<img src=x onerror');
+    expect(html).toContain('&lt;img');
+  });
+
   // Hallazgo real de la auditoría 2026-08-23: _renderFlujoSheet() (js/productos.js,
   // flujo de mitades/modificadores obligatorios al agregar un producto al carrito)
   // escapaba el nombre de cada OPCIÓN de modificador (o.nombre) pero no el nombre

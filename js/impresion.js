@@ -1676,7 +1676,11 @@ function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
   lineas += '<p class="c s b">'+(estadia.estado==='reservado' ? 'COMPROBANTE DE RESERVA' : 'COMPROBANTE DE CHECK-IN')+'</p>';
   lineas += '<p class="hr"></p>';
 
-  lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+(habitacion?habitacion.numero:'?')+'</span></p>';
+  // esc(habitacion.numero): igual que hospedaje.js (que ya lo escapa en cada
+  // innerHTML), pero acá quedaba sin escapar -- y este HTML se parsea de
+  // verdad via innerHTML= en imprimirAndroidNativo() (tmp.innerHTML=...),
+  // así que un <img onerror=...> ejecutaba en el momento de imprimir.
+  lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+esc(habitacion?habitacion.numero:'?')+'</span></p>';
   lineas += '<p class="s">Huésped: '+esc(estadia.huesped_nombre||'')+'</p>';
   if(estadia.huesped_documento) lineas += '<p class="s">Documento: '+esc(estadia.huesped_documento)+'</p>';
   if(estadia.huesped_tel)       lineas += '<p class="s">Teléfono: '+esc(estadia.huesped_tel)+'</p>';
@@ -1744,7 +1748,8 @@ function generarHTMLComprobanteCuenta(estadia, habitacion, size){
   lineas += '<p class="c s b">CUENTA DE HABITACIÓN (comprobante)</p>';
   lineas += '<p class="hr"></p>';
 
-  lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+(habitacion?habitacion.numero:'?')+'</span></p>';
+  // esc(habitacion.numero): mismo motivo que generarHTMLComprobanteCheckIn().
+  lineas += '<p class="row s"><span class="l1">Habitación:</span><span class="l2">'+esc(habitacion?habitacion.numero:'?')+'</span></p>';
   lineas += '<p class="s">Huésped: '+esc(estadia.huesped_nombre||'')+'</p>';
   lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
   lineas += '<p class="hr"></p>';
