@@ -349,10 +349,13 @@ function lineasPago(data, gn){
 function generarHTMLTicket(data, size){
   const cols = size==='58' ? 32 : 42;
   const sep  = '-'.repeat(cols);
-  const neg  = configData.negocio || 'MI NEGOCIO';
-  const ruc  = configData.ruc     || '';
-  const dir  = configData.direccion || '';
-  const tel  = configData.telefono  || '';
+  // esc(): mismo tratamiento que ya tiene generarHTMLFacturaA4() (emp.nombre/
+  // dir/ruc/tel) para estos mismos 4 campos -- ahí sí estaban escapados, acá
+  // se habían quedado sin, pese a ser texto libre tipeado una vez en Ajustes.
+  const neg  = esc(configData.negocio || 'MI NEGOCIO');
+  const ruc  = esc(configData.ruc     || '');
+  const dir  = esc(configData.direccion || '');
+  const tel  = esc(configData.telefono  || '');
 
   const pad = n=>String(n).padStart(2,'0');
   const d   = data.fecha;
@@ -482,10 +485,11 @@ function generarHTMLTicket(data, size){
 // ── FACTURA ───────────────────────────────────────────────
 function generarHTMLFactura(data, size){
   const cols = size==='58' ? 32 : 42;
-  const neg  = configData.negocio   || 'MI NEGOCIO';
-  const ruc  = configData.ruc       || '';
-  const dir  = configData.direccion || '';
-  const tel  = configData.telefono  || '';
+  // esc(): mismo motivo que generarHTMLTicket() -- ver comentario ahí.
+  const neg  = esc(configData.negocio   || 'MI NEGOCIO');
+  const ruc  = esc(configData.ruc       || '');
+  const dir  = esc(configData.direccion || '');
+  const tel  = esc(configData.telefono  || '');
   const f    = data.factura || {};
   const tim  = f.timbrado   || '';
   const nroF = f.nro_factura|| '';
@@ -1036,10 +1040,11 @@ function generarHTMLComanda(data, size){
 //          totalContado, saldoEsperado, diff, cierreMetodos:{MET:{esperado,contado}} }
 function generarHTMLCierreTurno(data, size){
   size = size || '58';
-  var neg  = configData.negocio   || 'MI NEGOCIO';
-  var ruc  = configData.ruc       || '';
-  var dir  = configData.direccion || '';
-  var terminal = configData.terminal || 'CAJA1';
+  // esc(): mismo motivo que generarHTMLTicket()/generarHTMLFactura().
+  var neg  = esc(configData.negocio   || 'MI NEGOCIO');
+  var ruc  = esc(configData.ruc       || '');
+  var dir  = esc(configData.direccion || '');
+  var terminal = esc(configData.terminal || 'CAJA1');
 
   var pad2 = function(n){ return String(n).padStart(2,'0'); };
   var fmtDT = function(d){
@@ -1091,7 +1096,7 @@ function generarHTMLCierreTurno(data, size){
     lineas += '<p class="b">EGRESOS</p>';
     lineas += '<p class="hr"></p>';
     data.egresos.forEach(function(e){
-      lineas += '<p class="row s"><span class="l1">'+e.desc+'</span><span class="l2">-'+gn(e.monto)+'</span></p>';
+      lineas += '<p class="row s"><span class="l1">'+esc(e.desc)+'</span><span class="l2">-'+gn(e.monto)+'</span></p>';
     });
     lineas += '<p class="hr"></p>';
   }
@@ -1655,8 +1660,9 @@ function imprimirRecibo(dataOverride){
 // (BT/Android/USB local/Generic Text Only) para no duplicar canales.
 function generarHTMLComprobanteCheckIn(estadia, habitacion, size){
   const cols = size==='58' ? 32 : 42;
-  const neg  = configData.negocio || 'MI NEGOCIO';
-  const dir  = configData.direccion || '';
+  // esc(): mismo motivo que generarHTMLTicket()/generarHTMLFactura().
+  const neg  = esc(configData.negocio || 'MI NEGOCIO');
+  const dir  = esc(configData.direccion || '');
 
   const pad = n=>String(n).padStart(2,'0');
   const ahora = new Date();
@@ -1723,8 +1729,9 @@ function imprimirComprobanteCheckIn(estadia, habitacion){
 // en el folio (noches, consumo, abonos) — útil para que el huésped
 // corrobore su cuenta a mitad de estadía, sin tener que hacer check-out.
 function generarHTMLComprobanteCuenta(estadia, habitacion, size){
-  const neg = configData.negocio || 'MI NEGOCIO';
-  const dir = configData.direccion || '';
+  // esc(): mismo motivo que generarHTMLTicket()/generarHTMLFactura().
+  const neg = esc(configData.negocio || 'MI NEGOCIO');
+  const dir = esc(configData.direccion || '');
   const pad = n=>String(n).padStart(2,'0');
   const ahora = new Date();
   const fechaEmision = pad(ahora.getDate())+'/'+pad(ahora.getMonth()+1)+'/'+ahora.getFullYear()
@@ -1742,9 +1749,14 @@ function generarHTMLComprobanteCuenta(estadia, habitacion, size){
   lineas += '<p class="row s"><span class="l1">Check-in:</span><span class="l2">'+fmtFechaCorta(estadia.checkin)+'</span></p>';
   lineas += '<p class="hr"></p>';
 
+  // esc(c.descripcion): la mayoría de los cargos son texto generado por el
+  // sistema ("Noche — Hab. X"), pero un consumo cargado vía
+  // hospConfirmarConsumoDesdeCart() (hospedaje.js) copia it.name tal cual --
+  // y un producto "item libre" deja que el cajero escriba ese nombre a
+  // mano (mismo origen ya confirmado para el XSS de "Ventas por Producto").
   const cargos = estadia.cargos || [];
   cargos.forEach(function(c){
-    lineas += '<p class="row s"><span class="l1">'+(c.descripcion||'')+(c.cantidad>1?' ×'+c.cantidad:'')+'</span><span class="l2">'+gn(c.monto||0)+'</span></p>';
+    lineas += '<p class="row s"><span class="l1">'+esc(c.descripcion||'')+(c.cantidad>1?' ×'+c.cantidad:'')+'</span><span class="l2">'+gn(c.monto||0)+'</span></p>';
   });
   lineas += '<p class="hr"></p>';
   lineas += '<p class="row s b"><span class="l1">TOTAL:</span><span class="l2">'+gn(estadia.total||0)+' Gs.</span></p>';
