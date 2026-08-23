@@ -1355,6 +1355,18 @@ async function guardarCategoria(){
     toast('Categoría actualizada');
   } else {
     if(CATEGORIAS.find(c => c.nombre.toLowerCase() === nombre.toLowerCase())){ toast('Ya existe esa categoría'); return; }
+    // Refrescar nextCatId justo antes de usarlo -- solo se actualiza al
+    // cargar la pantalla (supaLoadCategorias), asi que en una sesion larga
+    // (tablet abierta desde la mañana) podia estar desactualizado si OTRO
+    // dispositivo ya creo categorias nuevas mientras tanto. Como
+    // supaSyncTodasCategorias() hace upsert (on_conflict) de TODO el array,
+    // un id repetido no fallaba con error -- pisaba en silencio la
+    // categoria que el otro dispositivo acababa de crear con ese mismo id.
+    try{
+      var _emailNC = localStorage.getItem('lic_email') || localStorage.getItem(SK && SK.email);
+      var _rNC = await supaGet('pos_categorias','licencia_email=eq.'+encodeURIComponent(_emailNC)+'&select=id&order=id.desc&limit=1');
+      if(_rNC && _rNC.length) nextCatId = Math.max(nextCatId, _rNC[0].id+1);
+    }catch(e){ /* si falla la relectura, seguimos con el nextCatId que ya teniamos */ }
     catObj = { id: nextCatId++, nombre, color: catColorSel };
     CATEGORIAS.push(catObj);
     await supaSyncTodasCategorias();
