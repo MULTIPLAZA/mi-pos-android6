@@ -19,7 +19,7 @@ Todos son idempotentes (`IF NOT EXISTS`): si ya corriste uno, volver a correrlo 
 | 10 | `10_hospedaje_abonos.sql` | Campo `abonos` (pagos parciales durante la estadía) en `pos_estadias` | **Sí — código ya deployado** |
 | 11 | `11_hospedaje_huespedes.sql` | Tabla `pos_huespedes` (registro de huéspedes para autocompletar check-in) | **Sí — código ya deployado** |
 | 12 | `12_hospedaje_pago_anulado.sql` | Campos `pago_anulado`/`pago_anulado_fecha` en `pos_estadias` (avisa si se anula la venta de un check-out ya hecho) | **Sí — código ya deployado** |
-| 13 | `13_ventas_mm_pagos.sql` | Campos `mm_pagos`/`pix_mp_pagos` en `pos_ventas` (desglose real Gs/R$/ARS/USD de un pago simple en Multi-moneda o Pix/MP) | **URGENTE — sin esto, las ventas cobradas en reales se pierden al cerrar/reabrir la app** |
+| 13 | `13_ventas_mm_pagos.sql` | Campos `mm_pagos`/`pix_mp_pagos` en `pos_ventas` (desglose real Gs/R$/ARS/USD de un pago simple en Multi-moneda o Pix/MP) | Probablemente **ya ejecutada** (ver nota abajo) — confirmar antes de asumir que sigue pendiente |
 | 99 | `99_SEGURIDAD_rls_hardening_...` | Cierra el acceso abierto de la base | ⚠️ **NO ejecutar solo — leer abajo** |
 
 ## Importante — orden vs. deploy del código
@@ -31,6 +31,22 @@ Los archivos **01 y 02** deben ejecutarse **ANTES** de que el código que los us
 Los **03–06** se ejecutan cuando arranquemos el desarrollo de barbería / super-admin (el código todavía no existe).
 
 **07 y 08 son distintos: el código del rubro Hospedaje YA ESTÁ deployado** (tablero de habitaciones, check-in, folio, check-out → cobro). Sin estas dos migraciones, cualquier licencia con rubro hotel/hospedaje/hostería no va a poder guardar nada — ejecutalas antes de asignarle ese rubro a un cliente real. Verificado con un test completo simulando toda la lógica (falta solo correr esto para que las llamadas reales a Supabase funcionen).
+
+## Nota sobre el archivo 13 (agregada 2026-08-23, loop de auditoría)
+
+Esta fila decía "URGENTE — sin esto se pierden ventas" desde que se agregó
+(commit `d39fd11`, 07/07/2026, el mismo día del incidente real de Hotel Nico
+Palace con pagos en reales). Ese lenguaje quedó desactualizado: hay evidencia
+fuerte (no una confirmación directa contra Supabase, que este repo no puede
+hacer) de que la migración **ya se ejecutó** poco después — el 22/07/2026 se
+generó un reporte de cierre de caja real para Hotel Nico leyendo datos reales
+de `pos_ventas.mm_pagos` (campos `pagoGS`/`pagoBRL`), lo cual no sería posible
+si la columna no existiera todavía. Antes de asumir que sigue pendiente (y
+sobre todo antes de re-ejecutarla "por las dudas" en un ambiente donde no se
+sepa con certeza), confirmar en el SQL Editor de Supabase con
+`SELECT column_name FROM information_schema.columns WHERE table_name='pos_ventas' AND column_name IN ('mm_pagos','pix_mp_pagos');`
+— si aparecen las 2 filas, esta migración ya corrió y esta fila de la tabla
+se puede marcar como hecha.
 
 ## ⚠️ Archivo 99 — Seguridad (RLS)
 
