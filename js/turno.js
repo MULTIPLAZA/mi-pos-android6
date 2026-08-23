@@ -948,9 +948,12 @@ async function emitirFacturaPostCobro(ventaId){
   let tims = [];
   try { tims = JSON.parse(localStorage.getItem('pos_timbrados')||'[]'); } catch(e){ /* safe: fallback to empty array */ }
   const hoy = new Date();
+  // _timbradoEstaVigente (cobro.js, carga antes que este archivo): antes
+  // solo chequeaba vig_fin, dejaba usar un timbrado cargado para el mes
+  // que viene desde HOY, antes de su fecha real de inicio de vigencia.
   const vigentes = tims.filter(t=>{
     if(t.tipo==='electronico') return true;
-    return t.vig_fin ? new Date(t.vig_fin+' 00:00:00') >= hoy : true;
+    return _timbradoEstaVigente(t, hoy);
   });
   if(!vigentes.length){
     toast('Sin timbrado configurado. Configurá uno en Panel Admin → Administración');

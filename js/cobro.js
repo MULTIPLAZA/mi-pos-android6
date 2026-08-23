@@ -974,6 +974,24 @@ async function cargarTimbradoSesion() {
 }
 
 /**
+ * ¿Este timbrado (no electrónico) está dentro de su rango de vigencia HOY?
+ * Antes solo se chequeaba vig_fin (no vencido) -- un timbrado cargado con
+ * anticipación para el mes que viene (vig_ini en el futuro) se consideraba
+ * "vigente" y se usaba para facturar YA, antes de su fecha de inicio real
+ * -- documento con timbrado fuera de vigencia, rechazable por la SET en
+ * una fiscalización. vig_ini/vig_inicio/fecha_desde: mismo fallback de
+ * nombres que ya usa getFacturaData() para el campo espejo (fecha_desde),
+ * por si la RPC get_timbrado_terminal devuelve el campo con otro nombre.
+ */
+function _timbradoEstaVigente(t, hoy) {
+  var fin  = t.vig_fin;
+  var ini  = t.vig_ini || t.vig_inicio || t.fecha_desde;
+  if (fin && new Date(fin + ' 00:00:00') < hoy) return false;
+  if (ini && new Date(ini + ' 00:00:00') > hoy) return false;
+  return true;
+}
+
+/**
  * Activa o desactiva el formulario de factura.
  * Valida que haya timbrado vigente antes de abrir.
  */
@@ -983,7 +1001,7 @@ function toggleFactura() {
     try { tims = JSON.parse(localStorage.getItem('pos_timbrados') || '[]'); } catch (e) {}
     const hoy      = new Date();
     const vigentes = tims.filter(t =>
-      t.tipo === 'electronico' || (t.vig_fin ? new Date(t.vig_fin + ' 00:00:00') >= hoy : true)
+      t.tipo === 'electronico' || _timbradoEstaVigente(t, hoy)
     );
     if (!vigentes.length) {
       toast('Sin timbrado configurado. Configurá uno en Panel Admin → Administración');
@@ -1013,7 +1031,7 @@ function mostrarSelectorTimbrado() {
   try { tims = JSON.parse(localStorage.getItem('pos_timbrados') || '[]'); } catch (e) {}
   const hoy      = new Date();
   const vigentes = tims.filter(t =>
-    t.tipo === 'electronico' || (t.vig_fin ? new Date(t.vig_fin + ' 00:00:00') >= hoy : true)
+    t.tipo === 'electronico' || _timbradoEstaVigente(t, hoy)
   );
 
   if (!vigentes.length) {
@@ -1095,7 +1113,7 @@ function onSelTimbrado(sel) {
   try { tims = JSON.parse(localStorage.getItem('pos_timbrados') || '[]'); } catch (e) {}
   const hoy      = new Date();
   const vigentes = tims.filter(t =>
-    t.tipo === 'electronico' || (t.vig_fin ? new Date(t.vig_fin + ' 00:00:00') >= hoy : true)
+    t.tipo === 'electronico' || _timbradoEstaVigente(t, hoy)
   );
   const idx = parseInt(sel.value);
   if (isNaN(idx) || idx < 0) { timbradoSeleccionado = null; return; }
