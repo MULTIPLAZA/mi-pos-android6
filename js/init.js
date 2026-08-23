@@ -302,7 +302,18 @@ async function iniciarApp(){
     if(_cpRaw){
       try {
         const _cp = JSON.parse(_cpRaw);
-        await supaPatch('pos_turno', 'id=eq.'+_cp.id, {
+        // &estado=eq.abierto&licencia_email=...: mismas 2 protecciones que ya
+        // tiene el path principal (app.js, confirmarCierre) y que a este
+        // reintento le faltaban -- sin licencia_email, un id de turno de OTRO
+        // tenant pasaba el mismo PATCH (RLS desactivado, ver memoria
+        // project_mipos_supabase_rls_desactivado); sin estado=eq.abierto, si
+        // otra terminal ya habia cerrado este turno con sus propios totales,
+        // este reintento los pisaba en silencio con los numeros (potencialmente
+        // desactualizados) de ESTA terminal. Sin 'minimal' para poder ver
+        // cuantas filas afecto y no limpiar la cola si no afecto ninguna.
+        const _emailCp = localStorage.getItem(SK.email) || '';
+        const _cpRows = await supaPatch('pos_turno',
+          'id=eq.'+_cp.id+'&estado=eq.abierto&licencia_email=ilike.'+encodeURIComponent(_emailCp), {
           estado:          'cerrado',
           fecha_cierre:    _cp.fecha || new Date().toISOString(),
           total_contado:   _cp.totalContado  || 0,
@@ -311,7 +322,10 @@ async function iniciarApp(){
           total_egresos:   _cp.totalEgresos  || 0,
           cantidad_ventas: _cp.cantVentas    || 0,
           resumen_pagos:   _cp.resumenPagos  || '{}',
-        }, true);
+        });
+        if(_cpRows && _cpRows.length === 0){
+          console.warn('[Init] Cierre pendiente: el turno ya no estaba abierto (cerrado desde otra terminal) — se descarta sin pisar');
+        }
         localStorage.removeItem('pos_cierre_pendiente');
         _log('[Init] Cierre pendiente sincronizado con Supabase');
       } catch(e){ console.warn('[Init] Error sincronizando cierre pendiente:', e.message); }
