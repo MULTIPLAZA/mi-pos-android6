@@ -190,17 +190,32 @@ export async function crearSucursal(db, tenant, params) {
   const p_direccion = params && params.p_direccion;
   if (!p_nombre) throw new ShimError('crear_sucursal: falta p_nombre', 400);
 
-  const existente = await db
+  // El SELECT-then-INSERT anterior tenía la misma carrera check-then-insert
+  // ya documentada (y arreglada) para avanzar_correlativo: dos llamadas
+  // concurrentes con el mismo p_nombre podían pasar las dos el chequeo de
+  // "existente" antes de que cualquiera insertara, duplicando la fila.
+  // sucursales no tiene UNIQUE(licencia_id, nombre) (ver 0001_init_mvp.sql),
+  // así que no se puede usar INSERT...ON CONFLICT como en avanzar_correlativo
+  // sin una migración nueva -- en cambio, INSERT...SELECT...WHERE NOT EXISTS
+  // es una sola sentencia SQL atómica: D1/SQLite serializa los writes, así
+  // que solo una de dos llamadas concurrentes efectivamente inserta, la otra
+  // ve 0 filas afectadas y el SELECT de abajo reusa el id ya creado.
+  await db
+    .prepare(
+      `INSERT INTO sucursales (licencia_id, nombre, direccion, activa)
+       SELECT ?, ?, ?, 1
+       WHERE NOT EXISTS (
+         SELECT 1 FROM sucursales WHERE licencia_id = ? AND nombre = ? AND activa = 1
+       )`,
+    )
+    .bind(tenant.lid, p_nombre, p_direccion || null, tenant.lid, p_nombre)
+    .run();
+
+  const row = await db
     .prepare('SELECT id FROM sucursales WHERE licencia_id = ? AND nombre = ? AND activa = 1')
     .bind(tenant.lid, p_nombre)
     .first();
-  if (existente) return { ok: true, sucursal_id: existente.id };
-
-  const { results } = await db
-    .prepare('INSERT INTO sucursales (licencia_id, nombre, direccion, activa) VALUES (?, ?, ?, 1) RETURNING id')
-    .bind(tenant.lid, p_nombre, p_direccion || null)
-    .all();
-  return { ok: true, sucursal_id: results[0].id };
+  return { ok: true, sucursal_id: row.id };
 }
 
 // El dueño del negocio puede cambiar su propio rubro desde admin-negocio.html (Configuración),
