@@ -1083,6 +1083,29 @@ async function _anularVentaConfirmarInterno(id){
       factura_anulada: venta.tiene_factura ? 1 : 0,
     });
 
+    // 1b. Marcar anulada en Supabase -- SIN ESTO la venta seguía contando
+    // como activa en TODOS los reportes de ingresos/IVA (admin-finanzas.js/
+    // admin-dashboard.js filtran siempre `anulada=is.false`), aunque este
+    // mismo dispositivo la mostrara correctamente como anulada: inflaba
+    // ingresos/débito fiscal en los reportes de forma indefinida, y en
+    // cualquier otro terminal la venta seguía viéndose activa. `id` acá es
+    // el id LOCAL de IndexedDB (no el de Supabase -- este flujo, a
+    // diferencia de vAnularVentaConfirmar() en admin-dashboard.js, nunca
+    // guardó el id que Supabase asignó al insertar), así que se matchea por
+    // fecha, mismo criterio ya usado en cpConfirmar() -- ver memoria
+    // project_mipos_venta_uuid_pendiente para el motivo de fondo.
+    if(!USAR_DEMO && navigator.onLine && venta.fecha){
+      const emailAnul = localStorage.getItem(SK.email);
+      if(emailAnul){
+        try {
+          await supaPatch('pos_ventas',
+            'licencia_email=eq.'+encodeURIComponent(emailAnul)+'&fecha=eq.'+encodeURIComponent(venta.fecha),
+            { anulada: true, fecha_anulacion: new Date().toISOString(), motivo_anulacion: 'Anulada desde POS' },
+            true);
+        } catch(e){ console.warn('[Anulacion] Error marcando anulada en Supabase:', e.message); }
+      }
+    }
+
     // 2. Revertir stock en Supabase (en background, sin bloquear UI)
     if(!USAR_DEMO && navigator.onLine){
       try {
