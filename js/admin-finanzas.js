@@ -2187,8 +2187,16 @@ async function guardarTim(){
 }
 
 async function elimTim(i){
-  if(!confirm('Eliminar este timbrado?')) return;
   var t=timbrados[i];
+  // Avisar explícitamente si el timbrado tiene terminales asignadas: al
+  // desactivarlo, esas terminales quedan sin timbrado hasta que alguien les
+  // asigne uno nuevo -- sin este aviso, un admin podía eliminar por error un
+  // timbrado en uso y solo enterarse cuando el cajero no pudiera facturar.
+  var nAsig=(t&&t.asignaciones)?t.asignaciones.length:0;
+  var msg=nAsig
+    ? 'Este timbrado tiene '+nAsig+' terminal'+(nAsig>1?'es':'')+' asignada'+(nAsig>1?'s':'')+' ('+t.asignaciones.map(function(a){return a.terminal;}).join(', ')+'). Al eliminarlo, esa'+(nAsig>1?'s terminales':' terminal')+' quedará'+(nAsig>1?'n':'')+' sin timbrado activo. ¿Eliminar de todas formas?'
+    : 'Eliminar este timbrado?';
+  if(!confirm(msg)) return;
   try{
     if(t._db_id){
       await supaPatch('timbrados','id=eq.'+t._db_id,{activo:false});
