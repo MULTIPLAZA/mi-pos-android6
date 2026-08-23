@@ -2248,7 +2248,11 @@ async function movVerDetalle(compId){
   document.body.appendChild(ov);
 
   try{
-    var comps=await sg('stock_comprobantes','id=eq.'+compId+'&select=*');
+    // licencia_id: sin esto, el filtro era solo por id -- mismo patron ya
+    // arreglado en otros PATCH/GET de este archivo (RLS desactivado, ver
+    // project_mipos_supabase_rls_desactivado).
+    var licIdDet=await movGetLicId();
+    var comps=await sg('stock_comprobantes','id=eq.'+compId+'&licencia_id=eq.'+licIdDet+'&select=*');
     var items=await sg('stock_comprobante_items','comprobante_id=eq.'+compId+'&order=nombre_producto.asc');
     if(!comps.length){document.getElementById('movDetBody').innerHTML='<div style="color:var(--red)">No encontrado</div>';return;}
     var c=comps[0];
@@ -2355,7 +2359,7 @@ async function movEjecutarAnulacion(compId){
   try{
     var licId=await movGetLicId();
     // Leer comprobante original
-    var comps=await sg('stock_comprobantes','id=eq.'+compId+'&select=*');
+    var comps=await sg('stock_comprobantes','id=eq.'+compId+'&licencia_id=eq.'+licId+'&select=*');
     var items=await sg('stock_comprobante_items','comprobante_id=eq.'+compId+'&select=*');
     if(!comps.length) throw new Error('Comprobante no encontrado');
     var orig=comps[0];
@@ -3136,7 +3140,7 @@ async function cntCargarLista(){
 async function cntReanudar(conteoId){
   try{
     var licId=await cntGetLicId();
-    var comps=await sg('stock_conteos','id=eq.'+conteoId+'&select=*');
+    var comps=await sg('stock_conteos','id=eq.'+conteoId+'&licencia_id=eq.'+licId+'&select=*');
     var items=await sg('stock_conteo_items','conteo_id=eq.'+conteoId+'&order=nombre_producto.asc');
     if(!comps.length) return toast('Conteo no encontrado');
     var ct=comps[0];
@@ -3190,7 +3194,8 @@ async function cntVerDetalle(conteoId){
   document.body.appendChild(ov);
 
   try{
-    var comps=await sg('stock_conteos','id=eq.'+conteoId+'&select=*');
+    var licIdDet=await cntGetLicId();
+    var comps=await sg('stock_conteos','id=eq.'+conteoId+'&licencia_id=eq.'+licIdDet+'&select=*');
     var items=await sg('stock_conteo_items','conteo_id=eq.'+conteoId+'&order=nombre_producto.asc');
     var ct=comps[0];
     var dep=(_cnt.deps.find(function(d){return d.id===ct.deposito_id;})||{}).nombre||'';
