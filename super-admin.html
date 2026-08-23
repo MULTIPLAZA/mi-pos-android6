@@ -862,6 +862,17 @@ function renderL(lista){
     }
     const suspTag=!l.activa?'<span class="tag tag-r">SUSPENDIDA</span>':'';
     if(!l.activa) rail='var(--red)';
+    // El boton COPIAR abajo usaba onclick="copiar('${l.clave}')" con la clave
+    // SIN escapar dentro de un string JS entre comillas simples -- clave es
+    // un <input type="text"> editable a mano (no solo el generador
+    // automatico), y licencias no tiene ninguna proteccion de escritura
+    // (ver memoria project_mipos_supabase_rls_desactivado, "RIESGO
+    // ACEPTADO"), asi que un valor malicioso podia llegar tanto por edicion
+    // manual como por un POST/PATCH directo sin pasar por esta pantalla.
+    // Usar &quot; como delimitador (no comilla simple) y esc()+strip de
+    // comillas antes de insertar cierra la fuga -- mismo patron ya aplicado
+    // en movConfirmarAnulacion() (admin-inventario.js) y feCopiarCDC()
+    // (admin-fe.js).
     return `<div class="lcard" style="--rail:${rail};">
       <div class="lcard-h">
         <div class="lmain">
@@ -877,7 +888,7 @@ function renderL(lista){
         </div>
       </div>
       <div class="lacts">
-        <button class="la cp" onclick="copiar('${l.clave}')">
+        <button class="la cp" onclick="copiar(&quot;${esc(l.clave).replace(/&quot;/g,'').replace(/"/g,'')}&quot;)">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>COPIAR
         </button>
         <button class="la ed" onclick="editL(${l.id},'${be}')">
