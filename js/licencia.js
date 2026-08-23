@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.87 (2026-08-23)';
+var APP_VERSION = 'v1.16.88 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -144,7 +144,17 @@ async function limpiarCacheTenantAnterior(){
    // reasignado podia emitir una factura electronica real usando el
    // api_key/timbrado del cliente ANTERIOR bajo el nombre del cliente nuevo.
    'fe_tenant_id','fe_api_key','fe_api_url','fe_activa',
-   'pos_timbrado_activo','pos_timbrados','pos_timbrados_mapa']
+   'pos_timbrado_activo','pos_timbrados','pos_timbrados_mapa',
+   // pos_descuentos (catálogo de descuentos, ver productos.js
+   // cargarDescuentosConfig): MISMO patrón exacto que el timbrado de arriba
+   // -- cargarDescuentosConfig() SÍ resincroniza DESCUENTOS desde Supabase
+   // al arrancar, pero cae al valor cacheado en localStorage tanto si la red
+   // falla COMO si el tenant actual simplemente no tiene descuentos
+   // configurados todavía (array vacío en Supabase también entra por este
+   // camino, no solo el catch de error). Sin limpiar esto, un dispositivo
+   // reasignado a un tenant sin descuentos propios seguía aplicando en
+   // ventas reales los descuentos (nombres, %, colores) del tenant anterior.
+   'pos_descuentos']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });
@@ -159,6 +169,7 @@ async function limpiarCacheTenantAnterior(){
     turnoData.supaId=null; turnoData.dbId=null;
   }
   if(typeof PRODS !== 'undefined') PRODS.length = 0;
+  if(typeof DESCUENTOS !== 'undefined') DESCUENTOS.length = 0;
   // Limpiar tambien el estado EN MEMORIA (no solo localStorage) -- esta funcion
   // se llama sin reload de pagina (doActivar), asi que si no se limpian estas
   // variables la cajera nueva ve en pantalla, en el mismo frame, el carrito y

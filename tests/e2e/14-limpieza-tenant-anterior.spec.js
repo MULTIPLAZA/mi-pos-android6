@@ -16,16 +16,22 @@
 // en su primera pantalla, tickets en espera o un carrito con cliente/mesa
 // de la cuenta anterior.
 //
-// Esta ronda (sin número de versión todavía al escribir el test) sumó el
-// hueco más grave encontrado hasta ahora: fe_tenant_id/fe_api_key/fe_api_url/
-// fe_activa (credenciales reales de FacturaSend/SIFEN) y pos_timbrado_activo/
-// pos_timbrados/pos_timbrados_mapa (timbrado fiscal vigente) tampoco se
-// limpiaban. app.js SÍ re-sincroniza esto desde Supabase al arrancar, pero
-// es async (ventana real) y cargarTimbradoSesion() (cobro.js) usa el cache
-// local como FALLBACK EXPLÍCITO si la RPC falla o no hay asignación para la
-// terminal -- ese fallback asume que el cache es del tenant actual. Sin
-// limpiar esto, un dispositivo reasignado podía emitir una factura
-// electrónica real con el api_key/timbrado del cliente ANTERIOR.
+// v1.16.87 sumó el hueco más grave encontrado hasta ahora: fe_tenant_id/
+// fe_api_key/fe_api_url/fe_activa (credenciales reales de FacturaSend/SIFEN)
+// y pos_timbrado_activo/pos_timbrados/pos_timbrados_mapa (timbrado fiscal
+// vigente) tampoco se limpiaban. app.js SÍ re-sincroniza esto desde Supabase
+// al arrancar, pero es async (ventana real) y cargarTimbradoSesion()
+// (cobro.js) usa el cache local como FALLBACK EXPLÍCITO si la RPC falla o no
+// hay asignación para la terminal -- ese fallback asume que el cache es del
+// tenant actual. Sin limpiar esto, un dispositivo reasignado podía emitir
+// una factura electrónica real con el api_key/timbrado del cliente ANTERIOR.
+//
+// Esta ronda sumó pos_descuentos (catálogo de descuentos, productos.js
+// cargarDescuentosConfig): MISMO patrón que el timbrado -- resincroniza
+// desde Supabase pero cae al cache local si el tenant actual no tiene
+// descuentos configurados (no solo si falla la red), así que un dispositivo
+// reasignado podía seguir aplicando en ventas reales los descuentos del
+// tenant anterior.
 const { test, expect } = require('@playwright/test');
 
 const CLAVES_A_VERIFICAR = [
@@ -39,7 +45,7 @@ const CLAVES_A_VERIFICAR = [
   'pos_pendientes',
   'pos_ticket_counter',
   'pos_cart_autosave',
-  // Las 7 que faltaban (credenciales FE + timbrado fiscal, hallazgo más grave)
+  // Las 7 que faltaban (credenciales FE + timbrado fiscal, v1.16.87)
   'fe_tenant_id',
   'fe_api_key',
   'fe_api_url',
@@ -47,6 +53,8 @@ const CLAVES_A_VERIFICAR = [
   'pos_timbrado_activo',
   'pos_timbrados',
   'pos_timbrados_mapa',
+  // La que faltaba esta ronda (catálogo de descuentos)
+  'pos_descuentos',
   // 4 ya existentes desde antes, de control — si estas fallan también,
   // el problema es más grave que las de arriba (la función completa
   // dejó de limpiar algo).
@@ -123,5 +131,26 @@ test.describe('limpiarCacheTenantAnterior (fix v1.16.60 + v1.16.78 + credenciale
     expect(resultado.timbradoSession).toBeNull();
     expect(resultado.timbradoCache).toBeNull();
     expect(resultado.getTimbradoActivo).toBeNull();
+  });
+
+  test('Vacía DESCUENTOS EN MEMORIA (no solo pos_descuentos en localStorage)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.limpiarCacheTenantAnterior === 'function', { timeout: 8000 });
+
+    const resultado = await page.evaluate(async () => {
+      // Simular descuentos del tenant anterior ya cargados en memoria
+      if (typeof window.DESCUENTOS !== 'undefined') {
+        window.DESCUENTOS.push({ id: 9001, name: 'Descuento tenant viejo', tipo: '%', valor: 15, color: '#e53935' });
+      }
+      localStorage.setItem('pos_descuentos', JSON.stringify([{ id: 9001, name: 'Descuento tenant viejo', tipo: '%', valor: 15 }]));
+
+      await window.limpiarCacheTenantAnterior();
+
+      return {
+        descuentosLen: typeof window.DESCUENTOS !== 'undefined' ? window.DESCUENTOS.length : null,
+      };
+    });
+
+    expect(resultado.descuentosLen).toBe(0);
   });
 });
