@@ -424,8 +424,14 @@ function selMesaColor(el){
 }
 
 async function guardarSalon(salonId){
+  // _running: la rama de creacion (sin salonId) hace un supaPost() plano
+  // (sin on_conflict) -- un doble-tap en "Guardar" creaba 2 salones
+  // duplicados, ademas de duplicar TODAS las mesas auto-generadas (2x
+  // cantMesas). Mismo patron _running ya aplicado varias veces esta sesion.
+  if(guardarSalon._running) return;
+  guardarSalon._running = true;
   const nombre = document.getElementById('formSalonNombre').value.trim();
-  if(!nombre){ toast('Ingresá el nombre del salón'); return; }
+  if(!nombre){ toast('Ingresá el nombre del salón'); guardarSalon._running=false; return; }
 
   // Obtener licId — intentar varias fuentes
   let licId = parseInt(localStorage.getItem('ali'))||null;
@@ -440,7 +446,7 @@ async function guardarSalon(salonId){
       }catch(e){ console.warn('[Mesas] Error recuperando licencia:', e.message); }
     }
   }
-  if(!licId){ toast('Error: sin licencia configurada'); return; }
+  if(!licId){ toast('Error: sin licencia configurada'); guardarSalon._running=false; return; }
 
   const sucId = parseInt(localStorage.getItem('pos_sucursal_id'))||null;
   const cantEl = document.getElementById('formSalonCantMesas');
@@ -481,6 +487,7 @@ async function guardarSalon(salonId){
     renderMesasScreen();
     abrirGestionMesas();
   }catch(e){ console.error('[Mesas]', e); toast('Error: '+e.message); }
+  finally { guardarSalon._running = false; }
 }
 
 async function eliminarSalon(id){
@@ -523,9 +530,13 @@ function abrirFormMesa(salonId, mesaId){
 }
 
 async function guardarMesa(salonId, mesaId){
+  // _running: la rama de creacion (sin mesaId) hace un supaPost() plano --
+  // un doble-tap en "Crear Mesa" creaba 2 mesas duplicadas.
+  if(guardarMesa._running) return;
+  guardarMesa._running = true;
   const nombre = document.getElementById('formMesaNombre').value.trim();
   const cap    = parseInt(document.getElementById('formMesaCap').value)||4;
-  if(!nombre){ toast('Ingresá un nombre'); return; }
+  if(!nombre){ toast('Ingresá un nombre'); guardarMesa._running=false; return; }
   const licId = parseInt(localStorage.getItem('ali'))||null;
   const sucId = parseInt(localStorage.getItem('pos_sucursal_id'))||null;
   try{
@@ -538,6 +549,7 @@ async function guardarMesa(salonId, mesaId){
     toast('Mesa guardada');
     abrirGestionMesas();
   }catch(e){ toast('Error: '+e.message); }
+  finally { guardarMesa._running = false; }
 }
 
 async function eliminarMesa(id){
