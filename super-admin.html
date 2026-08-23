@@ -1007,6 +1007,15 @@ function genClave(){
 }
 
 async function guardarL(){
+  // _running: sin ningun guard ni disabled en el boton "GUARDAR LICENCIA" --
+  // un doble-tap al CREAR una licencia nueva (no editar) podia mandar 2 POST
+  // con la misma clave (generada una sola vez antes, no cambia entre los 2
+  // taps), quedando 2 filas activas compartiendo la misma clave en la tabla
+  // mas critica del negocio (licencias/facturacion). Mismo patron _running
+  // ya aplicado varias veces esta sesion en mi-pos-android6.
+  if(guardarL._running) return;
+  guardarL._running = true;
+  try{
   const clave  =document.getElementById('mClave').value.trim().toUpperCase();
   const planId =parseInt(document.getElementById('mPlan').value);
   const nombre =document.getElementById('mNombre').value.trim();
@@ -1103,6 +1112,9 @@ async function guardarL(){
     // Demo fallback
     toast('Demo — '+clave+' (sin Supabase: '+e.message.substring(0,40)+')',4000);
     closeM();
+  }
+  } finally {
+    guardarL._running = false;
   }
 }
 
