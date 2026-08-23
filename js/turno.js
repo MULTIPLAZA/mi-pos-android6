@@ -1096,6 +1096,34 @@ async function fpConfirmar(ventaId){
       factura:         JSON.stringify(facturaData),
     });
 
+    // Marcar en Supabase -- SIN ESTO la factura post-cobro quedaba SOLO en
+    // IndexedDB local: el numero de factura ya se consumio del timbrado
+    // (avanzarNroFactura de abajo SI sincroniza) y se le imprimio al
+    // cliente, pero pos_ventas.tiene_factura/factura_numero/factura_timbrado
+    // en Supabase seguian sin reflejar que esa venta tenia factura -- un
+    // hueco de cumplimiento fiscal real (el Libro IVA/RG90 y cualquier
+    // reporte armado desde Supabase no verian esta factura), no solo de
+    // reporting interno. Mismo patron ya arreglado en _anularVentaConfirmarInterno()
+    // (v1.16.102) -- se matchea por fecha por el mismo motivo (el `id` acá es
+    // el id LOCAL de IndexedDB, ver memoria project_mipos_venta_uuid_pendiente).
+    if(!USAR_DEMO && navigator.onLine){
+      try {
+        const ventaFp = await db.ventas.get(ventaId);
+        const emailFp = localStorage.getItem(SK.email);
+        if(ventaFp && ventaFp.fecha && emailFp){
+          await supaPatch('pos_ventas',
+            'licencia_email=eq.'+encodeURIComponent(emailFp)+'&fecha=eq.'+encodeURIComponent(ventaFp.fecha),
+            {
+              tiene_factura:    true,
+              factura_ruc:      ruc,
+              factura_nombre:   nombre,
+              factura_numero:   nroFact,
+              factura_timbrado: tim.nro,
+            }, true);
+        }
+      } catch(e){ console.warn('[FacturaPostCobro] Error sincronizando en Supabase:', e.message); }
+    }
+
     // Avanzar numeración del timbrado
     avanzarNroFactura(tim);
 
