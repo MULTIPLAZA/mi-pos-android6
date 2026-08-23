@@ -612,6 +612,18 @@ async function _desactivarProd(){
   }catch(e){ toast('Error: '+e.message); }
 }
 
+// Sanitiza contra CSV/Formula Injection (OWASP) al exportar a Excel -- si un
+// nombre/codigo de producto empieza con =, +, -, @ (o tab/retorno de carro),
+// Excel puede interpretarlo como una formula activa al abrir el archivo
+// exportado (ej: un nombre "=cmd|'/c calc'!A0" o un =HYPERLINK(...) que
+// exfiltra datos de otras celdas a una URL). Un apostrofo al inicio fuerza
+// que la celda se trate como texto literal, no como formula.
+function _sanitizarCeldaExcel(v){
+  v = String(v==null?'':v);
+  if(/^[=+\-@\t\r]/.test(v)) return "'"+v;
+  return v;
+}
+
 async function exportarCatalogo(){
   toast('Preparando exportación...');
   var prods = allPrds.length ? allPrds : await sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&activo=eq.true&es_insumo=is.false&order=nombre.asc&limit=2000');
@@ -620,8 +632,8 @@ async function exportarCatalogo(){
   var rows = prods.map(function(p){
     return [
       p.id||'',
-      p.nombre||'',
-      p.categoria||'',
+      _sanitizarCeldaExcel(p.nombre),
+      _sanitizarCeldaExcel(p.categoria),
       p.precio||0,
       p.costo||0,
       p.iva||'10',
@@ -629,7 +641,7 @@ async function exportarCatalogo(){
       p.stock_min||0,
       p.comanda?'SI':'NO',
       p.precio_variable?'SI':'NO',
-      p.codigo||'',
+      _sanitizarCeldaExcel(p.codigo),
       p.color||''
     ];
   });
@@ -907,7 +919,7 @@ async function exportarInsumos(){
   if(!ins.length){ toast('Sin insumos para exportar'); return; }
   var headers = ['id','nombre','categoria','costo','codigo','color'];
   var rows = ins.map(function(p){
-    return [p.id||'', p.nombre||'', p.categoria||'', p.costo||0, p.codigo||'', p.color||''];
+    return [p.id||'', _sanitizarCeldaExcel(p.nombre), _sanitizarCeldaExcel(p.categoria), p.costo||0, _sanitizarCeldaExcel(p.codigo), p.color||''];
   });
   if(typeof XLSX !== 'undefined'){
     var wb = XLSX.utils.book_new();
