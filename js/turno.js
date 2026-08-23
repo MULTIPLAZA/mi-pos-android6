@@ -395,19 +395,21 @@ async function stockDescontarVenta(items, comprobante){
       });
       _log('[Stock] Descontado atómico — '+itemsInv.length+' prods | depósito:', depId);
     } catch(_rpcErr) {
-      // Fallback: upsert clásico por producto (no atómico)
+      // Fallback: upsert clásico por producto (no atómico). En paralelo
+      // (Promise.all) en vez de un await por producto -- mismo motivo que
+      // stockRevertirVenta() más abajo (v1.16.82): cada upsert es
+      // independiente, no hay por qué serializarlos.
       console.warn('[Stock] RPC no disponible, usando fallback:', _rpcErr.message||_rpcErr);
-      for(const it of itemsInv){
+      await Promise.all(itemsInv.map(function(it){
         const qty  = parseFloat(it.qty)||1;
         const desp = (stockMap[it.id]||0) - qty;
-        try {
-          await supaPost('stock', {
-              deposito_id: depId, sucursal_id: sucId, licencia_id: licId,
-              producto_id: it.id, nombre_producto: it.name||it.nombre||'',
-              cantidad: desp, updated_at: new Date().toISOString()
-            }, 'deposito_id,producto_id', true);
-        } catch(e){ console.warn('[Stock] upsert error prod', it.id, ':', e.message); }
-      }
+        return supaPost('stock', {
+            deposito_id: depId, sucursal_id: sucId, licencia_id: licId,
+            producto_id: it.id, nombre_producto: it.name||it.nombre||'',
+            cantidad: desp, updated_at: new Date().toISOString()
+          }, 'deposito_id,producto_id', true)
+          .catch(function(e){ console.warn('[Stock] upsert error prod', it.id, ':', e.message); });
+      }));
       _log('[Stock] Descontado fallback — '+itemsInv.length+' prods | depósito:', depId);
     }
   }catch(e){
@@ -468,22 +470,26 @@ async function stockRevertirVenta(items, comprobante){
     });
     await supaPost('stock_comprobante_items', compItems, null, true);
 
-    for(const it of itemsInv){
+    // Upserts en paralelo (Promise.all) en vez de un await por producto --
+    // cada uno es independiente (producto_id distinto), no hay motivo para
+    // serializarlos; mismo patron ya usado en el import de Excel (v1.16.54)
+    // y en el guardado de modificadores (v1.16.53). Cada promesa conserva su
+    // propio catch para no abortar el resto si un producto falla.
+    await Promise.all(itemsInv.map(function(it){
       const qty   = parseFloat(it.qty)||1;
       const antes = stockMap[it.id]||0;
       const desp  = antes + qty;
-      try {
-        await supaPost('stock', {
-            deposito_id:     depId,
-            sucursal_id:     sucId,
-            licencia_id:     licId,
-            producto_id:     it.id,
-            nombre_producto: it.name||it.nombre||'',
-            cantidad:        desp,
-            updated_at:      new Date().toISOString()
-          }, 'deposito_id,producto_id', true);
-      } catch(e){ console.warn('[Stock] upsert revert prod', it.id, ':', e.message); }
-    }
+      return supaPost('stock', {
+          deposito_id:     depId,
+          sucursal_id:     sucId,
+          licencia_id:     licId,
+          producto_id:     it.id,
+          nombre_producto: it.name||it.nombre||'',
+          cantidad:        desp,
+          updated_at:      new Date().toISOString()
+        }, 'deposito_id,producto_id', true)
+        .catch(function(e){ console.warn('[Stock] upsert revert prod', it.id, ':', e.message); });
+    }));
     _log('[Stock] Revertido — '+itemsInv.length+' productos | depósito:', depId);
   }catch(e){
     console.warn('[Stock] Error revirtiendo stock:', e.message);
