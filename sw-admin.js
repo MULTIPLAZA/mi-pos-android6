@@ -48,9 +48,27 @@ self.addEventListener('fetch', e => {
   if (url.hostname.includes('jsdelivr.net')) return;
   if (url.hostname.includes('googleapis.com')) return;
   if (url.hostname.includes('cdnjs.cloudflare.com')) return;
-  if (!url.hostname.includes('workers.dev') &&
-      !url.hostname.includes('pages.dev') &&
-      !url.hostname.includes('localhost')) return;
+  // mipos-gateway (backend D1 para tenants Cloudflare, js/config.js
+  // GATEWAY_URL, usado por admin-negocio.html vía rubro.js/backendBaseUrl()
+  // para tenants Cloudflare-nativos): mismo motivo que ya documenta sw.js --
+  // si el Worker esta caido/inalcanzable y este SW intercepta, el .catch() de
+  // mas abajo caia a caches.match('/admin-negocio.html') y devolvia el HTML
+  // de la app (status 200) en vez de un error de red real. supaGet()/
+  // supaPost() esperan JSON y hacen r.json() sobre eso -- explota con un
+  // SyntaxError que ningun _esErrorReintentar() del codigo sabe reconocer
+  // como reintentable, asi que el item queda marcado como error permanente
+  // en vez de encolado.
+  //
+  // ANTES esta condicion era una ALLOWLIST invertida (solo interceptaba si
+  // el host CONTENIA workers.dev/pages.dev/localhost) -- eso interceptaba
+  // workers.dev (el bug de arriba) y ADEMAS dejaba de aplicar el fetch
+  // no-store por completo si el sitio alguna vez se sirve desde un dominio
+  // propio (no *.pages.dev): admin-negocio.html volveria a depender de la
+  // cache HTTP normal del navegador, exactamente lo que este SW existe para
+  // evitar. Ahora es una denylist (igual que sw.js): excluye lo conocido
+  // externo, intercepta TODO lo demas -- mismo origen sin importar el dominio,
+  // y sin capturar el Worker.
+  if (url.hostname.includes('workers.dev')) return;
 
   // {cache:'no-store'}: el SW va siempre al servidor, nunca a la caché HTTP
   // del navegador -- mismo fix que ya tienen sw.js y sw-superadmin.js. Sin

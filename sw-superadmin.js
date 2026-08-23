@@ -39,9 +39,19 @@ self.addEventListener('fetch', e => {
   if (url.hostname.includes('jsdelivr.net')) return;
   if (url.hostname.includes('googleapis.com')) return;
   if (url.hostname.includes('cdnjs.cloudflare.com')) return;
-  if (!url.hostname.includes('workers.dev') &&
-      !url.hostname.includes('pages.dev') &&
-      !url.hostname.includes('localhost')) return;
+  // mipos-gateway (backend D1, workers.dev): mismo motivo documentado en
+  // sw.js/sw-admin.js -- si el Worker esta caido y este SW intercepta, el
+  // .catch() de mas abajo devolvia el HTML de la app (status 200) en vez de
+  // un error de red real, y el SDK que espera JSON explota con un
+  // SyntaxError no reconocido como reintentable.
+  //
+  // ANTES esta condicion era una ALLOWLIST invertida (solo interceptaba si
+  // el host CONTENIA workers.dev/pages.dev/localhost) -- interceptaba
+  // workers.dev (el bug de arriba) y ademas dejaba de aplicar el fetch
+  // no-store por completo si el sitio se sirve desde un dominio propio (no
+  // *.pages.dev). Ahora es una denylist (igual que sw.js/sw-admin.js):
+  // excluye lo conocido externo, intercepta todo lo demas.
+  if (url.hostname.includes('workers.dev')) return;
 
   // {cache:'no-store'}: el SW va siempre al servidor, nunca a la caché HTTP
   // del navegador. La Cache Storage queda solo como fallback offline.
