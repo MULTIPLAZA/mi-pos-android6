@@ -2196,7 +2196,10 @@ async function movFiltrarLista(tiposStr){
 
     tbody.innerHTML=comps.map(function(c){
       var tc=tcfg[c.tipo]||{lbl:c.tipo,col:'var(--muted)',bg:'#222'};
-      var dep=(_mov.deps.find(function(d){return d.id===c.deposito_id;})||{}).nombre||('#'+c.deposito_id);
+      // esc(): nombre de depósito es texto libre (se tipea al crear una
+      // sucursal/depósito nuevo), mismo criterio que referencia/observacion
+      // de esta misma fila.
+      var dep=esc((_mov.deps.find(function(d){return d.id===c.deposito_id;})||{}).nombre||('#'+c.deposito_id));
       var anulado=c.observacion&&c.observacion.includes('[ANULADO]');
       var esAnulacion=c.tipo==='anulacion'||(c.referencia&&c.referencia.startsWith('ANU-'));
       var canAnular=!anulado&&!esAnulacion;
@@ -2256,8 +2259,8 @@ async function movVerDetalle(compId){
     var items=await sg('stock_comprobante_items','comprobante_id=eq.'+compId+'&order=nombre_producto.asc');
     if(!comps.length){document.getElementById('movDetBody').innerHTML='<div style="color:var(--red)">No encontrado</div>';return;}
     var c=comps[0];
-    var dep=(_mov.deps.find(function(d){return d.id===c.deposito_id;})||{}).nombre||('#'+c.deposito_id);
-    var suc=(_mov.sucs.find(function(s){return s.id===c.sucursal_id;})||{}).nombre||'';
+    var dep=esc((_mov.deps.find(function(d){return d.id===c.deposito_id;})||{}).nombre||('#'+c.deposito_id));
+    var suc=esc((_mov.sucs.find(function(s){return s.id===c.sucursal_id;})||{}).nombre||'');
     var tcfg={
       'compra':'Compra','entrada':'Entrada','salida':'Salida','ajuste':'Ajuste',
       'transferencia_salida':'Transferencia (Salida)','transferencia_entrada':'Transferencia (Entrada)',
