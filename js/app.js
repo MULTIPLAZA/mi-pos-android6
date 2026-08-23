@@ -2738,6 +2738,21 @@ function selPrinterSize(tipo, size){
 // ── Búsqueda de código de barras en API externa (SpCodigoBarra) ──────────────
 
 async function _buscarCodigoEnAPI(codigo){
+  // Blindaje: SpCodigoBarra se invoca armando el texto del EXEC a mano del
+  // lado cliente (Exec SpCodigoBarra @CodigoBarra='...'), y el proxy
+  // (apisql-proxy → APISQL → SQL Server) ejecuta ese texto tal cual llega,
+  // sin whitelist de SPs ni validación propia (ver docs de APISQL: "El SP
+  // se ejecuta tal cual se recibe en el campo sp"). El único '.replace' de
+  // comillas no alcanza contra ; -- u otros metacaracteres SQL. Un código
+  // de barras real es siempre alfanumérico (EAN/UPC = solo dígitos; SKU
+  // interno puede tener guiones) — nunca comillas, punto y coma o espacios
+  // — así que exigir ese formato ANTES de armar el EXEC cierra la inyección
+  // para este llamado sin tocar nada fuera de este repo (no puedo tocar
+  // apisql-proxy ni el SP; ver memoria project_mipos_apisql_sql_injection).
+  if(!/^[A-Za-z0-9-]+$/.test(codigo)){
+    _crearProductoNuevo(codigo);
+    return;
+  }
   if(!navigator.onLine){ toast('Sin internet — código no encontrado'); return; }
   toast('Buscando código...');
   try {
