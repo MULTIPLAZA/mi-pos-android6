@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.93 (2026-08-23)';
+var APP_VERSION = 'v1.16.94 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -215,15 +215,43 @@ async function limpiarCacheTenantAnterior(){
   } catch(e){}
 }
 
+// crypto.getRandomValues esta soportado desde mucho antes que crypto.randomUUID
+// (getRandomValues: Chrome 11 / Android 4.4+; randomUUID: Chrome 92+, 2021). Este
+// fork apunta a Android 6 / Chrome 55 -- randomUUID practicamente NUNCA esta
+// disponible ahi, asi que TODO device_id generado en el hardware real de este
+// fork caia en el fallback Math.random()+Date.now() (no criptografico, y
+// Date.now() es 100% predecible) en vez de en un generador seguro. Como
+// device_id + email alcanzan para pedir un token valido via verificar_licencia
+// (mipos-gateway/src/rpc.js, sin el mismo rate-limit por IP que si tiene
+// activar_licencia), un id mas debil que un UUID real baja el costo de
+// adivinarlo. getRandomValues cierra esa brecha sin perder compatibilidad con
+// el target real de este fork -- Math.random() queda solo como ultimo recurso
+// para el puñado de navegadores sin NINGUNA de las dos APIs.
+function _randomHexId(bytes){
+  var arr = new Uint8Array(bytes);
+  crypto.getRandomValues(arr);
+  var hex = '';
+  for(var i=0;i<arr.length;i++){
+    var h = arr[i].toString(16);
+    hex += h.length===1 ? '0'+h : h;
+  }
+  return hex;
+}
+
 function licGetDeviceId(){
   // Priority: localStorage → cookie → sessionStorage → generate NEW
   let id = localStorage.getItem(SK.deviceId)
          || cookieGet('pos_device_id')
          || sessionStorage.getItem(SK.deviceId);
   if(!id){
-    const rand = typeof crypto !== 'undefined' && crypto.randomUUID
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    let rand;
+    if(typeof crypto !== 'undefined' && crypto.randomUUID){
+      rand = crypto.randomUUID();
+    } else if(typeof crypto !== 'undefined' && crypto.getRandomValues){
+      rand = _randomHexId(16); // 128 bits, mismo orden de magnitud que un UUID
+    } else {
+      rand = Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
     id = 'dev_' + rand.replace(/-/g,'').slice(0, 20);
   }
   // Persistir en todas las capas
@@ -270,9 +298,16 @@ async function licGetDeviceIdAsync(){
   } catch(e){ console.warn('[licencia] Error leyendo device_id de IndexedDB:', e.message); }
 
   // 3. No ID found anywhere — generate a NEW unique one for THIS device
-  const rand = typeof crypto !== 'undefined' && crypto.randomUUID
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  // (mismo criterio que licGetDeviceId(): getRandomValues antes que Math.random(),
+  // ver comentario grande junto a _randomHexId())
+  let rand;
+  if(typeof crypto !== 'undefined' && crypto.randomUUID){
+    rand = crypto.randomUUID();
+  } else if(typeof crypto !== 'undefined' && crypto.getRandomValues){
+    rand = _randomHexId(16);
+  } else {
+    rand = Math.random().toString(36).slice(2) + Date.now().toString(36) + Math.random().toString(36).slice(2);
+  }
   id = 'dev_' + rand.replace(/-/g,'').slice(0, 20);
 
   // Persist everywhere
