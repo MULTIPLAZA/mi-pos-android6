@@ -1635,8 +1635,8 @@ function renderModifOpciones(){
       <input class="art-form-input modif-opc-nombre" placeholder="Nombre opción" value="${esc(o.nombre||'')}"
         oninput="modifOpciones[${i}].nombre=this.value"
         style="flex:2;margin:0;">
-      <input class="art-form-input" placeholder="+precio" type="number" value="${o.precio_adicional||0}"
-        oninput="modifOpciones[${i}].precio_adicional=parseInt(this.value)||0"
+      <input class="art-form-input" placeholder="+precio" type="number" min="0" value="${o.precio_adicional||0}"
+        oninput="modifOpciones[${i}].precio_adicional=Math.max(0,parseInt(this.value)||0)"
         style="flex:1;margin:0;">
       <button onclick="modifOpciones.splice(${i},1);renderModifOpciones();"
         style="background:rgba(229,57,53,.12);border:none;border-radius:6px;color:#e53935;padding:8px 10px;cursor:pointer;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
@@ -1692,7 +1692,12 @@ async function guardarModif(){
     // Opciones: borrar las viejas e insertar las nuevas
     await supaFetch('DELETE', 'pos_modificador_opciones', null, { modificador_id:'eq.'+modifId });
     for(let i=0; i<opcValidas.length; i++){
-      await supaFetch('POST', 'pos_modificador_opciones', { modificador_id:modifId, nombre:opcValidas[i].nombre, precio_adicional:opcValidas[i].precio_adicional||0, orden:i, activo:true });
+      // Math.max(0,...): el input tiene min="0" y ya clampea en oninput, pero
+      // se re-clampea acá también (mismo criterio que _guardarProd() en
+      // admin-productos.js) -- sin esto, un precio_adicional negativo
+      // funciona como un descuento no rastreado cada vez que se aplica ese
+      // modificador en una venta (precio += precio_adicional).
+      await supaFetch('POST', 'pos_modificador_opciones', { modificador_id:modifId, nombre:opcValidas[i].nombre, precio_adicional:Math.max(0, opcValidas[i].precio_adicional||0), orden:i, activo:true });
     }
 
     // Productos asignados
