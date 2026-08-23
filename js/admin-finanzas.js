@@ -1526,7 +1526,13 @@ function rg90PeriodoBounds(mes, anio){
 window.rg90Mes  = function(m){ _rg90Mes = m; renderRepRG90(); };
 window.rg90Anio = function(delta){ _rg90Anio += delta; renderRepRG90(); };
 
-var RG90_XLSX_URL = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+// cdn.sheetjs.com, no jsdelivr: SheetJS dejo de publicar a npm en 0.18.5 (hace
+// anios) -- esa version tiene una prototype pollution conocida al leer un
+// archivo (CVE-2023-30533, CVSS 5.3), arreglada en 0.19.3, pero npm/jsdelivr
+// NUNCA van a servir nada mas nuevo que 0.18.5 porque el paquete quedo
+// congelado ahi. El unico lugar con la version parchada es el CDN oficial
+// del propio SheetJS -- mismo bundle (xlsx.full.min.js), solo cambia el host.
+var RG90_XLSX_URL = 'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
 function rg90CargarXLSX(cb){
   if(typeof XLSX !== 'undefined'){ cb(); return; }
   var s=document.createElement('script');

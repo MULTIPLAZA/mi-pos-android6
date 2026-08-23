@@ -109,7 +109,13 @@ function descargarPlantilla(tipo){
     XLSX.writeFile(wb, 'plantilla_productos.xlsx');
   } else {
     var s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    // cdn.sheetjs.com, no jsdelivr: la version de npm quedo congelada en
+    // 0.18.5 (SheetJS dejo de publicar ahi) con una prototype pollution
+    // conocida al LEER un archivo (CVE-2023-30533) -- justo lo que hace
+    // impProcesarArchivo() con el Excel que arrastra el usuario para
+    // importar productos. Arreglada en 0.19.3, pero esa version solo esta
+    // en el CDN oficial de SheetJS, nunca va a llegar via jsdelivr/npm.
+    s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
     s.onload=function(){ descargarPlantilla('xlsx'); };
     document.head.appendChild(s);
   }
@@ -139,7 +145,7 @@ async function impProcesarArchivo(file){
       if(typeof XLSX==='undefined'){
         await new Promise(function(res,rej){
           var s=document.createElement('script');
-          s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+          s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
           s.onload=res; s.onerror=rej; document.head.appendChild(s);
         });
       }
@@ -659,7 +665,7 @@ async function exportarCatalogo(){
     toast('Catálogo exportado con '+prods.length+' productos');
   } else {
     var s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
     s.onload=function(){ exportarCatalogo(); };
     document.head.appendChild(s);
   }
@@ -935,7 +941,7 @@ async function exportarInsumos(){
     toast('Insumos exportados ('+ins.length+')');
   } else {
     var s=document.createElement('script');
-    s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src='https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js';
     s.onload=function(){ exportarInsumos(); };
     document.head.appendChild(s);
   }
