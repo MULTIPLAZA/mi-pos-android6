@@ -20,9 +20,18 @@
 # Strict-Transport-Security: Cloudflare Pages ya sirve todo por HTTPS; esto le
 # dice al navegador que NUNCA intente HTTP para este dominio (sin includeSubDomains
 # por las dudas de que exista algún subdominio con requisitos distintos).
+# X-Content-Type-Options: evita que el navegador "adivine" el tipo de un archivo
+# servido con un Content-Type distinto al real (MIME-sniffing) -- sin costo
+# funcional, todos los tipos que importan ya se fuerzan explícito más abajo.
+# Referrer-Policy: por default el navegador ya manda un referrer recortado a
+# origen cross-site, pero lo fijamos explícito (no depender del default del
+# navegador) -- sin esto un click en un link externo desde la app filtraría la
+# URL completa (con querystrings) al sitio de destino.
 /*
   Content-Security-Policy: connect-src 'self' https: wss: http://127.0.0.1:9200 http://127.0.0.1:8080; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.sheetjs.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=31536000
   Permissions-Policy: screen-wake-lock=(self)
 
