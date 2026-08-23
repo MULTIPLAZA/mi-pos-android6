@@ -840,6 +840,12 @@ function renderL(lista){
   cont.innerHTML=lista.map(l=>{
     const vd=l.fecha_vence?new Date(l.fecha_vence):null;
     const dias=vd?Math.ceil((vd-hoy)/(1000*60*60*24)):null;
+    // l.planes viene de un JOIN de PostgREST (select=*,planes(nombre)) -- la tabla
+    // `planes` es otra tabla de Supabase sin proteccion de escritura propia (ver
+    // memoria project_mipos_supabase_rls_desactivado, "RIESGO ACEPTADO"), asi que
+    // el mismo criterio de siempre aplica: pNom se renderizaba SIN esc() en esta
+    // pantalla -- la que ve el DUEÑO, no un tenant cualquiera -- y en renderCliente
+    // mas abajo tenia el mismo hueco.
     const pNom=l.planes?.nombre||PLANES[l.plan_id]||'Básico';
     const pCls=l.plan_id===1?'tag-g':l.plan_id===2?'tag-b':'tag-o';
     const rb=l.rubro?`<span class="tag tag-gr"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg> ${esc(RUBROS[l.rubro]||l.rubro)}</span>`:'';
@@ -882,7 +888,7 @@ function renderL(lista){
             <div class="lemail">${esc(l.email_cliente||'—')}</div>
           </div>
           <div class="lmeta">
-            <span class="tag ${pCls}">${pNom}</span>
+            <span class="tag ${pCls}">${esc(pNom)}</span>
             ${rb}${tn}${tp}${vt}${suspTag}${beTag}
           </div>
         </div>
@@ -1213,7 +1219,7 @@ async function loadCli(){
             '<div class="li-t" style="font-size:14px;font-weight:700;">'+esc(l.nombre_cliente||ter.neg||'Sin nombre')+'</div>'+
             '<div class="li-s">'+esc(l.email_cliente||'—')+(l.rubro?' · '+esc(RUBROS[l.rubro]||l.rubro):'')+'</div>'+
             '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:5px;">'+
-              '<span class="tag '+pCls+'">'+pNom+'</span>'+
+              '<span class="tag '+pCls+'">'+esc(pNom)+'</span>'+
               vTag+
               (estaActivo?'<span class="tag tag-g">● Activo</span>':'<span class="tag tag-gr">○ Sin actividad reciente</span>')+
             '</div>'+
