@@ -2733,10 +2733,19 @@ async function renderConteo(tab){
 }
 
 async function cntIniciar(){
+  // _running: el numero de conteo se genera leyendo el ultimo (SELECT
+  // max + 1) y recien despues insertando -- mismo patron de race ya
+  // encontrado y arreglado para el correlativo de NC. Ademas btn.disabled
+  // recien se setea DESPUES del primer await (cntGetLicId()), asi que un
+  // doble-tap antes de eso pasaba de largo -- mismo patron ya arreglado en
+  // guardarAjuste()/guardarEgreso() de este mismo archivo/sesion, quedaba
+  // afuera porque esta funcion no estaba en el radar de esas rondas.
+  if(cntIniciar._running) return;
+  cntIniciar._running = true;
   var depId=parseInt(document.getElementById('cntDep').value)||null;
   var fecha=document.getElementById('cntFecha').value;
   var obs=document.getElementById('cntObs').value.trim();
-  if(!depId){ toast('Seleccioná un depósito'); return; }
+  if(!depId){ toast('Seleccioná un depósito'); cntIniciar._running=false; return; }
   var licId=await cntGetLicId();
   var dep=_cnt.deps.find(function(d){return d.id===depId;})||{};
   var suc=_cnt.sucs.find(function(s){return s.id===dep.sucursal_id;})||{};
@@ -2812,6 +2821,8 @@ async function cntIniciar(){
   }catch(e){
     toast('Error: '+e.message);
     if(btn){ btn.disabled=false; btn.textContent='Iniciar conteo →'; }
+  } finally {
+    cntIniciar._running = false;
   }
 }
 
