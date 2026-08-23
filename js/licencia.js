@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.77 (2026-08-23)';
+var APP_VERSION = 'v1.16.78 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -115,7 +115,19 @@ async function limpiarCacheTenantAnterior(){
    'pos_flag_mesas','pos_flag_cocina','pos_flag_delivery','pos_flag_mitades',
    'pos_flag_codigo_barras','pos_flag_balanza','pos_flag_stock_estricto',
    'pos_flag_agenda','pos_flag_profesionales','pos_flag_es_servicio',
-   'pos_flag_habitaciones','pos_flag_folio']
+   'pos_flag_habitaciones','pos_flag_folio',
+   // pos_pendientes (tickets en espera con cart/items/cliente completos) y
+   // pos_cart_autosave (venta EN CURSO, se autoguarda cada pocos segundos,
+   // ver init.js guardarCartAutosave/recuperarCartAutosave) quedaban afuera
+   // de esta lista -- init.js los restaura solo AL ARRANCAR sin chequear de
+   // qué tenant son, y recuperarCartAutosave() solo descarta el autosave si
+   // tiene más de 6hs, así que en una reasignación de dispositivo reciente
+   // (mismo patrón que Hotel Nico/Bodemarket/reuso de dispositivo) la cajera
+   // nueva podía ver tickets en espera o un carrito con items, mesa y nombre
+   // de cliente de la cuenta anterior en su primera pantalla. pos_ticket_counter
+   // no es un dato sensible por sí solo pero viaja junto (mismo motivo que
+   // arrancar en 1 en vez de heredar el contador de otro tenant).
+   'pos_pendientes','pos_ticket_counter','pos_cart_autosave']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });
@@ -130,6 +142,16 @@ async function limpiarCacheTenantAnterior(){
     turnoData.supaId=null; turnoData.dbId=null;
   }
   if(typeof PRODS !== 'undefined') PRODS.length = 0;
+  // Limpiar tambien el estado EN MEMORIA (no solo localStorage) -- esta funcion
+  // se llama sin reload de pagina (doActivar), asi que si no se limpian estas
+  // variables la cajera nueva ve en pantalla, en el mismo frame, el carrito y
+  // los pendientes que quedaron cargados del tenant anterior.
+  if(typeof clearCart === 'function') clearCart();
+  if(typeof setPendientes === 'function') setPendientes([]);
+  // Reset directo de la variable, NO setTicketCounter(0) -- ese setter
+  // reescribe 'pos_ticket_counter' en localStorage con el valor '0', pisando
+  // el removeItem de la lista de arriba (quedaba en '0' en vez de ausente).
+  if(typeof ticketCounter !== 'undefined') ticketCounter = 0;
   try {
     if(typeof db !== 'undefined' && db){
       // productos/categorias/config ya se limpiaban; turno/ventas/egresos/
