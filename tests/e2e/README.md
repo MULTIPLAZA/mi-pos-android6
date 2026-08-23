@@ -31,7 +31,9 @@ tests/e2e/
   ├── 10-regression-mesa.spec.js ← Mesa atascada — regression test del fix
   ├── 11-arch-esm.spec.js       ← Módulos ESM (lib/*.mjs) cargan y exponen sus globals
   ├── 12-banner-timbrado-regression.spec.js ← Banner "sin timbrado" no tapa el header (BUG-09)
-  └── 13-timbrado-vigencia.spec.js ← _timbradoEstaVigente() rechaza timbrado con vig_ini futuro
+  ├── 13-timbrado-vigencia.spec.js ← _timbradoEstaVigente() rechaza timbrado con vig_ini futuro
+  ├── 14-limpieza-tenant-anterior.spec.js ← limpiarCacheTenantAnterior() vacía TODAS las colas/estado del tenant anterior (fix v1.16.60 + v1.16.78)
+  └── 15-filtro-tenant-sync-queue.spec.js ← Filtros tenant-seguros de la cola offline (fix v1.16.58/v1.16.59)
 ```
 
 ## Niveles de cobertura
