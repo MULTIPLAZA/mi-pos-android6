@@ -15,6 +15,17 @@
 // reasignación reciente de dispositivo podía mostrarle a la cajera nueva,
 // en su primera pantalla, tickets en espera o un carrito con cliente/mesa
 // de la cuenta anterior.
+//
+// Esta ronda (sin número de versión todavía al escribir el test) sumó el
+// hueco más grave encontrado hasta ahora: fe_tenant_id/fe_api_key/fe_api_url/
+// fe_activa (credenciales reales de FacturaSend/SIFEN) y pos_timbrado_activo/
+// pos_timbrados/pos_timbrados_mapa (timbrado fiscal vigente) tampoco se
+// limpiaban. app.js SÍ re-sincroniza esto desde Supabase al arrancar, pero
+// es async (ventana real) y cargarTimbradoSesion() (cobro.js) usa el cache
+// local como FALLBACK EXPLÍCITO si la RPC falla o no hay asignación para la
+// terminal -- ese fallback asume que el cache es del tenant actual. Sin
+// limpiar esto, un dispositivo reasignado podía emitir una factura
+// electrónica real con el api_key/timbrado del cliente ANTERIOR.
 const { test, expect } = require('@playwright/test');
 
 const CLAVES_A_VERIFICAR = [
@@ -28,6 +39,14 @@ const CLAVES_A_VERIFICAR = [
   'pos_pendientes',
   'pos_ticket_counter',
   'pos_cart_autosave',
+  // Las 7 que faltaban (credenciales FE + timbrado fiscal, hallazgo más grave)
+  'fe_tenant_id',
+  'fe_api_key',
+  'fe_api_url',
+  'fe_activa',
+  'pos_timbrado_activo',
+  'pos_timbrados',
+  'pos_timbrados_mapa',
   // 4 ya existentes desde antes, de control — si estas fallan también,
   // el problema es más grave que las de arriba (la función completa
   // dejó de limpiar algo).
@@ -37,7 +56,7 @@ const CLAVES_A_VERIFICAR = [
   'pos_turno_creacion_pendiente',
 ];
 
-test.describe('limpiarCacheTenantAnterior (fix v1.16.60 + v1.16.78)', () => {
+test.describe('limpiarCacheTenantAnterior (fix v1.16.60 + v1.16.78 + credenciales FE/timbrado)', () => {
   test('Vacía las colas de reintento y el carrito/pendientes del tenant anterior', async ({ page }) => {
     await page.goto('/');
     await page.waitForFunction(() => typeof window.limpiarCacheTenantAnterior === 'function', { timeout: 8000 });
@@ -75,5 +94,34 @@ test.describe('limpiarCacheTenantAnterior (fix v1.16.60 + v1.16.78)', () => {
     expect(resultado.cartLen).toBe(0);
     expect(resultado.pendientesLen).toBe(0);
     expect(resultado.ticketCounter).toBe(0);
+  });
+
+  test('Vacía timbradoSession/_timbradoCache EN MEMORIA (getTimbradoActivo no debe devolver el timbrado del tenant anterior)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.limpiarCacheTenantAnterior === 'function' && typeof window.getTimbradoActivo === 'function', { timeout: 8000 });
+
+    const resultado = await page.evaluate(async () => {
+      // Simular un timbrado ya cargado en sesión (el estado real que deja
+      // cargarTimbradoSesion() tras un cobro exitoso)
+      window.timbradoSession = { nro: '12345678', sucursal: 1, punto_exp: 1, nro_actual: 42 };
+      window._timbradoCache   = window.timbradoSession;
+      localStorage.setItem('pos_timbrado_activo', JSON.stringify(window.timbradoSession));
+      localStorage.setItem('pos_timbrados', JSON.stringify([{ ...window.timbradoSession, asignaciones: [{ terminal: 'Terminal 1', punto_exp: 1, nro_actual: 42 }] }]));
+      localStorage.setItem('pos_timbrados_mapa', JSON.stringify({ 'Terminal 1': { timIdx: 0, asigIdx: 0 } }));
+
+      await window.limpiarCacheTenantAnterior();
+
+      return {
+        timbradoSession: window.timbradoSession,
+        timbradoCache: window._timbradoCache,
+        // getTimbradoActivo() es el fallback real que usa cargarTimbradoSesion()
+        // si la RPC falla -- debe devolver null, no el timbrado del tenant viejo.
+        getTimbradoActivo: window.getTimbradoActivo(),
+      };
+    });
+
+    expect(resultado.timbradoSession).toBeNull();
+    expect(resultado.timbradoCache).toBeNull();
+    expect(resultado.getTimbradoActivo).toBeNull();
   });
 });

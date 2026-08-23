@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.86 (2026-08-23)';
+var APP_VERSION = 'v1.16.87 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -127,7 +127,24 @@ async function limpiarCacheTenantAnterior(){
    // de cliente de la cuenta anterior en su primera pantalla. pos_ticket_counter
    // no es un dato sensible por sí solo pero viaja junto (mismo motivo que
    // arrancar en 1 en vez de heredar el contador de otro tenant).
-   'pos_pendientes','pos_ticket_counter','pos_cart_autosave']
+   'pos_pendientes','pos_ticket_counter','pos_cart_autosave',
+   // fe_tenant_id/fe_api_key/fe_api_url/fe_activa (credenciales reales de
+   // FacturaSend/SIFEN, ver factura-electronica.js feGetConfig/feSetConfig)
+   // y pos_timbrado_activo/pos_timbrados/pos_timbrados_mapa (timbrado fiscal
+   // vigente, ver cobro.js cargarTimbradoSesion): el MISMO riesgo que ya
+   // motivo agregar fe_cola/fe_pend_cdcs mas arriba, pero en la
+   // CONFIGURACION en si, no solo en la cola. app.js SI re-sincroniza esto
+   // desde Supabase al arrancar (facturasend_config siempre pisa la copia
+   // local), pero: (1) es async, hay una ventana real entre el reinicio del
+   // dispositivo y que ese fetch termine; (2) cargarTimbradoSesion() usa
+   // pos_timbrado_activo como FALLBACK explicito si la RPC falla o no
+   // encuentra asignacion para la terminal ("tenemos el cache local como
+   // fallback") -- ese fallback asume que el cache es del tenant actual, que
+   // deja de ser cierto si esta lista no lo limpia. Sin esto, un dispositivo
+   // reasignado podia emitir una factura electronica real usando el
+   // api_key/timbrado del cliente ANTERIOR bajo el nombre del cliente nuevo.
+   'fe_tenant_id','fe_api_key','fe_api_url','fe_activa',
+   'pos_timbrado_activo','pos_timbrados','pos_timbrados_mapa']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });
@@ -152,6 +169,13 @@ async function limpiarCacheTenantAnterior(){
   // reescribe 'pos_ticket_counter' en localStorage con el valor '0', pisando
   // el removeItem de la lista de arriba (quedaba en '0' en vez de ausente).
   if(typeof ticketCounter !== 'undefined') ticketCounter = 0;
+  // timbradoSession/window._timbradoCache (cobro.js cargarTimbradoSesion):
+  // mismo motivo que arriba con pos_timbrado_activo -- sin esto, el timbrado
+  // del tenant anterior seguia en memoria y usable para cobrar aunque el
+  // localStorage ya estuviera limpio, hasta que cargarTimbradoSesion()
+  // volviera a correr.
+  if(typeof timbradoSession !== 'undefined') timbradoSession = null;
+  if(typeof window !== 'undefined') window._timbradoCache = null;
   try {
     if(typeof db !== 'undefined' && db){
       // productos/categorias/config ya se limpiaban; turno/ventas/egresos/
