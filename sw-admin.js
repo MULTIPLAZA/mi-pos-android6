@@ -1,4 +1,4 @@
-const CACHE = 'ampersand-admin-v20260705-fix-timbrado-logo';
+const CACHE = 'ampersand-admin-v20260823-cache-no-store';
 
 const ASSETS = [
   '/admin-negocio.html',
@@ -52,8 +52,14 @@ self.addEventListener('fetch', e => {
       !url.hostname.includes('pages.dev') &&
       !url.hostname.includes('localhost')) return;
 
+  // {cache:'no-store'}: el SW va siempre al servidor, nunca a la caché HTTP
+  // del navegador -- mismo fix que ya tienen sw.js y sw-superadmin.js. Sin
+  // esto, admin-negocio.html (el panel de finanzas/precios/IVA, el de mayor
+  // riesgo si sirve una version vieja) dependia de la cache HTTP normal del
+  // navegador para decidir si revalidar, en vez de ir siempre a la red
+  // mientras haya conexion.
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-store' })
       .then(res => {
         if (res.ok && res.status === 200) {
           const clone = res.clone();
