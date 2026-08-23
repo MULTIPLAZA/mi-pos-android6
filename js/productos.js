@@ -129,6 +129,15 @@ function guardarDesc(){
   if(descTipoSel==='%' && valor!=null && (valor<=0||valor>100)){
     toast('El porcentaje debe ser entre 1 y 100'); return;
   }
+  // Mismo chequeo que arriba pero para tipo "monto" -- sin esto se podía
+  // guardar un descuento predefinido con monto 0/negativo, que quedaba
+  // inutilizable: addDescuento() SÍ rechaza un monto<=0 al aplicarlo (no es
+  // un hueco de plata), pero el cajero se encontraba con "Monto de
+  // descuento inválido" sin ninguna pista de que el preset estaba mal
+  // configurado desde el alta.
+  if(descTipoSel==='monto' && valor!=null && valor<=0){
+    toast('El monto debe ser mayor a 0'); return;
+  }
 
   if(descEditId != null){
     const d = DESCUENTOS.find(x=>x.id===descEditId);
