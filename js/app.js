@@ -859,7 +859,14 @@ function renderCatPills(){
   if(typeof usaHabitaciones === 'function' && usaHabitaciones()) cats.push('Habitaciones');
   bar.innerHTML = cats.map(function(c){
     const sel = curCat===c ? ' sel' : '';
-    return '<button class="cat-pill'+sel+'" onclick="pickCat(this)">'+c+'</button>';
+    // esc(c): c es el nombre de categoría (pos_categorias, Supabase sin RLS)
+    // sin escapar -- esta barra de pills queda visible casi todo el tiempo
+    // en la pantalla principal de venta, probablemente la superficie de XSS
+    // más expuesta de toda la app. Único caso a NO escapar: el pill de
+    // "Descuentos" ya viene armado con un <svg> de confianza más arriba
+    // (no derivado de datos), se detecta por el prefijo y se deja tal cual.
+    const label = c.indexOf('<svg') === 0 ? c : esc(c);
+    return '<button class="cat-pill'+sel+'" onclick="pickCat(this)">'+label+'</button>';
   }).join('');
 }
 function renderCategoriasVenta(){
@@ -882,11 +889,20 @@ function openCat(){
   const todos = 'Todos los artículos';
   function catItem(nombre, color){
     const sel = curCat===nombre;
-    const colorStyle = color ? 'color:'+color+';border-left-color:'+color+';' : '';
-    const ic = color ? 'background:'+color+';' : '';
+    // esc() en nombre Y color: los dos vienen de pos_categorias (Supabase,
+    // sin RLS -- cualquiera con el anon key público podía escribir un nombre
+    // de categoría o un color malicioso). nombre sin escapar es contenido de
+    // elemento (XSS directo); color sin escapar va dentro de un atributo
+    // style="..." -- una comilla en el valor rompe el atributo e inyecta uno
+    // nuevo (ej. onmouseover). Esta es la pantalla más vista de toda la app
+    // (selector de categoría del POS), se ejecutaría en la sesión de
+    // CUALQUIER cajera apenas la abriera.
+    const colorSafe = color ? esc(color) : '';
+    const colorStyle = colorSafe ? 'color:'+colorSafe+';border-left-color:'+colorSafe+';' : '';
+    const ic = colorSafe ? 'background:'+colorSafe+';' : '';
     return '<div class="cat-item'+(sel?' sel':'')+'" onclick="pickCat(this)" style="'+colorStyle+'">'
       +'<div class="cat-item-ic" style="'+ic+'"></div>'
-      +nombre
+      +esc(nombre)
       +(sel?'<svg style="margin-left:auto" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>':'')
       +'</div>';
   }

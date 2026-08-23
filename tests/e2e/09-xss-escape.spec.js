@@ -164,4 +164,31 @@ test.describe('XSS escape (SEC-002)', () => {
     expect(result).not.toContain('<img src=x onerror');
     expect(result).toContain('&lt;img');
   });
+
+  // Hallazgo probablemente el más expuesto de toda la auditoría: openCat()
+  // (js/app.js, selector de categoría de la pantalla principal de venta --
+  // la pantalla que más ve una cajera en el uso normal del POS) insertaba
+  // el nombre Y el color de cada categoría (pos_categorias, sincronizada por
+  // Supabase sin RLS) sin escapar. El nombre es contenido de elemento (XSS
+  // directo); el color se usa dentro de un atributo style="..." -- una
+  // comilla en el valor rompe el atributo e inyecta uno nuevo (ej.
+  // onmouseover). Cualquiera con el anon key público podía escribir un
+  // nombre/color de categoría malicioso que se ejecutaba en la sesión de
+  // CUALQUIER cajera apenas abriera el selector de categorías.
+  test('openCat() escapa nombre Y color de categoría', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.openCat === 'function', { timeout: 8000 });
+
+    const result = await page.evaluate(() => {
+      window.CATEGORIAS = [{
+        nombre: "<img src=x onerror=window.__xss_executed=true>",
+        color: '"><img src=x onerror=window.__xss_executed_color=true>',
+      }];
+      window.openCat();
+      return document.getElementById('catSheetContent').innerHTML;
+    });
+
+    expect(result).not.toContain('<img src=x onerror');
+    expect(result).toContain('&lt;img');
+  });
 });
