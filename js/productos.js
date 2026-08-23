@@ -1691,19 +1691,31 @@ async function guardarModif(){
 
     // Opciones: borrar las viejas e insertar las nuevas
     await supaFetch('DELETE', 'pos_modificador_opciones', null, { modificador_id:'eq.'+modifId });
-    for(let i=0; i<opcValidas.length; i++){
+    if(opcValidas.length){
+      // Un solo POST con array en vez de un await por opción -- antes era
+      // N round-trips secuenciales (uno por opción) para guardar un solo
+      // modificador; PostgREST acepta un array como body e inserta todo en
+      // una sola request (mismo patrón que compItems en turno.js).
+      //
       // Math.max(0,...): el input tiene min="0" y ya clampea en oninput, pero
       // se re-clampea acá también (mismo criterio que _guardarProd() en
       // admin-productos.js) -- sin esto, un precio_adicional negativo
       // funciona como un descuento no rastreado cada vez que se aplica ese
       // modificador en una venta (precio += precio_adicional).
-      await supaFetch('POST', 'pos_modificador_opciones', { modificador_id:modifId, nombre:opcValidas[i].nombre, precio_adicional:Math.max(0, opcValidas[i].precio_adicional||0), orden:i, activo:true });
+      await supaFetch('POST', 'pos_modificador_opciones', opcValidas.map((o,i) => ({
+        modificador_id:modifId, nombre:o.nombre, precio_adicional:Math.max(0, o.precio_adicional||0), orden:i, activo:true
+      })));
     }
 
     // Productos asignados
     await supaFetch('DELETE', 'pos_producto_modificadores', null, { modificador_id:'eq.'+modifId });
-    for(const prodId of modifProdsSel){
-      await supaFetch('POST', 'pos_producto_modificadores', { producto_id:prodId, modificador_id:modifId });
+    if(modifProdsSel.size){
+      // Mismo motivo: un solo POST con array en vez de un await por producto
+      // asignado (podían ser decenas si el modificador aplica a todo un
+      // rubro, ej. "extras" en todas las pizzas).
+      await supaFetch('POST', 'pos_producto_modificadores', Array.from(modifProdsSel).map(prodId => ({
+        producto_id:prodId, modificador_id:modifId
+      })));
     }
 
     await cargarModificadores();
