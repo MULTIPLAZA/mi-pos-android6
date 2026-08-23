@@ -826,9 +826,25 @@ function supaInsertTurno(estado, efectivoInicial, efectivoInicialBRL){
       // que no tiene relación con pos_turno y puede coincidir con el de
       // OTRO turno ya cerrado, borrando la caja recién abierta.
       turnoGuardar();
+      try { localStorage.removeItem('pos_turno_creacion_pendiente'); } catch(e){}
     }
     _log('[Turno] Guardado en Supabase id:', rows&&rows[0]&&rows[0].id);
-  }).catch(e=>console.warn('[Turno] Error Supabase:', e.message));
+  }).catch(e=>{
+    console.warn('[Turno] Error Supabase:', e.message);
+    // Sin esto, un corte de red justo al abrir turno hacía que el turno
+    // NUNCA se creara en Supabase (a diferencia de todo lo demás en este
+    // flujo -- stock, pedidos, credito -- que ya tiene cola de reintento):
+    // turnoData.supaId quedaba null para siempre, sin ningún reintento, y
+    // ese turno era invisible en reportes/otras terminales hasta el
+    // próximo cierre (que a su vez cae al mismo problema documentado en
+    // init.js sobre usar dbId como fallback). init.js reintenta esto al
+    // reiniciar, igual que ya hace con pos_cierre_pendiente. Se guarda con
+    // el dbId de ESTE turno para no reintentar sobre un turno distinto si
+    // ya se abrió/cerró otro antes del próximo reinicio.
+    try {
+      localStorage.setItem('pos_turno_creacion_pendiente', JSON.stringify({ data: data, dbId: turnoData.dbId }));
+    } catch(e2){}
+  });
 }
 function diag(msg){ /* diag disabled */ }
 

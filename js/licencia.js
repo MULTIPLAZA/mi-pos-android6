@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.35 (2026-08-23)';
+var APP_VERSION = 'v1.16.36 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -81,6 +81,13 @@ async function limpiarCacheTenantAnterior(){
    // Caso mas grave: fe_cola podia terminar emitiendo un DE real ante SIFEN
    // con datos del cliente viejo bajo el timbrado del cliente nuevo.
    'pos_sync_fallback','pos_productos_sync_fallback','fe_cola','fe_pend_cdcs',
+   // pos_turno_creacion_pendiente (ver app.js supaInsertTurno()/init.js): si
+   // el tenant anterior tenía un turno sin sincronizar en Supabase y el
+   // dispositivo se reasigna a otra licencia ANTES de que se reintente, el
+   // dbId local (que se resetea a 1,2,3... al limpiar db.turno.clear() más
+   // abajo) podía coincidir con el dbId del turno nuevo del tenant B —
+   // adjuntándole a B el turno viejo de A en el reintento de init.js.
+   'pos_turno_creacion_pendiente','pos_cierre_pendiente',
    // Rubro/tipo de negocio (ver rubro.js) — sin esto, una licencia nueva de
    // OTRO rubro en este mismo dispositivo heredaba el tipo_negocio y los
    // overrides de flags (mesas/cocina/delivery/etc.) del tenant anterior,

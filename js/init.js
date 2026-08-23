@@ -296,6 +296,34 @@ async function iniciarApp(){
     }
   } catch(e){ console.warn('[App] Turno:', e.message); }
 
+  // ── Reintentar creación de turno en Supabase si quedó sin sincronizar ────
+  // Ver comentario en app.js supaInsertTurno(): si el POST inicial falló
+  // (offline al abrir turno), el turno nunca se creaba en Supabase y
+  // turnoData.supaId quedaba null para siempre sin ningún reintento.
+  if(navigator.onLine && !USAR_DEMO && turnoOk && !turnoData.supaId){
+    const _tcpRaw = localStorage.getItem('pos_turno_creacion_pendiente');
+    if(_tcpRaw){
+      try {
+        const _tcp = JSON.parse(_tcpRaw);
+        // Correlacionar por dbId: si desde que se encoló este pendiente ya se
+        // cerró ese turno y se abrió/restauró otro, dbId no va a coincidir --
+        // en ese caso se descarta sin reintentar (mejor perder el espejo en
+        // Supabase de un turno viejo que pisar el turno actual con datos
+        // ajenos). Si cualquiera de los dos dbId falta, tampoco se reintenta
+        // (mismo criterio conservador).
+        if(_tcp.dbId != null && turnoData.dbId != null && _tcp.dbId === turnoData.dbId){
+          const _tcpRows = await supaPost('pos_turno', _tcp.data);
+          if(_tcpRows && _tcpRows[0]){
+            turnoData.supaId = _tcpRows[0].id;
+            turnoGuardar();
+            _log('[Init] Turno pendiente creado en Supabase id:', _tcpRows[0].id);
+          }
+        }
+        localStorage.removeItem('pos_turno_creacion_pendiente');
+      } catch(e){ console.warn('[Init] Error creando turno pendiente:', e.message); }
+    }
+  }
+
   // ── Enviar cierre pendiente si quedó sin sincronizar (offline al cerrar) ──
   if(navigator.onLine && !USAR_DEMO){
     const _cpRaw = localStorage.getItem('pos_cierre_pendiente');
