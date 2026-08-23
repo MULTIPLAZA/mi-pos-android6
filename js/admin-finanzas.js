@@ -120,9 +120,14 @@ async function planCrearCon(catId){
 
 async function planEliminarCat(id){
   var cons=_plan.cons.filter(function(c){return c.categoria_id===id;});
-  if(cons.length>0){
-    if(!confirm('Esta categoría tiene '+cons.length+' conceptos. ¿Eliminar todo?')) return;
-  }
+  // Antes, una categoría SIN conceptos se borraba sin ningún confirm() --
+  // el botón es un ícono de tachar chiquito al lado del nombre, un
+  // misclick la borraba de una. Con conceptos ya pedía confirmación (por
+  // el "se borra todo junto"); ahora se pide siempre.
+  var msg = cons.length>0
+    ? 'Esta categoría tiene '+cons.length+' conceptos. ¿Eliminar todo?'
+    : '¿Eliminar esta categoría?';
+  if(!confirm(msg)) return;
   try{
     // licencia_id=eq. en el filtro: sin esto, un id de otro tenant (RLS
     // desactivado en Supabase, ver memoria project_mipos_supabase_rls_desactivado)
