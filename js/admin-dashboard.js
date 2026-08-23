@@ -416,7 +416,10 @@ async function loadHotelDashData(){
         var tag = esVencido
           ? '<span style="font-size:10px;font-weight:800;background:var(--red);color:#fff;padding:1px 6px;border-radius:3px;margin-left:6px;">VENCIDO</span>' : '';
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--border);font-size:13px;">'
-          +'<div><strong>'+(hab?('Hab. '+hab.numero):'—')+'</strong> · '+(e.huesped_nombre||'—')+tag+'</div>'
+          // _esc(): huesped_nombre es texto libre tipeado en el check-in --
+          // sin escapar, un nombre de huesped con HTML/JS se ejecutaba cada
+          // vez que se abre el dashboard (primera pantalla al loguearse).
+          +'<div><strong>'+(hab?('Hab. '+hab.numero):'—')+'</strong> · '+_esc(e.huesped_nombre||'—')+tag+'</div>'
           +'<div style="color:var(--muted);font-size:11px;">'+etiquetaFecha+(e.checkout_previsto||'—')+'</div></div>';
       }).join('');
     };
@@ -1044,7 +1047,9 @@ async function _renderComprasGastos(fd){
       '<div style="font-size:26px;font-weight:800;color:'+col+';">'+gs(tot)+'</div>'+
       '<div style="font-size:12px;color:var(--muted);margin-top:2px;">'+cnt+' registros</div></div>'+
       rows.slice(0,5).map(function(r,i){
-        var desc=r.proveedor||r.concepto||r.descripcion||(tipo==='compras'?'Compra':'Gasto');
+        // _esc(): proveedor/concepto/descripcion son texto libre tipeado a
+        // mano (nombre de proveedor en una compra, concepto de un gasto).
+        var desc=_esc(r.proveedor||r.concepto||r.descripcion||(tipo==='compras'?'Compra':'Gasto'));
         var monto=r.total||r.monto||0;
         return '<div style="display:flex;justify-content:space-between;padding:7px 0;'+(i<Math.min(rows.length,5)-1?'border-bottom:1px solid var(--border);':'')+'font-size:13px;">'+
           '<span style="color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:65%;">'+desc+'</span>'+
@@ -1067,7 +1072,7 @@ async function _renderComprasGastos(fd){
       return;
     }
     listEl.innerHTML=rows.slice(0,3).map(function(r){
-      var desc=r.proveedor||r.concepto||r.descripcion||(tipo==='compras'?'Compra':'Gasto');
+      var desc=_esc(r.proveedor||r.concepto||r.descripcion||(tipo==='compras'?'Compra':'Gasto'));
       var monto=r.total||r.monto||0;
       var fch=r.fecha?(function(){var d=new Date(r.fecha);var p=function(n){return String(n).padStart(2,'0');};return p(d.getDate())+'/'+p(d.getMonth()+1);})():'--';
       return '<div class="dsh-cg-row">'+
