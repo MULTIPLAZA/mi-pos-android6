@@ -52,4 +52,48 @@ test.describe('XSS escape (SEC-002)', () => {
     expect(result.executed).toBe(false);
     expect(result.html).toContain('&lt;img');
   });
+
+  // Regression tests puntuales sobre las plantillas de impresión (impresion.js)
+  // — a diferencia de los 3 tests de arriba (que solo verifican que esc() en
+  // sí funciona), estos llaman a las funciones reales que generan el HTML
+  // impreso, para que un futuro cambio que vuelva a olvidar el esc() en un
+  // campo de texto libre lo agarre este test y no un usuario en producción.
+  // Ambos campos fueron hallazgos reales de la auditoría 2026-08-23 (ver
+  // memoria del proyecto): la descripción de un egreso de caja y la
+  // descripción de un consumo de hospedaje (ambos texto libre tipeado por
+  // el cajero — el segundo llega incluso vía la función "item libre" de
+  // productos.js) se imprimían sin escapar antes del fix de v1.16.64.
+  test('generarHTMLCierreTurno() escapa la descripción de un egreso', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.generarHTMLCierreTurno === 'function', { timeout: 8000 });
+
+    const html = await page.evaluate(() => {
+      const data = {
+        efInicial: 0, totalVentas: 0, cantVentas: 0, totalIngresos: 0, totalEgresos: 100,
+        egresos: [{ desc: "<img src=x onerror=window.__xss_executed=true>", monto: 100 }],
+      };
+      return window.generarHTMLCierreTurno(data, '58');
+    });
+
+    expect(html).not.toContain('<img src=x onerror');
+    expect(html).toContain('&lt;img');
+  });
+
+  test('generarHTMLComprobanteCuenta() escapa la descripción de un cargo (consumo item libre)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.generarHTMLComprobanteCuenta === 'function', { timeout: 8000 });
+
+    const html = await page.evaluate(() => {
+      const estadia = {
+        huesped_nombre: 'Huésped de prueba',
+        checkin: '2026-08-01',
+        total: 50000,
+        cargos: [{ descripcion: "<img src=x onerror=window.__xss_executed=true>", monto: 50000, cantidad: 1 }],
+      };
+      return window.generarHTMLComprobanteCuenta(estadia, null, '58');
+    });
+
+    expect(html).not.toContain('<img src=x onerror');
+    expect(html).toContain('&lt;img');
+  });
 });
