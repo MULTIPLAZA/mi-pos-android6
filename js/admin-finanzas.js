@@ -2147,7 +2147,12 @@ async function elimAsig(j){
   if(!confirm('Desasignar terminal "'+a.terminal+'"?')) return;
   try{
     if(a._ter_id){
-      await supaPatch('timbrado_terminales','id=eq.'+a._ter_id,{activo:false});
+      // licencia_email=ilike.SE: sin esto, un admin de CUALQUIER licencia podía
+      // desasignar la terminal de timbrado de OTRO tenant con solo conocer/
+      // adivinar su id (RLS desactivado en Supabase) -- mismo patrón ya
+      // arreglado en toggleTerminalActiva()/renombrarTerminal() más arriba en
+      // este mismo archivo; esta rama se les había escapado.
+      await supaPatch('timbrado_terminales','id=eq.'+a._ter_id+'&licencia_email=ilike.'+encodeURIComponent(SE),{activo:false});
     } else {
       await supaPatch('timbrado_terminales','licencia_email=ilike.'+encodeURIComponent(SE)+'&terminal=eq.'+encodeURIComponent(a.terminal),{activo:false});
     }
@@ -2232,7 +2237,10 @@ async function elimTim(i){
   if(!confirm(msg)) return;
   try{
     if(t._db_id){
-      await supaPatch('timbrados','id=eq.'+t._db_id,{activo:false});
+      // licencia_email=ilike.SE: mismo motivo que elimAsig() más arriba --
+      // sin esto, cualquier admin podía desactivar el timbrado de OTRO tenant
+      // (bloqueándole la facturación) con solo conocer/adivinar su id.
+      await supaPatch('timbrados','id=eq.'+t._db_id+'&licencia_email=ilike.'+encodeURIComponent(SE),{activo:false});
     } else {
       await supaPatch('timbrados','licencia_email=ilike.'+encodeURIComponent(SE)+'&nro=eq.'+t.nro,{activo:false});
     }
