@@ -45,9 +45,16 @@ async function registrarIntento(db, ip, ok) {
     .run();
 }
 
-// `licencias` es admin-only (ver index.js: requiere X-Admin-Key) - ningun dispositivo
-// puede leerla directo. tipo_negocio/capacidades viajan entonces DENTRO de la respuesta
-// de activar_licencia/verificar_licencia, que ya tienen la fila leida en memoria.
+// Ningun dispositivo normal lee `licencias` directo -- el cliente (licencia.js) solo
+// conoce tipo_negocio/capacidades porque viajan DENTRO de la respuesta de
+// activar_licencia/verificar_licencia, que ya tienen la fila leida en memoria.
+// OJO: esto NO es porque `licencias` este protegida por X-Admin-Key -- ese header
+// esta en el allowlist de CORS pero NUNCA se verifica en ningun lado del codigo
+// (confirmado leyendo handleRest() en index.js). `licencias` (tenant:null en
+// schema.js) es una tabla sin ninguna autenticacion en el REST generico del Worker,
+// decision aceptada explicitamente por el dueño (ver el comentario "RIESGO ACEPTADO"
+// en index.js/handleRest) -- la mencion previa de "X-Admin-Key" en este comentario
+// era incorrecta/desactualizada, no describia proteccion real.
 // capacidades se guarda como TEXT (JSON) en D1 - parsear con tolerancia a datos corruptos.
 function parseCapacidades(raw) {
   if (!raw) return null;
