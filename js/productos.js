@@ -1680,8 +1680,19 @@ async function guardarModif(){
     const modifData = { nombre, tipo:modifTipoSel, obligatorio:document.getElementById('modifObligatorio').checked, licencia_email:email, activo:true };
 
     if(modifEditId){
+      // Reverificar que el modificador es del tenant actual ANTES de tocar
+      // nada -- modifEditId sale de `modificadores` (cargado ya filtrado por
+      // licencia_email en cargarModificadores()), pero es estado JS en el
+      // cliente: nada impide que alguien lo pise por consola y edite un
+      // modificador de OTRO tenant. Sin este chequeo, aunque se agregue el
+      // filtro de tenant al PATCH de abajo, los DELETE/INSERT en cascada de
+      // opciones y productos asignados (más abajo) se ejecutarían igual
+      // contra el modificador ajeno -- esas 2 tablas no tienen columna de
+      // tenant propia, solo se pueden proteger verificando el dueño acá.
+      const propio = await supaGet('pos_modificadores', 'id=eq.'+modifEditId+'&licencia_email=eq.'+encodeURIComponent(email)+'&select=id');
+      if(!propio.length){ toast('Modificador no encontrado'); return; }
       // UPDATE
-      await supaFetch('PATCH', 'pos_modificadores', modifData, { id:'eq.'+modifEditId });
+      await supaFetch('PATCH', 'pos_modificadores', modifData, { id:'eq.'+modifEditId+'&licencia_email=eq.'+encodeURIComponent(email) });
     } else {
       // INSERT
       const r = await supaFetch('POST', 'pos_modificadores', modifData, null, 'return=representation');
@@ -1733,7 +1744,11 @@ async function guardarModif(){
 async function eliminarModif(){
   if(!modifEditId || !confirm('¿Eliminar este modificador?')) return;
   try {
-    await supaFetch('PATCH', 'pos_modificadores', { activo:false }, { id:'eq.'+modifEditId });
+    // licencia_email=eq.email: sin esto, un modifEditId de OTRO tenant
+    // (pisado por consola, mismo motivo que guardarModif() más arriba)
+    // podía desactivar un modificador ajeno.
+    const email = localStorage.getItem('lic_email');
+    await supaFetch('PATCH', 'pos_modificadores', { activo:false }, { id:'eq.'+modifEditId+'&licencia_email=eq.'+encodeURIComponent(email) });
     await cargarModificadores();
     toast('Modificador eliminado');
     goTo('scModificadores');
