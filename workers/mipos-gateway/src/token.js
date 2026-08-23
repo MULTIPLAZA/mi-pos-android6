@@ -56,6 +56,11 @@ export async function verifyToken(token, secret) {
   } catch {
     return null;
   }
-  if (typeof payload.exp === 'number' && payload.exp < Math.floor(Date.now() / 1000)) return null;
+  // exp es OBLIGATORIO, no opcional: con `&&` un payload sin exp (typeof !==
+  // 'number') se saltaba el chequeo entero y el token quedaba valido para
+  // siempre. Hoy signToken() siempre pasa exp (activarLicencia/verificarLicencia
+  // en rpc.js), así que no hay ningún token real afectado -- pero verifyToken()
+  // no debería depender de que todo caller futuro se acuerde de ponerlo.
+  if (typeof payload.exp !== 'number' || payload.exp < Math.floor(Date.now() / 1000)) return null;
   return payload;
 }
