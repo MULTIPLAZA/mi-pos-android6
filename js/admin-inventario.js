@@ -2947,7 +2947,15 @@ async function cntSetFisico(idx, val){
   clearTimeout(item._saveTimer);
   item._saveTimer=setTimeout(async function(){
     try{
-      await supaPatch('stock_conteo_items','id=eq.'+item.id,{
+      // conteo_id=eq.ct.id además de id=eq.item.id: stock_conteo_items no
+      // tiene columna de tenant propia (ni licencia_id ni licencia_email),
+      // así que sin esto un item.id adivinado/tampereado del lado cliente
+      // podía pisar la fila de OTRO tenant (Supabase sin RLS). ct.id SÍ está
+      // verificado contra el tenant actual -- se cargó con
+      // 'licencia_id=eq.'+licId en cntReanudar()/donde sea que se creó
+      // _cnt.conteoActual -- así que exigirlo acá cierra el hueco sin
+      // necesitar agregar una columna nueva a la tabla.
+      await supaPatch('stock_conteo_items','id=eq.'+item.id+'&conteo_id=eq.'+ct.id,{
         stock_fisico:v, diferencia:item.diferencia
       });
     }catch(e){ console.warn('[Conteo] save item error:',e.message); }
@@ -3030,7 +3038,11 @@ async function cntConfirmar(){
               cantidad:it.stock_fisico, updated_at:now
           },'deposito_id,producto_id',true);
           // Marcar ítem como ajustado -- solo si el stock SÍ se actualizó.
-          await supaPatch('stock_conteo_items','id=eq.'+it.id,{ajustado:true});
+          // conteo_id=eq.ct.id: mismo motivo que cntSetFisico() más arriba --
+          // stock_conteo_items no tiene columna de tenant propia, así que sin
+          // esto un id ajeno (Supabase sin RLS) podía marcar como "ajustado"
+          // la fila de otro tenant.
+          await supaPatch('stock_conteo_items','id=eq.'+it.id+'&conteo_id=eq.'+ct.id,{ajustado:true});
         }catch(e){
           console.warn('[Conteo] Falló el ajuste de '+it.nombre_producto+':', e.message);
           fallidos.push(it.nombre_producto);
