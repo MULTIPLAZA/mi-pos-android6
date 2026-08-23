@@ -26,9 +26,12 @@ tests/e2e/
   ├── 05-licencia-validacion.spec.js ← Form valida email/clave vacíos
   ├── 06-ui-componentes.spec.js ← Componentes UI core funcionan (toasts, modales)
   ├── 07-config-general.spec.js ← Pantalla config general accesible
-  ├── 08-tutoriales.spec.js     ← (admin) Tutoriales se cargan
-  ├── 09-xss-escape.spec.js     ← Helper escapeHtml está disponible globalmente
-  └── 10-regression-mesa.spec.js ← Mesa atascada — regression test del fix
+  ├── 08-admin.spec.js          ← Panel admin (admin-negocio.html) carga
+  ├── 09-xss-escape.spec.js     ← esc() escapa bien + regression de XSS reales ya arreglados
+  ├── 10-regression-mesa.spec.js ← Mesa atascada — regression test del fix
+  ├── 11-arch-esm.spec.js       ← Módulos ESM (lib/*.mjs) cargan y exponen sus globals
+  ├── 12-banner-timbrado-regression.spec.js ← Banner "sin timbrado" no tapa el header (BUG-09)
+  └── 13-timbrado-vigencia.spec.js ← _timbradoEstaVigente() rechaza timbrado con vig_ini futuro
 ```
 
 ## Niveles de cobertura
