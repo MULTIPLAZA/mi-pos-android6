@@ -134,6 +134,33 @@ test.describe('XSS escape (SEC-002)', () => {
     expect(html).toContain('&lt;img');
   });
 
+  // Hallazgo real de la auditoría 2026-08-23: generarHTMLComanda() (js/impresion.js,
+  // ticket de comanda para cocina) insertaba data.mesa sin escapar en el
+  // "*** MESA X ***" del encabezado -- a diferencia de generarHTMLTicket() y
+  // generarHTMLFactura() (mismo archivo), que SÍ lo escapan. mesa.nombre viene
+  // de mesas.js (guardarMesa), texto libre hasta 30 caracteres sin protección
+  // de escritura propia en Supabase. Mismo sink real que habitacion.numero:
+  // imprimirAndroidNativo() parsea este HTML via innerHTML=.
+  test('generarHTMLComanda() escapa data.mesa', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.generarHTMLComanda === 'function', { timeout: 8000 });
+
+    const html = await page.evaluate(() => {
+      const data = {
+        fecha: new Date(), nroTicket: 1, tipoPedido: 'local',
+        mesa: "<img src=x onerror=window.__xss_executed=true>",
+        items: [{ name: 'Producto test', qty: 1, comanda: true }],
+      };
+      return window.generarHTMLComanda(data, '58');
+    });
+
+    // data.mesa se pasa por .toUpperCase() ANTES de esc() (así el label sale
+    // en mayúsculas como el resto de "*** MESA X ***"), así que el escapado
+    // también queda en mayúsculas -- &lt;IMG, no &lt;img.
+    expect(html).not.toContain('<img src=x onerror');
+    expect(html).toContain('&lt;IMG');
+  });
+
   // Hallazgo real de la auditoría 2026-08-23: _renderFlujoSheet() (js/productos.js,
   // flujo de mitades/modificadores obligatorios al agregar un producto al carrito)
   // escapaba el nombre de cada OPCIÓN de modificador (o.nombre) pero no el nombre

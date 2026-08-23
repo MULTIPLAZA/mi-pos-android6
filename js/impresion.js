@@ -930,8 +930,14 @@ function generarHTMLComanda(data, size){
   const tipoPedido = (data.tipoPedido||'llevar').toLowerCase();
   const esDelivery = tipoPedido==='delivery';
   const esMesa     = tipoPedido==='local' || tipoPedido==='mesa' || !!data.mesa;
+  // esc(data.mesa...): a diferencia de generarHTMLTicket()/generarHTMLFactura()
+  // (que SI escapan data.mesa), esta comanda lo insertaba crudo -- y esta es
+  // la funcion cuyo HTML se parsea de verdad via innerHTML= en
+  // imprimirAndroidNativo(), mismo hallazgo que habitacion.numero mas arriba
+  // en este archivo. mesa.nombre viene de mesas.js (guardarMesa), texto libre
+  // hasta 30 caracteres, sin proteccion de escritura propia en Supabase.
   const tipoLabel  = esDelivery          ? '*** DELIVERY ***'
-                   : data.mesa           ? '*** MESA ' + data.mesa.toUpperCase() + ' ***'
+                   : data.mesa           ? '*** MESA ' + esc(data.mesa.toUpperCase()) + ' ***'
                    : esMesa              ? '*** LOCAL ***'
                    :                      '*** PARA LLEVAR ***';
 
