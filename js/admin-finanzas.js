@@ -1707,8 +1707,12 @@ async function renderRepRG90(){
       filas.map(function(f){
         return '<tr style="border-top:1px solid var(--border);'+(f._incompleta?'background:rgba(255,193,7,.08);':'')+'">'+
           '<td style="padding:9px 12px;color:var(--muted);white-space:nowrap;">'+f.FechaEmision+'</td>'+
-          '<td style="padding:9px 12px;">'+(f.NumeroIdentificacion==='0'?'—':f.NumeroIdentificacion)+'</td>'+
-          '<td style="padding:9px 12px;font-weight:600;color:var(--text);">'+f.RazonSocial+'</td>'+
+          // esc(): NumeroIdentificacion/RazonSocial vienen de RUC/nombre tipeados
+          // a mano en el cobro (factRuc/factNombre) -- sin escapar, un nombre de
+          // cliente con HTML/JS quedaba XSS almacenado, ejecutandose cada vez que
+          // un admin abre este reporte.
+          '<td style="padding:9px 12px;">'+(f.NumeroIdentificacion==='0'?'—':esc(f.NumeroIdentificacion))+'</td>'+
+          '<td style="padding:9px 12px;font-weight:600;color:var(--text);">'+esc(f.RazonSocial)+'</td>'+
           '<td style="padding:9px 12px;white-space:nowrap;'+(!f.Timbrado?'color:#e6a700;':'')+'">'+(f.Timbrado||'sin datos')+'</td>'+
           '<td style="padding:9px 12px;white-space:nowrap;'+(!f.NumeroComprobante?'color:#e6a700;':'')+'">'+(f.NumeroComprobante||'sin datos')+'</td>'+
           '<td style="padding:9px 12px;text-align:right;font-weight:700;color:var(--text);">'+gs(f.TotalComprobante)+'</td>'+
@@ -1731,9 +1735,23 @@ var RG90_HEADERS = [
   'ImputaIre','ImputaIrpRsp','ComprobanteAsociado','TimbradoAsociado'
 ];
 
+// RazonSocial/NumeroIdentificacion son texto libre tipeado a mano en el
+// cobro (RUC/nombre del cliente) -- sin sanitizar, un valor que arranca con
+// =/+/-/@ se interpreta como formula al abrir el XLSX en Excel (CSV/Formula
+// Injection, OWASP), y un | literal corre todas las columnas siguientes del
+// TXT pipe-delimitado (formato Marangatu), corrompiendo lo que se sube a DNIT.
+function _rg90SanitizarTexto(v){
+  var s=String(v==null?'':v).replace(/\|/g,' ');
+  if(/^[=+\-@\t\r]/.test(s)) s="'"+s;
+  return s;
+}
 function rg90FilasLimpias(){
   return (window._rg90Filas||[]).map(function(f){
-    var r={}; RG90_HEADERS.forEach(function(h){ r[h]=f[h]; }); return r;
+    var r={};
+    RG90_HEADERS.forEach(function(h){ r[h]=f[h]; });
+    r.RazonSocial=_rg90SanitizarTexto(r.RazonSocial);
+    r.NumeroIdentificacion=_rg90SanitizarTexto(r.NumeroIdentificacion);
+    return r;
   });
 }
 
