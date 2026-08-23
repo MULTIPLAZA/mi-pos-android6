@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.59 (2026-08-23)';
+var APP_VERSION = 'v1.16.60 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -80,7 +80,20 @@ async function limpiarCacheTenantAnterior(){
    // usando la conexión del dispositivo ya reasignado a la cuenta nueva.
    // Caso mas grave: fe_cola podia terminar emitiendo un DE real ante SIFEN
    // con datos del cliente viejo bajo el timbrado del cliente nuevo.
+   // pos_costo_sync_fallback/pos_stock_sync_fallback (admin-inventario.js),
+   // pos_pedidos_sync_fallback (pedidos.js/turno.js/ventas.js),
+   // pos_cred_sync_fallback (credito.js), pos_hosp_sync_fallback
+   // (hospedaje.js): mismo motivo que las colas de arriba -- estas 5 son
+   // colas de reintento separadas (supaPatchResiliente/supaPostResiliente
+   // genéricas + las 2 implementaciones propias que credito.js/hospedaje.js
+   // ya tenían antes de que existiera la genérica, ver comentario en
+   // config.js) que se agregaron después de armar esta lista y quedaron
+   // afuera -- un costo/stock/pedido/cliente-de-crédito/estadía del tenant
+   // anterior sin sincronizar seguía drenándose en segundo plano bajo la
+   // cuenta nueva reasignada a este dispositivo.
    'pos_sync_fallback','pos_productos_sync_fallback','fe_cola','fe_pend_cdcs',
+   'pos_costo_sync_fallback','pos_stock_sync_fallback','pos_pedidos_sync_fallback',
+   'pos_cred_sync_fallback','pos_hosp_sync_fallback',
    // pos_turno_creacion_pendiente (ver app.js supaInsertTurno()/init.js): si
    // el tenant anterior tenía un turno sin sincronizar en Supabase y el
    // dispositivo se reasigna a otra licencia ANTES de que se reintente, el
