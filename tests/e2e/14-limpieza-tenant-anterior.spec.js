@@ -26,12 +26,19 @@
 // tenant actual. Sin limpiar esto, un dispositivo reasignado podía emitir
 // una factura electrónica real con el api_key/timbrado del cliente ANTERIOR.
 //
-// Esta ronda sumó pos_descuentos (catálogo de descuentos, productos.js
+// v1.16.88 sumó pos_descuentos (catálogo de descuentos, productos.js
 // cargarDescuentosConfig): MISMO patrón que el timbrado -- resincroniza
 // desde Supabase pero cae al cache local si el tenant actual no tiene
 // descuentos configurados (no solo si falla la red), así que un dispositivo
 // reasignado podía seguir aplicando en ventas reales los descuentos del
 // tenant anterior.
+//
+// Esta ronda sumó hosp_precios_tipo (precios de habitación por tipo,
+// hospedaje.js hospCargarPreciosTipo): ventana más chica que las de arriba
+// (acá el resync SÍ pisa la copia local en el caso feliz, incluso con el
+// tenant sin precios configurados) pero el catch de error de red cae a
+// _hospCargarPreciosTipoCache() sin chequear tenant -- mismo riesgo de
+// fondo, solo que menos probable de disparar.
 const { test, expect } = require('@playwright/test');
 
 const CLAVES_A_VERIFICAR = [
@@ -53,8 +60,10 @@ const CLAVES_A_VERIFICAR = [
   'pos_timbrado_activo',
   'pos_timbrados',
   'pos_timbrados_mapa',
-  // La que faltaba esta ronda (catálogo de descuentos)
+  // La que faltaba en v1.16.88 (catálogo de descuentos)
   'pos_descuentos',
+  // La que faltaba esta ronda (precios de habitación por tipo)
+  'hosp_precios_tipo',
   // 4 ya existentes desde antes, de control — si estas fallan también,
   // el problema es más grave que las de arriba (la función completa
   // dejó de limpiar algo).
@@ -152,5 +161,28 @@ test.describe('limpiarCacheTenantAnterior (fix v1.16.60 + v1.16.78 + credenciale
     });
 
     expect(resultado.descuentosLen).toBe(0);
+  });
+
+  test('Vacía hospPreciosTipo EN MEMORIA (no solo hosp_precios_tipo en localStorage)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.limpiarCacheTenantAnterior === 'function', { timeout: 8000 });
+
+    const resultado = await page.evaluate(async () => {
+      // Simular precios por tipo del tenant anterior ya cargados en memoria
+      if (typeof window.hospPreciosTipo !== 'undefined') {
+        window.hospPreciosTipo.matrimonial = { precio: 500000, capacidad: 2 };
+      }
+      localStorage.setItem('hosp_precios_tipo', JSON.stringify({ matrimonial: { precio: 500000, capacidad: 2 } }));
+
+      await window.limpiarCacheTenantAnterior();
+
+      return {
+        hospPreciosTipoKeys: typeof window.hospPreciosTipo !== 'undefined' ? Object.keys(window.hospPreciosTipo).length : null,
+        localStorageValue: localStorage.getItem('hosp_precios_tipo'),
+      };
+    });
+
+    expect(resultado.hospPreciosTipoKeys).toBe(0);
+    expect(resultado.localStorageValue).toBeNull();
   });
 });

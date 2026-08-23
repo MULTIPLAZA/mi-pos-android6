@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.88 (2026-08-23)';
+var APP_VERSION = 'v1.16.89 (2026-08-23)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -154,7 +154,16 @@ async function limpiarCacheTenantAnterior(){
    // camino, no solo el catch de error). Sin limpiar esto, un dispositivo
    // reasignado a un tenant sin descuentos propios seguía aplicando en
    // ventas reales los descuentos (nombres, %, colores) del tenant anterior.
-   'pos_descuentos']
+   'pos_descuentos',
+   // hosp_precios_tipo (precios de habitación por tipo, ver hospedaje.js
+   // hospCargarPreciosTipo): acá el resync SÍ pisa la copia local en el caso
+   // feliz (incluso cuando el tenant nuevo no tiene precios configurados,
+   // a diferencia de pos_descuentos) -- el único hueco es el catch de error
+   // de red, que cae a _hospCargarPreciosTipoCache() sin chequear tenant.
+   // Ventana más chica que las de arriba pero mismo riesgo de fondo: un
+   // negocio de hospedaje reasignado podía ver (y cobrar) tarifas por tipo
+   // de habitación del tenant anterior si esa carga puntual falló por red.
+   'hosp_precios_tipo']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });
@@ -170,6 +179,10 @@ async function limpiarCacheTenantAnterior(){
   }
   if(typeof PRODS !== 'undefined') PRODS.length = 0;
   if(typeof DESCUENTOS !== 'undefined') DESCUENTOS.length = 0;
+  // hospPreciosTipo es un objeto {}, no un array -- no se puede vaciar con
+  // .length=0 como los de arriba. Reset directo del identificador (no
+  // localStorage.setItem, esto es solo el estado en memoria).
+  if(typeof hospPreciosTipo !== 'undefined') hospPreciosTipo = {};
   // Limpiar tambien el estado EN MEMORIA (no solo localStorage) -- esta funcion
   // se llama sin reload de pagina (doActivar), asi que si no se limpian estas
   // variables la cajera nueva ve en pantalla, en el mismo frame, el carrito y
