@@ -649,7 +649,7 @@ function buildArtItem(p, inact){
       '</div>'+
       '<div class="art-item-meta">'+
         '<span>'+esc(p.cat)+'</span><span>·</span><span>'+ivaStr+'</span>'+
-        (p.codigo?'<span>·</span><span style="color:#555;">'+p.codigo+'</span>':'')+
+        (p.codigo?'<span>·</span><span style="color:#555;">'+esc(p.codigo)+'</span>':'')+
       '</div>'+
     '</div>'+
     (inact
