@@ -1485,6 +1485,13 @@ function toggleAsignar(id){
 
 function guardarAsignacion(){
   const cat = asignarCatNombre;
+  // dbSaveProducto()/supaUpsertProducto(): sin esto, la reasignacion masiva
+  // solo tocaba PRODS en memoria -- el boton "GUARDAR" mostraba el toast de
+  // exito, pero la proxima vez que la app cargara productos desde Supabase
+  // (o en cualquier otro dispositivo) el cambio nunca habia existido. Mismo
+  // patron de perdida silenciosa ya visto en otros modulos (Hotel Nico,
+  // Bodemarket) -- ahora se persiste cada producto tocado, igual que
+  // guardarArticulo() hace para un solo producto.
   PRODS.forEach(p => {
     if(asignarSeleccionados.has(p.id)){
       p.cat = cat;
@@ -1492,6 +1499,8 @@ function guardarAsignacion(){
         const catObj = CATEGORIAS.find(c => c.nombre === cat);
         if(catObj) p.color = catObj.color;
       }
+      dbSaveProducto(p);
+      supaUpsertProducto(p);
     }
   });
   filterP(); toast('Artículos asignados a '+cat);
