@@ -181,6 +181,14 @@ async function cargarDescuentosConfig(){
             DESCUENTOS.length = 0;
             parsed.forEach(d=>DESCUENTOS.push(d));
             localStorage.setItem('pos_descuentos', JSON.stringify(DESCUENTOS));
+            // nextDescId arrancaba SIEMPRE en 9000 (su valor inicial hardcodeado)
+            // sin importar los descuentos ya guardados -- el primer descuento
+            // nuevo creado en CUALQUIER sesion fresca (recarga de pagina)
+            // calculaba un id ya usado por uno existente, generando un
+            // duplicado silencioso en el array (find()/findIndex() por id
+            // siempre resuelven al primero, asi que el duplicado quedaba
+            // inalcanzable para editar/eliminar via la UI normal).
+            _actualizarNextDescId();
             _log('[Desc] Cargados desde Supabase:', DESCUENTOS.length);
             return;
           }
@@ -197,10 +205,18 @@ async function cargarDescuentosConfig(){
       if(Array.isArray(parsed)){
         DESCUENTOS.length = 0;
         parsed.forEach(d=>DESCUENTOS.push(d));
+        _actualizarNextDescId();
         _log('[Desc] Cargados desde localStorage:', DESCUENTOS.length);
       }
     }
   } catch(e){ console.warn('[Desc] Error cargando descuentos:', e.message); }
+}
+
+// Sin esto nextDescId quedaba fijo en su valor inicial (9000) sin importar
+// los descuentos ya guardados -- ver comentario en cargarDescuentosConfig().
+function _actualizarNextDescId(){
+  var maxId = DESCUENTOS.reduce(function(m,d){ return Math.max(m, d.id||0); }, 0);
+  if(maxId+1 > nextDescId) nextDescId = maxId+1;
 }
 
 function eliminarDesc(id){
