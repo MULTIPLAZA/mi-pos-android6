@@ -141,7 +141,12 @@ async function dbSaveProducto(prod){
 
 async function dbDeleteProducto(id){
   await db.productos.update(id, { activo: false, updatedAt: new Date().toISOString() });
-  await dbQueueSync('productos', 'delete', { id });
+  // licencia_email va en el payload encolado -- syncConSupabase()/
+  // reintentarSyncItem() lo necesitan para no borrar en Supabase por `id`
+  // a secas (ver comentario ahí: id es un autoincrement LOCAL por tenant,
+  // no único global -- un DELETE sin acotar por tenant borraría el
+  // producto con ese mismo id de CUALQUIER OTRO tenant que lo tenga).
+  await dbQueueSync('productos', 'delete', { id, licencia_email: localStorage.getItem('lic_email') || '' });
 }
 
 async function dbLoadProductos(){
@@ -482,7 +487,14 @@ async function syncConSupabase(){
         let supaId = null;
 
         if(item.operacion === 'delete'){
-          await _conReintento(function(){ return supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id }); });
+          // id es un autoincrement LOCAL por tenant (mismo motivo que el
+          // insert de abajo) -- sin acotar por licencia_email, este DELETE
+          // borraría en Supabase la fila con ese mismo id de CUALQUIER OTRO
+          // tenant que la tenga, no solo la propia. Si el item quedó
+          // encolado sin licencia_email (dato viejo, de antes de este fix),
+          // se rechaza en vez de arriesgar un borrado sin acotar.
+          if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
+          await _conReintento(function(){ return supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) }); });
         } else if(item.operacion === 'update'){
           const { id: itemId, ...datosUpdate } = datos;
           await _conReintento(function(){ return supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId }); });
@@ -835,7 +847,10 @@ async function reintentarSyncItem(itemId){
     const datos = JSON.parse(item.datos);
     const tabla = 'pos_' + item.tabla;
     if(item.operacion === 'delete'){
-      await supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id });
+      // Mismo motivo que syncConSupabase(): id es local por tenant, no
+      // único global -- sin licencia_email no se puede acotar el DELETE.
+      if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
+      await supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) });
     } else if(item.operacion === 'update'){
       var datosUpdate = Object.assign({}, datos);
       delete datosUpdate.id;
