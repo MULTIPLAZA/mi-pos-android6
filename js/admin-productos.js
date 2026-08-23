@@ -955,7 +955,13 @@ async function _getSupabaseSDK() {
   if (window._sbClient) return window._sbClient;
   await new Promise(function(res, rej) {
     var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+    // Version fija (no '@2' flotante): mismo criterio que dexie/chart.js/xlsx
+    // -- un '@2' sin version exacta trae automaticamente CUALQUIER release
+    // 2.x nuevo sin que nadie lo revise antes. Solo se usa para Storage
+    // (foto de producto), nunca para Auth -- no aplica CVE-2026-31813
+    // (bypass de Auth via OIDC Apple/Azure, ver memoria), pero fijar la
+    // version igual cierra el riesgo de cadena de suministro en general.
+    s.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.min.js';
     s.onload = res; s.onerror = rej;
     document.head.appendChild(s);
   });
