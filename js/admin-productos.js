@@ -312,19 +312,24 @@ async function impConfirmar(){
     var updates=batch.filter(function(r){return r._esUpdate;});
     var inserts=batch.filter(function(r){return !r._esUpdate;});
     try{
-      // UPDATE uno a uno por id
-      for(var j=0;j<updates.length;j++){
-        var r=updates[j];
-        // Construir objeto de update — si precio es 0, no sobreescribir el precio actual
-        var upd={nombre:r.nombre.toUpperCase(),categoria:r.categoria,
-          precio_variable:r.precio_variable,iva:r.iva,comanda:r.comanda,
-          updated_at:new Date().toISOString()};
-        if(r.precio>0) upd.precio=r.precio;
-        if(r.costo>0) upd.costo=r.costo;
-        if(r.codigo) upd.codigo=r.codigo;
-        if(r.color) upd.color=r.color;
-        await supaPatch('pos_productos','id=eq.'+r.id+'&licencia_email=ilike.'+encodeURIComponent(SE),upd);
-        ok++;
+      // UPDATEs del lote en paralelo (Promise.all) en vez de un await por
+      // fila -- cada PATCH es independiente (id distinto), no hay motivo
+      // para serializarlos uno detras del otro; mismo patron ya usado para
+      // la cascada de precios de Hospedaje (hospedaje.js). Antes, un lote
+      // de 20 filas tardaba 20 round-trips seguidos; ahora tarda 1.
+      if(updates.length){
+        await Promise.all(updates.map(function(r){
+          // Construir objeto de update — si precio es 0, no sobreescribir el precio actual
+          var upd={nombre:r.nombre.toUpperCase(),categoria:r.categoria,
+            precio_variable:r.precio_variable,iva:r.iva,comanda:r.comanda,
+            updated_at:new Date().toISOString()};
+          if(r.precio>0) upd.precio=r.precio;
+          if(r.costo>0) upd.costo=r.costo;
+          if(r.codigo) upd.codigo=r.codigo;
+          if(r.color) upd.color=r.color;
+          return supaPatch('pos_productos','id=eq.'+r.id+'&licencia_email=ilike.'+encodeURIComponent(SE),upd);
+        }));
+        ok+=updates.length;
       }
       // INSERT: dejar que Postgres auto-genere el ID (serial/identity)
       if(inserts.length){
