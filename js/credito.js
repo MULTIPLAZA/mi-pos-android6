@@ -504,7 +504,12 @@ function cerrarEditCli() {
 
 function guardarEditCli() {
   var nombre = (document.getElementById('editCliNombre').value||'').trim();
-  var lim    = parseInt(document.getElementById('editCliLimite').value)||0;
+  // Math.max(0,...): el input tiene min="0" pero eso no impide tipear un
+  // "-" -- sin el clamp, un limite negativo se guardaba tal cual y quedaba
+  // mostrado como "-Gs X" en vez de tratarse como "sin limite" (mismo
+  // patron ya arreglado para cotizacion BRL/ARS/USD v1.16.61 y capacidad de
+  // habitacion v1.16.62).
+  var lim    = Math.max(0, parseInt(document.getElementById('editCliLimite').value)||0);
   if (!nombre) { if(typeof toast==='function') toast('Ingresá el nombre'); return; }
   if (_editCliId) {
     cliEditar(_editCliId, nombre, lim);

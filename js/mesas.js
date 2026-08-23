@@ -535,7 +535,12 @@ async function guardarMesa(salonId, mesaId){
   if(guardarMesa._running) return;
   guardarMesa._running = true;
   const nombre = document.getElementById('formMesaNombre').value.trim();
-  const cap    = parseInt(document.getElementById('formMesaCap').value)||4;
+  // Math.max(1,...): el input tiene min="1" pero eso no impide tipear un
+  // "-" -- sin el clamp, una capacidad negativa quedaba guardada tal cual y
+  // se mostraba como "-N pers." en la tarjeta de la mesa (mismo patron ya
+  // arreglado para cotizacion BRL/ARS/USD v1.16.61 y capacidad de
+  // habitacion v1.16.62).
+  const cap    = Math.max(1, parseInt(document.getElementById('formMesaCap').value)||4);
   if(!nombre){ toast('Ingresá un nombre'); guardarMesa._running=false; return; }
   const licId = parseInt(localStorage.getItem('ali'))||null;
   const sucId = parseInt(localStorage.getItem('pos_sucursal_id'))||null;
