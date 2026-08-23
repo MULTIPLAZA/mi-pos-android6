@@ -2,8 +2,18 @@
 
 # Permitir conexion a servidor local USB (mixed content exception para 127.0.0.1)
 # y WebSocket seguro (wss:) para Supabase Realtime
+#
+# script-src: agregado 2026-08-23 -- antes la CSP solo restringía connect-src, así
+# que un XSS (aunque ya se blindaron los que se encontraron esta sesión) podía
+# cargar un <script src="https://dominio-malicioso"> sin ninguna barrera. Se agrega
+# 'self' (scripts propios) + 'unsafe-inline' (obligatorio: TODA la UI usa
+# onclick="..." inline, sin esto se rompe cada botón de la app) + el ÚNICO CDN
+# externo real que carga scripts (jsdelivr: Chart.js, XLSX, supabase-js -- ver
+# admin-dashboard.js/admin-productos.js, confirmado con grep, no hay otro).
+# object-src/base-uri: sin costo funcional (sin Flash/plugins ni <base> en la app),
+# cierran 2 vectores clásicos de bypass de CSP.
 /*
-  Content-Security-Policy: connect-src 'self' https: wss: http://127.0.0.1:9200 http://127.0.0.1:8080
+  Content-Security-Policy: connect-src 'self' https: wss: http://127.0.0.1:9200 http://127.0.0.1:8080; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'
   Permissions-Policy: screen-wake-lock=(self)
 
 
