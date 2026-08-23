@@ -65,6 +65,15 @@ async function invGetLicId(){
 async function renderInventarios(){
   var c=document.getElementById('content');
   c.innerHTML='<div class="loading"><span class="sp"></span>Cargando inventarios...</div>';
+  // Reintenta costo-updates y upserts de stock que hayan quedado encolados
+  // por un corte de red -- antes esto SOLO se reintentaba al guardar una
+  // compra/transferencia/anulacion nueva (movGuardar/movEjecutarAnulacion),
+  // asi que si el dueño solo entraba a mirar el stock sin cargar un
+  // movimiento nuevo, una cantidad que quedo mal sincronizada se veia mal
+  // indefinidamente -- exactamente el patron de "cola offline sin limpiar"
+  // ya arreglado en otros modulos (credito.js, hospedaje.js, pedidos.js).
+  if(typeof supaReintentarResilientes==='function') supaReintentarResilientes('pos_costo_sync_fallback');
+  if(typeof supaReintentarResilientesPost==='function') supaReintentarResilientesPost('pos_stock_sync_fallback');
   try{
     var licId = await invGetLicId();
     // Cargar sucursales + depósitos en paralelo
