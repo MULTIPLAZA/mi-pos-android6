@@ -233,7 +233,15 @@ function feBuildDocsLista(){
       '</div>'+
       '<div style="font-size:14px;font-weight:800;color:var(--green);">'+gs(d.total)+'</div>'+
       '</div>'+
-      '<div onclick="feCopiarCDC(\''+escapeHtml(d.fe_cdc)+'\')" title="Copiar CDC" style="font-size:10px;font-family:monospace;color:var(--muted);margin-top:6px;cursor:pointer;word-break:break-all;">CDC: '+escapeHtml(d.fe_cdc)+'</div>'+
+      // &quot; como delimitador (no comilla simple): escapeHtml() convierte ' en
+      // &#39;, pero el parser HTML decodifica &#39; -> ' en el atributo ANTES
+      // de que el motor JS lea el onclick, así que un valor con una comilla
+      // simple igual rompía el string JS y podía inyectar código (mismo
+      // patrón ya corregido para movConfirmarAnulacion() en
+      // admin-inventario.js). fe_cdc es un código numérico de 44 dígitos que
+      // devuelve SIFEN, no texto libre -- riesgo bajo en la práctica, pero se
+      // corrige igual por consistencia y por si algún día cambia el formato.
+      '<div onclick="feCopiarCDC(&quot;'+escapeHtml(d.fe_cdc||'').replace(/&quot;/g,'').replace(/"/g,'')+'&quot;)" title="Copiar CDC" style="font-size:10px;font-family:monospace;color:var(--muted);margin-top:6px;cursor:pointer;word-break:break-all;">CDC: '+escapeHtml(d.fe_cdc)+'</div>'+
       resp+
       '</div>';
   }).join('');
