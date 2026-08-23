@@ -886,7 +886,11 @@ async function confirmarCheckIn(modo){
     huesped_documento: document.getElementById('hospCkDoc').value.trim() || null,
     huesped_tel: document.getElementById('hospCkTel').value.trim() || null,
     huesped_nacionalidad: document.getElementById('hospCkNacionalidad').value.trim() || null,
-    cantidad_huespedes: parseInt(document.getElementById('hospCkHuespedes').value) || 1,
+    // Math.max(1,...): mismo motivo que capacidad en guardarHabitacion() --
+    // un valor negativo tipeado (min="1" del input no lo bloquea) es
+    // truthy y pasaba directo, a diferencia de 0/vacío que sí cae al
+    // default 1 por el ||.
+    cantidad_huespedes: Math.max(1, parseInt(document.getElementById('hospCkHuespedes').value) || 1),
     checkin: checkin,
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
     tarifa_noche: tarifa,
@@ -1015,7 +1019,11 @@ async function confirmarEditarReserva(){
     huesped_documento: document.getElementById('hospCkDoc').value.trim() || null,
     huesped_tel: document.getElementById('hospCkTel').value.trim() || null,
     huesped_nacionalidad: document.getElementById('hospCkNacionalidad').value.trim() || null,
-    cantidad_huespedes: parseInt(document.getElementById('hospCkHuespedes').value) || 1,
+    // Math.max(1,...): mismo motivo que capacidad en guardarHabitacion() --
+    // un valor negativo tipeado (min="1" del input no lo bloquea) es
+    // truthy y pasaba directo, a diferencia de 0/vacío que sí cae al
+    // default 1 por el ||.
+    cantidad_huespedes: Math.max(1, parseInt(document.getElementById('hospCkHuespedes').value) || 1),
     checkin: checkin,
     checkout_previsto: document.getElementById('hospCkCheckout').value || null,
     tarifa_noche: hospCkTarifaEnGs(),
@@ -1770,7 +1778,11 @@ async function guardarHabitacion(){
     numero: numero,
     tipo: document.getElementById('hospFormTipo').value,
     piso: document.getElementById('hospFormPiso').value.trim() || null,
-    capacidad: parseInt(document.getElementById('hospFormCapacidad').value) || 2,
+    // Math.max(1,...): mismo motivo que precio_noche debajo -- el input
+    // tiene min="1" pero eso no bloquea tipear "-3", y a diferencia de un
+    // valor vacío/0 (que ya cae al default 2 por el ||), un negativo es
+    // truthy y pasaba directo -- "Hab. 5 · -3 pers." en el tablero.
+    capacidad: Math.max(1, parseInt(document.getElementById('hospFormCapacidad').value) || 2),
     // Math.max(0,...): sin esto, un precio negativo tipeado acá (el input
     // tiene min="0" pero eso no bloquea el tipeo) queda guardado como la
     // tarifa por defecto de la habitación y se propaga a todo check-in que
