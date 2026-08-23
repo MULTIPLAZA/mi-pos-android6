@@ -131,7 +131,7 @@ function renderInvShell(){
     if(sucsVistas[key]) return;
     sucsVistas[key]=true;
     var sel=(_inv.sel.sucNom===s.nombre)?'selected':'';
-    selOpts+='<option value="'+s.nombre+'" '+sel+'>'+s.nombre+'</option>';
+    selOpts+='<option value="'+esc(s.nombre)+'" '+sel+'>'+esc(s.nombre)+'</option>';
   });
 
   var c=document.getElementById('content');
@@ -973,7 +973,7 @@ function abrirTransferencia(){
   var grupos=depsAgrupados(_inv.deps, _inv.suc);
   if(grupos.length<2){toast('Necesitás al menos 2 depósitos para transferir'); return;}
   var opsDeps=grupos.map(function(g){
-    return '<option value="'+g.idCanonico+'">'+(g.sucursal_nombre?g.sucursal_nombre+' › ':'')+g.nombre+'</option>';
+    return '<option value="'+g.idCanonico+'">'+(g.sucursal_nombre?esc(g.sucursal_nombre)+' › ':'')+esc(g.nombre)+'</option>';
   }).join('');
   document.getElementById('trOrigen').innerHTML=opsDeps;
   document.getElementById('trDestino').innerHTML=opsDeps;
@@ -1142,7 +1142,7 @@ async function renderExtracto(){
 
   // Sucursales únicas
   var sucOpts='<option value="">Todas las sucursales</option>'
-    +_ext.sucsUnicas.map(function(s){return '<option value="'+s.nombre+'">'+s.nombre+'</option>';}).join('');
+    +_ext.sucsUnicas.map(function(s){return '<option value="'+esc(s.nombre)+'">'+esc(s.nombre)+'</option>';}).join('');
 
   c.innerHTML=
     '<div class="ph">'
@@ -1245,7 +1245,7 @@ function extActualizarDeps(){
   var grupos=depsAgrupados(deps, _ext.sucs);
   el.innerHTML='<option value="">Todos los depósitos</option>'
     +grupos.map(function(g){
-       return '<option value="'+g.idsArr.join(',')+'">'+g.nombre+'</option>';
+       return '<option value="'+g.idsArr.join(',')+'">'+esc(g.nombre)+'</option>';
      }).join('');
 }
 
@@ -1667,10 +1667,10 @@ function movBuildDepOpts(selectedId, withAll){
     var deps=_mov.deps.filter(function(d){return sg.sucIds.indexOf(d.sucursal_id)>=0;});
     var grupos=depsAgrupados(deps, [{id:sg.id,nombre:sg.nombre}]);
     if(!grupos.length) return;
-    opts+='<optgroup label="'+sg.nombre+'">';
+    opts+='<optgroup label="'+esc(sg.nombre)+'">';
     grupos.forEach(function(g){
       var sel=(selectedId===g.idCanonico)?' selected':'';
-      opts+='<option value="'+g.idCanonico+'"'+sel+'>'+g.nombre+'</option>';
+      opts+='<option value="'+g.idCanonico+'"'+sel+'>'+esc(g.nombre)+'</option>';
     });
     opts+='</optgroup>';
   });
@@ -2091,7 +2091,7 @@ async function movCargarLista(tipos, wraId){
   var depOpts='<option value="">Todos los depósitos</option>'
     +depsAgrupados(_mov.deps, _mov.sucs).map(function(g){
        var s=g.sucursal_nombre;
-       return '<option value="'+g.idsArr.join(',')+'">'+g.nombre+(s?' ('+s+')':'')+'</option>';
+       return '<option value="'+g.idsArr.join(',')+'">'+esc(g.nombre)+(s?' ('+esc(s)+')':'')+'</option>';
      }).join('');
 
   // ¿La lista incluye compras? Si sí, mostramos columna "Total" y KPI con monto total
@@ -2714,7 +2714,7 @@ async function renderConteo(tab){
     var depOpts='<option value="">— Seleccionar depósito —</option>';
     depsAgrupados(_cnt.deps, _cnt.sucs).forEach(function(g){
       var s=g.sucursal_nombre;
-      depOpts+='<option value="'+g.idCanonico+'">'+g.nombre+(s?' ('+s+')':'')+'</option>';
+      depOpts+='<option value="'+g.idCanonico+'">'+esc(g.nombre)+(s?' ('+esc(s)+')':'')+'</option>';
     });
     c.innerHTML=tabs
       +'<div class="card" style="max-width:500px">'
