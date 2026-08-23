@@ -1327,12 +1327,16 @@ async function renderRepProductos(fdKey){
         var barW = Math.round(e[1].tot/maxTot*100);
         return '<tr style="border-top:1px solid var(--border);">'+
           '<td style="padding:10px 14px;">'+
-            '<div style="font-weight:700;color:var(--text);">'+e[0]+'</div>'+
+            // esc(): e[0] es it.name -- con el item "libre" (venta.js pmOK())
+            // el cajero tipea una descripcion cualquiera a mano, sin pasar
+            // por el catalogo. Ya estaba escapado en el export a PDF de este
+            // mismo reporte (linea ~1290) pero no en la tabla en pantalla.
+            '<div style="font-weight:700;color:var(--text);">'+esc(e[0])+'</div>'+
             '<div style="height:3px;background:var(--border);border-radius:2px;margin-top:5px;">'+
               '<div style="width:'+barW+'%;height:3px;background:var(--green);border-radius:2px;"></div>'+
             '</div>'+
           '</td>'+
-          '<td style="padding:10px 14px;color:var(--muted);font-size:12px;">'+e[1].cat+'</td>'+
+          '<td style="padding:10px 14px;color:var(--muted);font-size:12px;">'+esc(e[1].cat)+'</td>'+
           '<td style="padding:10px 14px;text-align:right;font-weight:600;">'+e[1].qty+'</td>'+
           '<td style="padding:10px 14px;text-align:right;font-weight:800;color:var(--green);">'+gs(e[1].tot)+'</td>'+
           '<td style="padding:10px 14px;text-align:right;color:var(--muted);font-size:12px;">'+pct+'%</td>'+
