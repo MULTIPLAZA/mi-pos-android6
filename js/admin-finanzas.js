@@ -1531,6 +1531,13 @@ async function rg90ArmarFilas(fd0, fh0, addDay){
     '&fecha=lte.'+addDay(fh0)+'T03:59:59'+
     '&select=fecha,total,items,factura_ruc,factura_nombre,factura_numero,factura_timbrado,fe_numero,metodo_pago'+
     '&order=fecha.asc&limit=5000');
+  // limit=5000 arriba: si el período tiene EXACTAMENTE ese tope, es señal de
+  // que probablemente hay más filas cortadas en silencio -- para un reporte
+  // que se sube tal cual a DNIT (Marangatu), un RG90 incompleto sin ningún
+  // aviso es un riesgo real (declaración jurada con datos faltantes). Se
+  // marca acá y renderRepRG90() avisa al usuario, mismo patrón ya usado para
+  // _incompleta (facturas sin timbrado/número).
+  window._rg90Truncado = ventas.length >= 5000;
 
   // Mapa de IVA por producto (fallback cuando el item no trae iva propio)
   var prodMap={};
@@ -1649,8 +1656,14 @@ async function renderRepRG90(){
         '(se emitieron antes de esta actualización). Completalas a mano en la planilla antes de subir a Marangatu.'+
       '</div>' : '';
 
+    var avisoTruncado = window._rg90Truncado ?
+      '<div style="background:#f8d7da;border:1px solid #f1aeb5;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#58151c;">'+
+        '<strong>Este período tiene 5.000 o más facturas</strong> — el reporte puede estar incompleto (el sistema trae como máximo 5.000 filas por consulta). '+
+        'Achicá el rango de fechas (ej. por semana en vez de por mes) antes de subir esto a Marangatu.'+
+      '</div>' : '';
+
     var html =
-      avisoIncompletas +
+      avisoTruncado + avisoIncompletas +
       '<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;margin-bottom:14px;padding:16px 20px;display:flex;gap:32px;flex-wrap:wrap;">'+
         '<div><div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px;">Comprobantes</div>'+
           '<div style="font-size:24px;font-weight:800;color:var(--text);">'+filas.length+'</div></div>'+
