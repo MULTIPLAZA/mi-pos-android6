@@ -926,8 +926,11 @@ async function renderVentasList(){
         ${rucFact ? `<div style="color:var(--text);">RUC: <b>${esc(rucFact)}</b>${nombreFact?' · '+esc(nombreFact):''}</div>` : ''}
       </div>` : '';
 
-    // Comprobante si existe
-    const compDet = v.comprobante ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;">Ref: ${v.comprobante}</div>` : '';
+    // Comprobante si existe -- esc() por consistencia con el resto de la
+    // tarjeta (hoy se carga solo vía el numpad compartido, dígitos/backspace
+    // nada más, no se puede tipear HTML ahí -- pero si el día de mañana se
+    // suma un input de texto libre alternativo, ya queda protegido de una).
+    const compDet = v.comprobante ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;">Ref: ${esc(v.comprobante)}</div>` : '';
 
     // Botones de acción — una fila _remoto (traída de Supabase, hecha en otro
     // dispositivo) no tiene id de IndexedDB local, así que anular/reimprimir/
