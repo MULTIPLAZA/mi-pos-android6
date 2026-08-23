@@ -1,25 +1,30 @@
-// ── ASISTENTE DE VOZ BIDIRECCIONAL ──────────────────────────────
-// Usa Web Speech API (SpeechRecognition) para escuchar al cajero y
-// ejecutar comandos. Responde usando las funciones de voz existentes
-// en sounds.js (hablarGenerico).
+// ── ASISTENTE DE VOZ (CONSULTIVO, NO OPERA) ─────────────────────
+// Usa Web Speech API (SpeechRecognition) para responder por voz preguntas
+// del cajero sobre el turno en curso. Responde usando las funciones de voz
+// existentes en sounds.js (hablarGenerico).
+//
+// Deliberadamente de solo lectura -- ver _asistIntentOperatoria(): si el
+// cajero pide algo operativo (agregar producto, cobrar, confirmar pago,
+// abrir/cerrar mesa, anular) el asistente lo detecta y responde "usá los
+// botones de la pantalla" en vez de ejecutarlo. Esta nota reemplaza una
+// lista de "comandos soportados" desactualizada que incluía cobrar/agregar/
+// confirmar pago como si el asistente los ejecutara -- nunca lo hizo.
 //
 // Flujo:
-//   1. Usuario toca el FAB <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg> o dice "hey pos"
+//   1. Usuario toca el FAB (asistenteEscuchar(), trigger manual -- no hay
+//      wake-word "hey pos" implementada) -- un tap = una sesión de escucha
+//      acotada, tap de nuevo la cancela.
 //   2. Se activa SpeechRecognition con lang='es-PY'
-//   3. Al detectar speech, parsea el texto contra patrones conocidos
-//   4. Ejecuta la acción
-//   5. Responde con voz y toast visual
+//   3. Al detectar speech final, prueba cada intent consultivo en orden
+//      (_asistEjecutarComando) hasta que uno matchea.
+//   4. Responde con voz y toast visual.
 //
-// Comandos soportados:
-//   - "agregar/agrega [producto]"
-//   - "cobrar [efectivo|tarjeta|transferencia|justo]"
-//   - "confirmar pago"
-//   - "nueva venta"
-//   - "abrir mesa [número]"
-//   - "cuánto llevo vendido"
-//   - "total del turno"
-//   - "cancelar" / "cerrar"
-//   - "ayuda" (lista comandos)
+// Preguntas soportadas (ver funciones _asistIntent*):
+//   - "cuánto vendí" / total del turno, cantidad de ventas, promedio,
+//     venta más alta, métodos de pago, saldo en caja, egresos,
+//     producto más vendido, cantidad de productos vendidos,
+//     hora de inicio del turno, estado de las mesas, resumen completo
+//   - "ayuda" (lista preguntas)
 
 var _recognition = null;
 var _asistActivo = false;
