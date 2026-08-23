@@ -1360,7 +1360,7 @@ function renderDivList() {
       <div class="div-comp ${needsComp ? 'open' : ''}" id="divComp${i}">
         <label>Nro. Comprobante / Observación</label>
         <div class="efec-row" style="margin-top:4px;${p.cobrado ? 'opacity:.5;pointer-events:none' : ''}" onclick="openDivNPComp(${i})">
-          <span class="efec-val" id="divCompDisp${i}" style="font-size:16px;color:${p.comprobante ? '#fff' : '#666'}">${p.comprobante || '—'}</span>
+          <span class="efec-val" id="divCompDisp${i}" style="font-size:16px;color:${p.comprobante ? '#fff' : '#666'}">${esc(p.comprobante || '—')}</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#777" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </div>
       </div>
