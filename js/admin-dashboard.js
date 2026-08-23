@@ -416,10 +416,15 @@ async function loadHotelDashData(){
         var tag = esVencido
           ? '<span style="font-size:10px;font-weight:800;background:var(--red);color:#fff;padding:1px 6px;border-radius:3px;margin-left:6px;">VENCIDO</span>' : '';
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;border-top:1px solid var(--border);font-size:13px;">'
-          // _esc(): huesped_nombre es texto libre tipeado en el check-in --
-          // sin escapar, un nombre de huesped con HTML/JS se ejecutaba cada
-          // vez que se abre el dashboard (primera pantalla al loguearse).
-          +'<div><strong>'+(hab?('Hab. '+hab.numero):'—')+'</strong> · '+_esc(e.huesped_nombre||'—')+tag+'</div>'
+          // _esc(): huesped_nombre Y hab.numero son texto libre (numero
+          // tipeado en el alta de habitacion, ver guardarHabitacion() en
+          // hospedaje.js -- ahi mismo no tiene ninguna restriccion de
+          // caracteres) -- sin escapar cualquiera de los dos, un valor con
+          // HTML/JS se ejecutaba cada vez que se abre el dashboard (primera
+          // pantalla al loguearse). huesped_nombre ya estaba escapado; a
+          // hab.numero le faltaba (mismo patron ya arreglado para este mismo
+          // campo en impresion.js -- ver project_mipos_habitacion_numero_xss_impresion).
+          +'<div><strong>'+(hab?('Hab. '+_esc(hab.numero)):'—')+'</strong> · '+_esc(e.huesped_nombre||'—')+tag+'</div>'
           +'<div style="color:var(--muted);font-size:11px;">'+etiquetaFecha+(e.checkout_previsto||'—')+'</div></div>';
       }).join('');
     };
@@ -501,7 +506,10 @@ async function loadHotelDashDataPeriodo(f){
         var pct=Math.round(entry[1]/maxCnt*100);
         return '<div style="padding:8px 14px;border-top:1px solid var(--border);">'+
           '<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px;">'+
-            '<span style="font-weight:700;color:var(--text);">Hab. '+(h?h.numero:'—')+(h&&h.tipo?' · '+h.tipo:'')+'</span>'+
+            // _esc(): mismo motivo que en listaHtml() mas arriba -- h.numero
+            // es texto libre, h.tipo es un <select> de opciones fijas (no
+            // hace falta escaparlo).
+            '<span style="font-weight:700;color:var(--text);">Hab. '+(h?_esc(h.numero):'—')+(h&&h.tipo?' · '+h.tipo:'')+'</span>'+
             '<span style="color:var(--muted);">'+entry[1]+' estadía'+(entry[1]!==1?'s':'')+'</span>'+
           '</div>'+
           '<div style="height:6px;background:var(--card2);border-radius:3px;"><div style="width:'+pct+'%;height:6px;background:var(--green);border-radius:3px;"></div></div>'+
