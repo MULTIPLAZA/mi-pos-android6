@@ -586,9 +586,9 @@ async function _guardarProd(){
       await supaPatch('pos_productos','id=eq.'+_prodPanel.prod.id+'&licencia_email=ilike.'+encodeURIComponent(SE),payload);
       toast('Producto actualizado');
     } else {
-      // pos_productos.id no tiene autoincrement → calcular max+1 desde la DB
-      payload.id = await _nextProductoId();
-      await supaPost('pos_productos',payload,null,true);
+      // pos_productos.id no tiene autoincrement → calcular max+1 desde la DB,
+      // con reintento si dos creaciones concurrentes chocan (ver _postProductoConIdSeguro).
+      await _postProductoConIdSeguro(payload);
       toast('Producto creado');
     }
     cerrarProdPanel();
@@ -663,6 +663,27 @@ async function _nextProductoId(){
     return (r && r.length && r[0].id ? r[0].id : 0) + 1;
   }catch(e){
     return Date.now() % 1000000; // fallback: id grande basado en timestamp
+  }
+}
+
+// _postProductoConIdSeguro: calcula el próximo id y hace el INSERT. Como el
+// id se calcula leyendo max+1 client-side (sin secuencia atómica en la DB),
+// dos creaciones concurrentes (dos pestañas/dispositivos del mismo tenant)
+// pueden calcular el mismo id -- el UNIQUE(licencia_email,id) evita que se
+// pisen datos, pero la segunda insert fallaba con un 409 crudo mostrado tal
+// cual al usuario. Si el error es justamente ese conflicto, recalcula el id
+// y reintenta UNA vez antes de propagar el error.
+async function _postProductoConIdSeguro(payload){
+  payload.id = await _nextProductoId();
+  try{
+    await supaPost('pos_productos',payload,null,true);
+  }catch(e){
+    if(String(e.message||'').indexOf('409') !== -1){
+      payload.id = await _nextProductoId();
+      await supaPost('pos_productos',payload,null,true);
+    } else {
+      throw e;
+    }
   }
 }
 
@@ -838,9 +859,9 @@ async function _guardarInsumo(){
       await supaPatch('pos_productos','id=eq.'+_insPanel.ins.id+'&licencia_email=ilike.'+encodeURIComponent(SE),payload);
       toast('Insumo actualizado');
     } else {
-      // pos_productos.id no tiene autoincrement → calcular max+1 desde la DB
-      payload.id = await _nextProductoId();
-      await supaPost('pos_productos',payload,null,true);
+      // pos_productos.id no tiene autoincrement → calcular max+1 desde la DB,
+      // con reintento si dos creaciones concurrentes chocan (ver _postProductoConIdSeguro).
+      await _postProductoConIdSeguro(payload);
       toast('Insumo creado');
     }
     cerrarInsumoPanel();
