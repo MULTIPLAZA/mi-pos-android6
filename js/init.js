@@ -1076,6 +1076,21 @@ async function _anularVentaConfirmarInterno(id){
       } catch(e){ console.warn('[Anulacion] Error chequeando estadía de hospedaje:', e.message); }
     }
 
+    // 2c. Fiado/crédito: si esta venta se cobró "a cuenta" (fiado), anularla
+    // NO revierte la deuda del cliente en credito.js -- el registro de fiado
+    // (pos_cred_fiado) se guarda con el nroTicket LOCAL de esa sesión
+    // (currentTicketNro/ticketCounter, ver cobro.js confirmarPago), que
+    // nunca se persiste en la venta guardada (db.ventas no tiene ese campo,
+    // solo `comprobante`) -- así que no hay forma confiable de encontrar y
+    // revertir el registro de fiado exacto sin arriesgar tocar el
+    // equivocado. Mismo criterio que hospedaje arriba: avisar fuerte y
+    // dejar la corrección para que se haga a mano en la pantalla de Crédito.
+    if((venta.metodo_pago||'').toUpperCase() === 'CRÉDITO' || (venta.metodo_pago||'').toUpperCase() === 'CREDITO'){
+      alert('ATENCIÓN — esta venta se había cobrado a crédito/fiado (' + gs(venta.total) + '). ' +
+        'Anular la venta NO revierte automáticamente la deuda del cliente. ' +
+        'Revisá manualmente en Crédito y ajustá el saldo si corresponde.');
+    }
+
     // 3. Reconstruir turnoData.ventas desde DB para que el turno cuadre
     //    (elimina la venta anulada del conteo de activas)
     await reconstruirVentasTurno();
