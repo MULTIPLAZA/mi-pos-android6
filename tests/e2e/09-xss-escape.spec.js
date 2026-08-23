@@ -127,4 +127,41 @@ test.describe('XSS escape (SEC-002)', () => {
     expect(result).not.toContain('<img src=x onerror');
     expect(result).toContain('&lt;img');
   });
+
+  // Otro hallazgo real de la misma auditoría 2026-08-23: renderCajasData()
+  // (js/admin-dashboard.js, panel "Cierres de Caja" del admin) escapaba
+  // c.nombre_operador con _esc() en el bloque de turnos CERRADOS pero no en
+  // el bloque de turnos EN CURSO (mismo campo, mismo origen: pos_turno,
+  // sincronizada por Supabase sin RLS) -- el admin viendo un turno abierto
+  // ejecutaba el payload en su propia sesión.
+  test('renderCajasData() escapa nombre_operador de un turno EN CURSO', async ({ page }) => {
+    await page.goto('/admin-negocio.html');
+    await page.waitForFunction(() => typeof window.renderCajasData === 'function', { timeout: 8000 });
+
+    const result = await page.evaluate(() => {
+      // DOM mínimo que renderCajasData() necesita (normalmente lo arma otra
+      // función al abrir la sección "Cajas" del admin).
+      document.body.insertAdjacentHTML('beforeend',
+        '<div id="cjA"></div><div id="cjC"></div><div id="cjT"></div><div id="cjALive"></div><div id="cajasBody"></div>');
+
+      // OJO: admin-negocio.html declara `let allCjs=[]` a nivel de pagina (linea
+      // ~313) -- eso vive en el lexical scope global, SEPARADO de `window.allCjs`.
+      // Asignar window.allCjs no lo toca; hay que reasignar el identificador
+      // suelto para que renderCajasData() (que lee `allCjs` sin `window.`) lo vea.
+      allCjs = [{
+        estado: 'abierto',
+        terminal: 'Caja 1',
+        fecha_apertura: new Date().toISOString(),
+        total_vendido: 10000,
+        cantidad_ventas: 1,
+        efectivo_inicial: 0,
+        nombre_operador: "<img src=x onerror=window.__xss_executed=true>",
+      }];
+      window.renderCajasData();
+      return document.getElementById('cajasBody').innerHTML;
+    });
+
+    expect(result).not.toContain('<img src=x onerror');
+    expect(result).toContain('&lt;img');
+  });
 });

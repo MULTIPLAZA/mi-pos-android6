@@ -2028,7 +2028,7 @@ async function abrirModalAsignar(timIdx){
     asigs.forEach(function(a,j){
       html+='<div style="display:flex;align-items:center;gap:8px;background:#111;border:1px solid var(--green);border-radius:8px;padding:10px 12px;margin-bottom:6px;">';
       html+='<div style="width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0;"></div>';
-      html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#fff;">'+a.terminal+'</div>';
+      html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:#fff;">'+esc(a.terminal)+'</div>';
       html+='<div style="font-size:11px;color:var(--muted);">Pto.Exp.: <b style="color:var(--green);font-family:monospace;">'+String(a.punto_exp||'001').padStart(3,'0')+'</b> · Sig.: <b style="color:var(--green);font-family:monospace;">'+String(a.nro_actual||1).padStart(7,'0')+'</b></div></div>';
       html+='<button data-j="'+j+'" class="btn-elim-asig" style="background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
       html+='</div>';
@@ -2054,10 +2054,10 @@ async function abrirModalAsignar(timIdx){
         return;
       }
       var esYa=yaAsig.indexOf(ter.nombre)>=0;
-      html+='<div data-ter="'+ter.nombre.replace(/"/g,'&quot;')+'" class="ter-sel-opt" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1.5px solid '+(esYa?'var(--green)':'#2a2a2a')+';background:'+(esYa?'rgba(76,175,80,.08)':'#111')+';cursor:'+(esYa?'default':'pointer')+';margin-bottom:6px;">';
+      html+='<div data-ter="'+esc(ter.nombre)+'" class="ter-sel-opt" style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1.5px solid '+(esYa?'var(--green)':'#2a2a2a')+';background:'+(esYa?'rgba(76,175,80,.08)':'#111')+';cursor:'+(esYa?'default':'pointer')+';margin-bottom:6px;">';
       html+='<div style="width:10px;height:10px;border-radius:50%;background:'+(esYa?'var(--green)':'#333')+';flex-shrink:0;"></div>';
-      html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:'+(esYa?'var(--green)':'#fff')+';">'+ter.label+'</div>';
-      if(ter.sucursal) html+='<div style="font-size:11px;color:var(--muted);">'+ter.sucursal+'</div>';
+      html+='<div style="flex:1;"><div style="font-size:13px;font-weight:700;color:'+(esYa?'var(--green)':'#fff')+';">'+esc(ter.label)+'</div>';
+      if(ter.sucursal) html+='<div style="font-size:11px;color:var(--muted);">'+esc(ter.sucursal)+'</div>';
       html+='</div>';
       if(esYa) html+='<span style="font-size:10px;background:var(--g2);color:var(--green);padding:2px 7px;border-radius:10px;font-weight:700;">YA ASIGNADA</span>';
       html+='</div>';

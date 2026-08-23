@@ -2042,7 +2042,7 @@ function renderCajasData(){
           '</div>'+
           '<div class="cj-tmeta">Apertura: <strong>'+hh(c.fecha_apertura)+' hs</strong></div>'+
           '<div class="cj-tmeta">Duracion: <strong>'+durTxt+'</strong></div>'+
-          (c.nombre_operador?'<div class="cj-tmeta">Operador: <strong>'+c.nombre_operador+'</strong></div>':'')+
+          (c.nombre_operador?'<div class="cj-tmeta">Operador: <strong>'+_esc(c.nombre_operador)+'</strong></div>':'')+
         '</div>'+
         // Cell 2: total grande + ops
         '<div class="cj-cell" style="text-align:left;">'+
