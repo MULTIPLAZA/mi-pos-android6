@@ -19,7 +19,7 @@ Todos son idempotentes (`IF NOT EXISTS`): si ya corriste uno, volver a correrlo 
 | 10 | `10_hospedaje_abonos.sql` | Campo `abonos` (pagos parciales durante la estadía) en `pos_estadias` | **Sí — código ya deployado** |
 | 11 | `11_hospedaje_huespedes.sql` | Tabla `pos_huespedes` (registro de huéspedes para autocompletar check-in) | **Sí — código ya deployado** |
 | 12 | `12_hospedaje_pago_anulado.sql` | Campos `pago_anulado`/`pago_anulado_fecha` en `pos_estadias` (avisa si se anula la venta de un check-out ya hecho) | **Sí — código ya deployado** |
-| 13 | `13_ventas_mm_pagos.sql` | Campos `mm_pagos`/`pix_mp_pagos` en `pos_ventas` (desglose real Gs/R$/ARS/USD de un pago simple en Multi-moneda o Pix/MP) | Probablemente **ya ejecutada** (ver nota abajo) — confirmar antes de asumir que sigue pendiente |
+| 13 | `13_ventas_mm_pagos.sql` | Campos `mm_pagos`/`pix_mp_pagos` en `pos_ventas` (desglose real Gs/R$/ARS/USD de un pago simple en Multi-moneda o Pix/MP) | ✅ **Confirmado ejecutada** (ver nota abajo) |
 | 99 | `99_SEGURIDAD_rls_hardening_...` | Cierra el acceso abierto de la base | ⚠️ **NO ejecutar solo — leer abajo** |
 
 ## Importante — orden vs. deploy del código
@@ -47,6 +47,17 @@ sepa con certeza), confirmar en el SQL Editor de Supabase con
 `SELECT column_name FROM information_schema.columns WHERE table_name='pos_ventas' AND column_name IN ('mm_pagos','pix_mp_pagos');`
 — si aparecen las 2 filas, esta migración ya corrió y esta fila de la tabla
 se puede marcar como hecha.
+
+**Confirmado 2026-08-23 (loop de auditoría, vuelta siguiente):** se hizo la
+confirmación directa que faltaba, vía `curl` de solo lectura contra la REST
+API pública de Supabase (`GET /rest/v1/pos_ventas?select=mm_pagos,pix_mp_pagos&limit=1`)
+— devolvió una fila real (`{"mm_pagos":null,"pix_mp_pagos":null}`) en vez del
+error `42703 column does not exist` que da Supabase cuando una columna no
+existe. Confirma sin ambigüedad que la migración 13 ya corrió. De paso se
+confirmó lo mismo para 01 (`fe_nc_cdc`/`fe_nc_numero`/`fe_nc_estado` existen)
+y 07-12 (`pos_estadias`/`pos_huespedes` existen con datos reales) — todas ya
+ejecutadas. La única de esta lista que sigue realmente pendiente es **02**
+(`venta_uuid` — confirmado que la columna NO existe todavía, `42703`).
 
 ## ⚠️ Archivo 99 — Seguridad (RLS)
 
