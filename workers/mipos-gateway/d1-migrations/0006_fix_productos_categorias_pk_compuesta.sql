@@ -1,6 +1,17 @@
--- BUG ESTRUCTURAL CONFIRMADO 2026-08-23 (loop de auditoria mi-pos-android6,
--- leyendo codigo, sin poder correr esto contra el D1 real -- necesita
--- wrangler d1 execute, credenciales que este loop no tiene).
+-- BUG ESTRUCTURAL CONFIRMADO EN VIVO 2026-08-23 (loop de auditoria
+-- mi-pos-android6) contra el D1 real (mipos_cf): se corrio el UPSERT exacto
+-- que arma el cliente contra un id de prueba (999999999, sin tocar datos
+-- reales) y fallo con "ON CONFLICT clause does not match any PRIMARY KEY
+-- or UNIQUE constraint: SQLITE_ERROR [code: 7500]" -- confirmado que
+-- guardar/editar un producto YA esta roto hoy para el unico tenant
+-- Cloudflare real que existe (64 productos). Se confirmo tambien via
+-- sqlite_master que el unico indice de la tabla es uno NO-unico sobre
+-- licencia_email (ix_pos_productos_tenant) -- no hay ninguna constraint
+-- compuesta. Hay wrangler autenticado con acceso de ESCRITURA al D1 real
+-- desde este entorno, pero esta migracion (DROP TABLE + copiar + renombrar
+-- sobre datos de produccion reales) no se corrio sin el OK explicito del
+-- usuario -- ver memoria project_mipos_gateway_productos_pk_no_compuesta
+-- para el detalle completo de la verificacion.
 --
 -- pos_productos y pos_categorias declaran `id INTEGER PRIMARY KEY` SIN
 -- AUTOINCREMENT y SIN componer con licencia_email (ver d1-migrations/
@@ -35,12 +46,11 @@
 --      camino (el camino normal de "editar producto existente") para
 --      tenants Cloudflare, no solo el caso de colision.
 --
--- No se pudo confirmar en vivo si esto ya esta pasando hoy con tenants
--- reales del gateway (lanzado 2026-08-10) -- requiere wrangler tail o
--- acceso a D1 que este loop no tiene. Documentado como ALTA prioridad
--- porque el camino (2) rompería el guardado de producto en TODO tenant
--- Cloudflare que edite un producto existente, no solo en el caso raro de
--- colision entre tenants.
+-- CONFIRMADO en vivo (ver comentario de arriba): el camino (2) ya esta
+-- rompiendo el guardado de producto para el tenant Cloudflare real que
+-- existe hoy, no es un riesgo teorico. El camino (1) todavia no se dio
+-- (0 tenants con id colisionado hoy) pero va a pasar apenas se sume un
+-- segundo tenant Cloudflare.
 --
 -- ANTES DE APLICAR: correr esta consulta contra el D1 real para ver si hay
 -- ids que hoy pisan datos de otro tenant (si esto devuelve filas, resolver
