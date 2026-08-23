@@ -842,6 +842,15 @@ async function confirmarCheckIn(modo){
   if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
   const checkin = document.getElementById('hospCkCheckin').value;
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
+  const checkoutForm = document.getElementById('hospCkCheckout').value || null;
+  // Sin esto, un checkout anterior al checkin (typo en el datepicker) se
+  // guardaba igual -- el label de "Fecha inválida" en hospRecalcNoches()
+  // es solo un aviso visual, no bloqueaba. Con fechas invertidas, noches
+  // calculadas daba negativo (algo ya clampeado en _hospTotalReferenciaAbono
+  // con Math.max(noches,1), pero no en todos los consumidores) y el rango
+  // invertido hacía que _hospRangoSeSuperpone/_hospOcupaDia no detectaran
+  // la superposición real -- el propio aviso de overbooking quedaba ciego.
+  if(checkoutForm && checkoutForm < checkin){ toast('La fecha de salida prevista no puede ser anterior al check-in'); return; }
   const esReserva = modo === 'reservado';
 
   // Al reservar para una fecha futura, avisar si choca con otra reserva o
@@ -849,7 +858,6 @@ async function confirmarCheckIn(modo){
   // a veces el overbooking es una decisión consciente del recepcionista,
   // pero no debería pasar sin que se entere).
   if(esReserva){
-    const checkoutForm = document.getElementById('hospCkCheckout').value || null;
     const superpuestas = _hospReservasSuperpuestas(_hospHabSel.id, checkin, checkoutForm, null);
     if(superpuestas.length){
       if(!confirm('Esta habitación ya tiene reserva/estadía que se superpone con estas fechas: ' + _hospTextoSuperpuestas(superpuestas) + '. ¿Confirmar la reserva de todos modos?')) return;
@@ -991,9 +999,11 @@ async function confirmarEditarReserva(){
   if(!nombre){ toast('Ingresá el nombre del huésped'); return; }
   const checkin = document.getElementById('hospCkCheckin').value;
   if(!checkin){ toast('Ingresá la fecha de check-in'); return; }
+  const checkoutForm = document.getElementById('hospCkCheckout').value || null;
+  // Mismo chequeo que confirmarCheckIn() -- ver comentario ahí.
+  if(checkoutForm && checkoutForm < checkin){ toast('La fecha de salida prevista no puede ser anterior al check-in'); return; }
 
   if(est.estado === 'reservado'){
-    const checkoutForm = document.getElementById('hospCkCheckout').value || null;
     const superpuestas = _hospReservasSuperpuestas(est.habitacion_id, checkin, checkoutForm, est.id);
     if(superpuestas.length){
       if(!confirm('Esta habitación ya tiene reserva/estadía que se superpone con las nuevas fechas: ' + _hospTextoSuperpuestas(superpuestas) + '. ¿Guardar los cambios de todos modos?')) return;
