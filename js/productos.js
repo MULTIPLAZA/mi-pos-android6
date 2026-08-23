@@ -1389,6 +1389,26 @@ async function guardarCategoria(){
     });
     catObj = CATEGORIAS[catEditIdx];
     await supaSyncTodasCategorias();
+    // Renombrar categoria=old -> nombre en pos_productos: supaSyncTodasCategorias()
+    // solo toca la tabla pos_categorias (la fila de la categoria en si), nunca
+    // pos_productos.categoria -- sin esto, el cambio de p.cat de arriba quedaba
+    // SOLO en memoria y desaparecia en el proximo supaLoadProductos() (que
+    // reconstruye PRODS entero desde el servidor, todavia con el nombre viejo).
+    // Mismo patron de perdida silenciosa que guardarAsignacion() (v1.16.99) --
+    // esta vez en el rename de categoria, con mas impacto porque TODOS los
+    // productos de la categoria quedan huerfanos, no solo los seleccionados a mano.
+    // Va ANTES del PATCH de color de abajo, que filtra por el nombre NUEVO --
+    // sin este rename primero, ese filtro nunca matcheaba ningun producto.
+    if(old !== nombre){
+      try {
+        const _emailRen = localStorage.getItem('lic_email') || localStorage.getItem(SK && SK.email);
+        if(_emailRen){
+          await supaPatch('pos_productos',
+            'licencia_email=eq.'+encodeURIComponent(_emailRen)+'&categoria=eq.'+encodeURIComponent(old),
+            { categoria: nombre }, true);
+        }
+      } catch(e){ console.warn('[guardarCategoria] Error renombrando categoria en productos:', e.message); }
+    }
     if(oldColor !== catColorSel){
       await supaUpdateColorProductosCat(nombre, catColorSel, oldColor);
     }
