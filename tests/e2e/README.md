@@ -33,7 +33,17 @@ tests/e2e/
   ├── 12-banner-timbrado-regression.spec.js ← Banner "sin timbrado" no tapa el header (BUG-09)
   ├── 13-timbrado-vigencia.spec.js ← _timbradoEstaVigente() rechaza timbrado con vig_ini futuro
   ├── 14-limpieza-tenant-anterior.spec.js ← limpiarCacheTenantAnterior() vacía TODAS las colas/estado del tenant anterior (fix v1.16.60 + v1.16.78)
-  └── 15-filtro-tenant-sync-queue.spec.js ← Filtros tenant-seguros de la cola offline (fix v1.16.58/v1.16.59)
+  ├── 15-filtro-tenant-sync-queue.spec.js ← Filtros tenant-seguros de la cola offline (fix v1.16.58/v1.16.59)
+  ├── 16-device-id-random.spec.js ← device_id usa CSPRNG (getRandomValues) incluso sin crypto.randomUUID
+  ├── 17-super-admin-xss.spec.js ← XSS en super-admin.html (nombre de plan, device_id sin escapar)
+  ├── 18-guardar-asignacion-persiste.spec.js ← guardarAsignacion() persiste el cambio de categoría (no solo memoria)
+  ├── 19-renombrar-categoria-persiste.spec.js ← guardarCategoria() persiste el rename en Supabase
+  ├── 20-sw-admin-no-intercepta-gateway.spec.js ← sw-admin.js/sw-superadmin.js no interceptan workers.dev (denylist correcta)
+  ├── 21-anular-venta-persiste-supabase.spec.js ← _anularVentaConfirmarInterno() marca anulada=true en Supabase (fix v1.16.102)
+  ├── 22-factura-postcobro-persiste-supabase.spec.js ← fpConfirmar() persiste tiene_factura/factura_* en Supabase (fix v1.16.103)
+  ├── 23-stock-revertir-rpc-atomico.spec.js ← stockRevertirVenta() usa RPC atómica con fallback (fix v1.16.104)
+  ├── 24-hotel-dashboard-xss-habitacion.spec.js ← Hotel Dashboard escapa hab.numero (fix v1.16.105)
+  └── 25-inventario-reintenta-cola-al-abrir.spec.js ← renderInventarios() reintenta colas de sync al abrir (fix v1.16.106)
 ```
 
 ## Niveles de cobertura
