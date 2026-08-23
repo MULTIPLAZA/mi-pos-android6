@@ -457,6 +457,23 @@ async function _conReintento(fn){
   }
 }
 
+// ── Filtros tenant-seguros para la cola de reintento (sync_queue) ──
+// Extraídos de syncConSupabase()/reintentarSyncItem() (antes duplicados
+// idénticos en los 2 lugares) -- id es un contador LOCAL por tenant
+// (autoincrement de IndexedDB o MAX(id)+1 propio de cada dispositivo),
+// nunca único global, así que un DELETE/PATCH por id a secas podía pisar
+// o borrar la fila de OTRO tenant que tuviera el mismo id (ver fix
+// v1.16.58/v1.16.59). Un solo lugar para esta lógica evita que un futuro
+// caller la repita mal o se olvide del chequeo.
+function _filtroDeleteSeguro(datos){
+  if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
+  return { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) };
+}
+function _filtroUpdateSeguro(datosUpdate, itemId){
+  if(!datosUpdate.licencia_email) throw new Error('Item de actualización sin licencia_email, no se puede acotar el PATCH de forma segura');
+  return { id: 'eq.'+itemId, licencia_email: 'eq.'+encodeURIComponent(datosUpdate.licencia_email) };
+}
+
 async function syncConSupabase(){
   _syncCheckStuck();
   if(syncEnProceso || !navigator.onLine) return;
@@ -487,23 +504,15 @@ async function syncConSupabase(){
         let supaId = null;
 
         if(item.operacion === 'delete'){
-          // id es un autoincrement LOCAL por tenant (mismo motivo que el
-          // insert de abajo) -- sin acotar por licencia_email, este DELETE
-          // borraría en Supabase la fila con ese mismo id de CUALQUIER OTRO
-          // tenant que la tenga, no solo la propia. Si el item quedó
-          // encolado sin licencia_email (dato viejo, de antes de este fix),
-          // se rechaza en vez de arriesgar un borrado sin acotar.
-          if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
-          await _conReintento(function(){ return supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) }); });
+          // Ver _filtroDeleteSeguro() más arriba: id es local por tenant,
+          // sin acotar por licencia_email este DELETE borraría en Supabase
+          // la fila de CUALQUIER OTRO tenant que tenga ese mismo id.
+          await _conReintento(function(){ return supaFetch('DELETE', tabla, null, _filtroDeleteSeguro(datos)); });
         } else if(item.operacion === 'update'){
-          // Mismo motivo que el DELETE de arriba: id es local por tenant,
-          // no único global -- sin acotar por licencia_email este PATCH
-          // podía pisar el turno/registro de OTRO tenant que tuviera el
-          // mismo id con los datos de éste (incluido reasignarle el
-          // licencia_email, ya que ese campo también viaja en el body).
+          // Ver _filtroUpdateSeguro() más arriba: mismo motivo que el
+          // DELETE, este PATCH podía pisar el registro de OTRO tenant.
           const { id: itemId, ...datosUpdate } = datos;
-          if(!datosUpdate.licencia_email) throw new Error('Item de actualización sin licencia_email, no se puede acotar el PATCH de forma segura');
-          await _conReintento(function(){ return supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+itemId, licencia_email: 'eq.'+encodeURIComponent(datosUpdate.licencia_email) }); });
+          await _conReintento(function(){ return supaFetch('PATCH', tabla, datosUpdate, _filtroUpdateSeguro(datosUpdate, itemId)); });
         } else if(item.operacion === 'upsert'){
           // upsert (productos/categorias): acá `id` SÍ es válido reenviarlo —
           // ya es el id real de Supabase asignado la primera vez que se guardó
@@ -853,16 +862,13 @@ async function reintentarSyncItem(itemId){
     const datos = JSON.parse(item.datos);
     const tabla = 'pos_' + item.tabla;
     if(item.operacion === 'delete'){
-      // Mismo motivo que syncConSupabase(): id es local por tenant, no
-      // único global -- sin licencia_email no se puede acotar el DELETE.
-      if(!datos.licencia_email) throw new Error('Item de borrado sin licencia_email, no se puede acotar el DELETE de forma segura');
-      await supaFetch('DELETE', tabla, null, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datos.licencia_email) });
+      // Ver _filtroDeleteSeguro() (arriba en este archivo).
+      await supaFetch('DELETE', tabla, null, _filtroDeleteSeguro(datos));
     } else if(item.operacion === 'update'){
-      // Mismo motivo que syncConSupabase(): id es local por tenant.
+      // Ver _filtroUpdateSeguro() (arriba en este archivo).
       var datosUpdate = Object.assign({}, datos);
       delete datosUpdate.id;
-      if(!datosUpdate.licencia_email) throw new Error('Item de actualización sin licencia_email, no se puede acotar el PATCH de forma segura');
-      await supaFetch('PATCH', tabla, datosUpdate, { id: 'eq.'+datos.id, licencia_email: 'eq.'+encodeURIComponent(datosUpdate.licencia_email) });
+      await supaFetch('PATCH', tabla, datosUpdate, _filtroUpdateSeguro(datosUpdate, datos.id));
     } else {
       await supaFetch('POST', tabla, datos, null, 'return=representation');
     }
