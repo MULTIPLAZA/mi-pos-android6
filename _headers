@@ -12,8 +12,15 @@
 # admin-dashboard.js/admin-productos.js, confirmado con grep, no hay otro).
 # object-src/base-uri: sin costo funcional (sin Flash/plugins ni <base> en la app),
 # cierran 2 vectores clásicos de bypass de CSP.
+# frame-ancestors/X-Frame-Options: sin costo funcional (nada en la app se embebe
+# vía iframe ni depende de que la sirvan embebida) -- cierran clickjacking.
+# Strict-Transport-Security: Cloudflare Pages ya sirve todo por HTTPS; esto le
+# dice al navegador que NUNCA intente HTTP para este dominio (sin includeSubDomains
+# por las dudas de que exista algún subdominio con requisitos distintos).
 /*
-  Content-Security-Policy: connect-src 'self' https: wss: http://127.0.0.1:9200 http://127.0.0.1:8080; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'
+  Content-Security-Policy: connect-src 'self' https: wss: http://127.0.0.1:9200 http://127.0.0.1:8080; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  Strict-Transport-Security: max-age=31536000
   Permissions-Policy: screen-wake-lock=(self)
 
 
