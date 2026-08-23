@@ -29,12 +29,38 @@ async function proxy(context) {
     return json({ success: false, error: 'tenantId inválido' }, 400);
   }
 
-  // Base URL: nube por defecto, o servidor FacturaSend propio (self-hosted)
+  // Base URL: nube por defecto, o servidor FacturaSend propio (self-hosted).
+  // Este endpoint no tiene modelo de sesión server-verificable (mismo motivo
+  // que enviar-email.js, ver memoria project_nodo_mailer) -- cualquiera que
+  // encuentre esta URL puede mandar X-FE-BaseUrl con CUALQUIER host y usar
+  // esta Function como proxy/relay hacia donde sea (SSRF / open proxy), no
+  // solo hacia el FacturaSend real del negocio. No hay forma de cerrar esto
+  // del todo sin un modelo de auth que esta app no tiene, pero se bloquean
+  // los destinos obviamente internos/de loopback (rangos privados, localhost,
+  // metadata de nube) -- el mismo criterio "acotar el abuso más grosero sin
+  // tocar el uso real" ya aplicado en enviar-email.js. Un FacturaSend
+  // self-hosted real siempre es una IP/dominio público (ver ejemplo en el
+  // comentario de arriba: 207.244.255.146), nunca localhost ni un rango
+  // privado, así que esto no rompe ningún caso legítimo.
   let base = FE_API_BASE;
   const baseHdr = (request.headers.get('X-FE-BaseUrl') || '').trim().replace(/\/+$/, '');
   if (baseHdr) {
     if (!/^https?:\/\/[\w.-]+(:\d+)?(\/[\w./-]*)?$/.test(baseHdr)) {
       return json({ success: false, error: 'X-FE-BaseUrl inválida' }, 400);
+    }
+    let baseUrl;
+    try { baseUrl = new URL(baseHdr); } catch { return json({ success: false, error: 'X-FE-BaseUrl inválida' }, 400); }
+    const host = baseUrl.hostname.toLowerCase();
+    const esPrivado =
+      host === 'localhost' || host === '0.0.0.0' ||
+      host === '169.254.169.254' || // metadata de nube (AWS/GCP/Azure/etc.)
+      /^127\./.test(host) || /^10\./.test(host) ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(host) ||
+      /^192\.168\./.test(host) || /^169\.254\./.test(host) ||
+      host === '::1' || host.startsWith('fc') || host.startsWith('fd') ||
+      host.startsWith('fe80');
+    if (esPrivado) {
+      return json({ success: false, error: 'X-FE-BaseUrl no puede apuntar a una red privada/local' }, 400);
     }
     base = baseHdr;
   }
