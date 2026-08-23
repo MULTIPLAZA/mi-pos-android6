@@ -2146,6 +2146,20 @@ async function guardarTim(){
   if(!vigIni){alert('Ingresá inicio de vigencia');return;}
   if(tipo!=='electronico'&&!vigFin){alert('Ingresá fin de vigencia');return;}
   if(tipo!=='electronico'&&hasta<=desde){alert('El número "hasta" debe ser mayor que "desde"');return;}
+  // Dos timbrados autoimpresor/preimpreso de la misma sucursal con rangos de
+  // numeración solapados terminan estampando el MISMO número en facturas
+  // distintas (documentos invalidos ante una fiscalizacion de la SET) --
+  // chequear contra los timbrados activos ya cargados en memoria (mismo
+  // array que ya usa el resto de esta pantalla, sin consulta extra),
+  // excluyendo el propio timbrado si se está editando.
+  if(tipo!=='electronico'){
+    var solapa=(timbrados||[]).some(function(t,ti){
+      if(ti===timEditIdx) return false;
+      if(t.tipo==='electronico'||t.sucursal!==suc) return false;
+      return desde<=(t.hasta||0) && hasta>=(t.desde||0);
+    });
+    if(solapa){ alert('El rango '+desde+'-'+hasta+' se superpone con otro timbrado activo de esta sucursal.'); return; }
+  }
 
   var btnG=document.querySelector('button[onclick="guardarTim()"]');
   if(btnG){btnG.disabled=true;btnG.textContent='Guardando...';}
