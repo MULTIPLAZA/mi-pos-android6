@@ -96,4 +96,35 @@ test.describe('XSS escape (SEC-002)', () => {
     expect(html).not.toContain('<img src=x onerror');
     expect(html).toContain('&lt;img');
   });
+
+  // Hallazgo real de la auditoría 2026-08-23: _renderFlujoSheet() (js/productos.js,
+  // flujo de mitades/modificadores obligatorios al agregar un producto al carrito)
+  // escapaba el nombre de cada OPCIÓN de modificador (o.nombre) pero no el nombre
+  // del MODIFICADOR mismo (m.nombre) -- ambos vienen de pos_modificadores, tabla
+  // sincronizada por Supabase sin RLS (ver memoria project_mipos_supabase_rls_desactivado),
+  // así que cualquiera con el anon key público podía escribir un nombre de
+  // modificador malicioso que se ejecutaba en la sesión de CUALQUIER cajera del
+  // tenant apenas tocara un producto con ese modificador obligatorio.
+  test('_renderFlujoSheet() escapa el nombre del modificador (no solo el de sus opciones)', async ({ page }) => {
+    await page.goto('/');
+    await page.waitForFunction(() => typeof window.abrirFlujoPizza === 'function' && typeof window._renderFlujoSheet === 'function', { timeout: 8000 });
+
+    const result = await page.evaluate(() => {
+      window.modificadores = [{
+        id: 1,
+        nombre: "<img src=x onerror=window.__xss_executed=true>",
+        tipo: 'unico',
+        obligatorio: true,
+        opciones: [{ id: 1, nombre: 'Opción normal', precio_adicional: 0 }],
+        productos: [999],
+      }];
+      window.abrirFlujoPizza({ id: 999, name: 'Producto de prueba', price: 1000 }, true);
+      _flujo.paso = 3; // saltar directo al paso de modificadores
+      window._renderFlujoSheet();
+      return document.getElementById('modifSheetBody').innerHTML;
+    });
+
+    expect(result).not.toContain('<img src=x onerror');
+    expect(result).toContain('&lt;img');
+  });
 });

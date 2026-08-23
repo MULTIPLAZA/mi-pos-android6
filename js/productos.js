@@ -1902,7 +1902,7 @@ function _renderFlujoSheet(){
     bodyHTML = modifs.map(m => `
       <div style="margin-bottom:14px;">
         <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;font-weight:700;display:flex;align-items:center;gap:8px;">
-          ${m.nombre}
+          ${esc(m.nombre)}
           ${m.obligatorio?'<span style="background:#e53935;color:#fff;font-size:9px;padding:1px 6px;font-weight:800;">OBLIGATORIO</span>':''}
           <span style="margin-left:auto;font-size:9px;">${m.tipo==='unico'?'elegí 1':'podés elegir varios'}</span>
         </div>
