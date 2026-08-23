@@ -283,7 +283,11 @@ async function feActualizarEstados(){
       var est = (r.situacion!==undefined && r.situacion!==null) ? String(r.situacion) : String(d.fe_estado||'0');
       var resp = ((r.respuesta_codigo||'')+' '+(r.respuesta_mensaje||r.estado||'')).trim();
       if(est===String(d.fe_estado||'') && !resp) continue;
-      await supaPatch('pos_ventas','id=eq.'+d.id, { fe_estado:est, fe_respuesta:resp||null }, true);
+      // licencia_email=ilike: sin esto, el filtro era solo por id -- con RLS
+      // desactivado (ver memoria project_mipos_supabase_rls_desactivado),
+      // cualquiera que tocara este id (guessing/replay del request) podia
+      // pisar el fe_estado/fe_respuesta de una venta de OTRO tenant.
+      await supaPatch('pos_ventas','id=eq.'+d.id+'&licencia_email=ilike.'+encodeURIComponent(SE), { fe_estado:est, fe_respuesta:resp||null }, true);
       d.fe_estado = est; d.fe_respuesta = resp;
       actualizados++;
     }

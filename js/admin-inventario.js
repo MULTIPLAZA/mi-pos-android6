@@ -3033,7 +3033,10 @@ async function cntConfirmar(){
     }
 
     // Cerrar el conteo
-    await supaPatch('stock_conteos','id=eq.'+ct.id,{
+    // licencia_id=eq.: sin esto, el filtro era solo por id (RLS desactivado,
+    // ver project_mipos_supabase_rls_desactivado) -- mismo patron ya
+    // arreglado en el resto del archivo, quedaba afuera de esa ronda.
+    await supaPatch('stock_conteos','id=eq.'+ct.id+'&licencia_id=eq.'+licId,{
       estado:'confirmado', fecha_confirm:now
     });
 

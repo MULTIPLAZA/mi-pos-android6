@@ -751,7 +751,12 @@ async function hospGuardarHuespedDesdeCheckin(datos){
         nacionalidad: datos.nacionalidad || existente.nacionalidad || null,
         updated_at: new Date().toISOString(),
       };
-      await supaPatch('pos_huespedes', 'id=eq.'+existente.id, cambios, true);
+      // licencia_email=ilike: sin esto, el filtro era solo por id -- mismo
+      // patron ya arreglado en el resto de hospedaje.js (RLS desactivado,
+      // ver project_mipos_supabase_rls_desactivado), quedaba afuera porque
+      // esta funcion (registro de huesped desde check-in) no estaba en el
+      // barrido original de esa ronda.
+      await supaPatch('pos_huespedes', 'id=eq.'+existente.id+'&licencia_email=ilike.'+encodeURIComponent(email), cambios, true);
       Object.assign(existente, cambios);
     } else {
       const payload = {

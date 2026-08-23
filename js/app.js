@@ -2182,7 +2182,11 @@ async function confirmarCierre(){
       // turno primero, este PATCH no actualiza ninguna fila en vez de pisar
       // silenciosamente el total_contado/diferencia ya guardados por la
       // otra terminal. Sin 'minimal' para poder ver cuántas filas afectó.
-      const _cierreRows = await supaPatch('pos_turno', 'id=eq.'+supaId+'&estado=eq.abierto', {
+      // &licencia_email=ilike.: sin esto, el filtro no tenia ningun scope de
+      // tenant (RLS desactivado, ver project_mipos_supabase_rls_desactivado)
+      // -- un id de turno de OTRO tenant hubiera pasado el mismo PATCH.
+      const _emailCierre = localStorage.getItem('lic_email') || (typeof SK!=='undefined' ? localStorage.getItem(SK.email) : null) || '';
+      const _cierreRows = await supaPatch('pos_turno', 'id=eq.'+supaId+'&estado=eq.abierto&licencia_email=ilike.'+encodeURIComponent(_emailCierre), {
           estado:          'cerrado',
           fecha_cierre:    (await obtenerFechaServidor()).toISOString(),
           total_contado:   totalContado,
