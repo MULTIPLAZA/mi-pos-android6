@@ -470,27 +470,52 @@ async function stockRevertirVenta(items, comprobante){
     });
     await supaPost('stock_comprobante_items', compItems, null, true);
 
-    // Upserts en paralelo (Promise.all) en vez de un await por producto --
-    // cada uno es independiente (producto_id distinto), no hay motivo para
-    // serializarlos; mismo patron ya usado en el import de Excel (v1.16.54)
-    // y en el guardado de modificadores (v1.16.53). Cada promesa conserva su
-    // propio catch para no abortar el resto si un producto falla.
-    await Promise.all(itemsInv.map(function(it){
-      const qty   = parseFloat(it.qty)||1;
-      const antes = stockMap[it.id]||0;
-      const desp  = antes + qty;
-      return supaPost('stock', {
-          deposito_id:     depId,
-          sucursal_id:     sucId,
-          licencia_id:     licId,
-          producto_id:     it.id,
-          nombre_producto: it.name||it.nombre||'',
-          cantidad:        desp,
-          updated_at:      new Date().toISOString()
-        }, 'deposito_id,producto_id', true)
-        .catch(function(e){ console.warn('[Stock] upsert revert prod', it.id, ':', e.message); });
-    }));
-    _log('[Stock] Revertido — '+itemsInv.length+' productos | depósito:', depId);
+    // Incremento atómico via RPC — simétrico a descontar_stock_venta (usado
+    // en stockDescontarVenta más arriba). SIN ESTO, dos reversiones del mismo
+    // producto (o una reversión concurrente con una venta en otra terminal)
+    // hacían lectura+cálculo en JS y podían pisarse el resultado -- ver
+    // migración supabase-migrations/stock_atomic_increment.sql.
+    const rpcItemsRev = itemsInv.map(function(it){
+      return {
+        producto_id:      it.id,
+        cantidad:         parseFloat(it.qty)||1,
+        sucursal_id:      sucId,
+        licencia_id:      licId,
+        nombre_producto:  it.name||it.nombre||''
+      };
+    });
+    try {
+      await supaRPC('revertir_stock_venta', {
+        p_deposito_id: depId,
+        p_items:       rpcItemsRev,
+        p_referencia:  comprobante || ('ANULACION-'+Date.now()),
+        p_terminal:    localStorage.getItem('pos_terminal')||'Terminal'
+      });
+      _log('[Stock] Revertido atómico — '+itemsInv.length+' prods | depósito:', depId);
+    } catch(_rpcErrRev) {
+      // Fallback: upsert clásico por producto (no atómico), en paralelo --
+      // cada uno es independiente (producto_id distinto), no hay motivo para
+      // serializarlos; mismo patron ya usado en el import de Excel (v1.16.54)
+      // y en el guardado de modificadores (v1.16.53). Cada promesa conserva su
+      // propio catch para no abortar el resto si un producto falla.
+      console.warn('[Stock] RPC revert no disponible, usando fallback:', _rpcErrRev.message||_rpcErrRev);
+      await Promise.all(itemsInv.map(function(it){
+        const qty   = parseFloat(it.qty)||1;
+        const antes = stockMap[it.id]||0;
+        const desp  = antes + qty;
+        return supaPost('stock', {
+            deposito_id:     depId,
+            sucursal_id:     sucId,
+            licencia_id:     licId,
+            producto_id:     it.id,
+            nombre_producto: it.name||it.nombre||'',
+            cantidad:        desp,
+            updated_at:      new Date().toISOString()
+          }, 'deposito_id,producto_id', true)
+          .catch(function(e){ console.warn('[Stock] upsert revert prod', it.id, ':', e.message); });
+      }));
+      _log('[Stock] Revertido fallback — '+itemsInv.length+' productos | depósito:', depId);
+    }
   }catch(e){
     console.warn('[Stock] Error revirtiendo stock:', e.message);
   }
