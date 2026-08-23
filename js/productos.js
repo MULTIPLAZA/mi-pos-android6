@@ -807,7 +807,7 @@ function selCat(cat){
   }
 }
 
-function guardarArticulo(){
+async function guardarArticulo(){
   const nombre = document.getElementById('artNombre').value.trim();
   const precioStr = document.getElementById('artPrecio').value.trim();
   // Math.max(0,...): el input tiene min="0" pero eso no impide tipear un
@@ -855,6 +855,21 @@ function guardarArticulo(){
     supaUpsertProducto(prod);
     toast('Artículo actualizado');
   } else {
+    // Refrescar nextProdId justo antes de usarlo -- mismo problema y mismo
+    // fix que nextCatId (ver guardarCategoria()): el contador solo se
+    // sincroniza con la DB al cargar la pantalla (supaLoadProductos), asi
+    // que en una sesion larga con 2+ dispositivos, uno podia calcular un id
+    // ya usado por un articulo creado desde OTRO dispositivo mientras tanto.
+    // supaUpsertProducto() hace upsert (on_conflict=licencia_email,id), asi
+    // que el choque no fallaba con error -- pisaba en silencio el articulo
+    // recien creado en el otro dispositivo.
+    try{
+      var _emailNP = localStorage.getItem('lic_email') || (typeof SK!=='undefined' ? localStorage.getItem(SK.email) : null);
+      if(_emailNP){
+        var _rNP = await supaGet('pos_productos','licencia_email=eq.'+encodeURIComponent(_emailNP)+'&select=id&order=id.desc&limit=1');
+        if(_rNP && _rNP.length) nextProdId = Math.max(nextProdId, _rNP[0].id+1);
+      }
+    }catch(e){ /* si falla la relectura, seguimos con el nextProdId que ya teniamos */ }
     const newProd = {
       id: nextProdId, prodId: nextProdId,
       name: nombre.toUpperCase(), price: precioVariable?0:precio,

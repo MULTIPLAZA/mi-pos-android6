@@ -2866,7 +2866,7 @@ function _crearProductoNuevo(codigo, nombrePrefill, precioPrefill){
   }
 }
 
-function _confirmarNuevoProducto(codigo){
+async function _confirmarNuevoProducto(codigo){
   var nombre = (document.getElementById('_mnpNombre').value || '').trim().toUpperCase();
   // Math.max(0,...): el numpad de este modal solo acumula dígitos (no se
   // puede tipear "-" a mano), PERO el hidden #_mnpPrecio arranca precargado
@@ -2880,6 +2880,20 @@ function _confirmarNuevoProducto(codigo){
   if(!nombre){ document.getElementById('_mnpNombre').style.border='1.5px solid #f44336'; return; }
   if(!precio){ document.getElementById('_mnpPrecioDisp').style.border='1.5px solid #f44336'; return; }
   document.getElementById('_modalNuevoProd').remove();
+  // Refrescar nextProdId justo antes de usarlo -- mismo problema y mismo fix
+  // que nextCatId/guardarArticulo(): el contador solo se sincroniza con la
+  // DB al cargar la pantalla, asi que en una sesion larga con 2+
+  // dispositivos, este flujo (item libre desde codigo no encontrado) podia
+  // calcular un id ya usado por un articulo creado desde OTRO dispositivo
+  // mientras tanto. supaUpsertProducto() hace upsert, asi que el choque no
+  // fallaba con error -- pisaba en silencio el articulo del otro dispositivo.
+  try{
+    var _emailNP2 = localStorage.getItem('lic_email') || (typeof SK!=='undefined' ? localStorage.getItem(SK.email) : null);
+    if(_emailNP2 && typeof supaGet === 'function'){
+      var _rNP2 = await supaGet('pos_productos','licencia_email=eq.'+encodeURIComponent(_emailNP2)+'&select=id&order=id.desc&limit=1');
+      if(_rNP2 && _rNP2.length) nextProdId = Math.max(nextProdId, _rNP2[0].id+1);
+    }
+  }catch(e){ /* si falla la relectura, seguimos con el nextProdId que ya teniamos */ }
   var newProd = {
     id: nextProdId, prodId: nextProdId,
     name: nombre, price: precio,
