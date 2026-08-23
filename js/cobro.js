@@ -68,6 +68,10 @@ function _goCobrarSetup() {
 
   document.getElementById('ctotal').textContent = gs(t);
   document.getElementById('efecVal').textContent = gs(t);
+  // Sin esto, _ultimoEfectivoRaw quedaba desactualizado (0, o el monto de
+  // una venta/total ANTERIOR) cada vez que se resetea esta pantalla --
+  // confirmarPago() lo usa para validar que el efectivo cubra el total.
+  updVuelto(t);
   _actualizarCtotalBRL(t);
 
   // Fila de descuento — visible solo si hay descuento activo
@@ -289,6 +293,10 @@ function abrirDescTicket() {
 
   document.getElementById('ctotal').textContent = gs(t);
   document.getElementById('efecVal').textContent = gs(t);
+  // Sin esto, _ultimoEfectivoRaw quedaba desactualizado (0, o el monto de
+  // una venta/total ANTERIOR) cada vez que se resetea esta pantalla --
+  // confirmarPago() lo usa para validar que el efectivo cubra el total.
+  updVuelto(t);
   _actualizarCtotalBRL(t);
 
   if (pct > 0) toast('Descuento ' + pct + '% aplicado — ' + gs(monto) + ' de descuento');
@@ -740,11 +748,16 @@ function setEfectivoJusto() {
  */
 var _vueltoVozTimer = null;
 var _vueltoUltimo = 0;
+// Último monto en efectivo (Gs) que pasó por updVuelto() -- confirmarPago()
+// lo usa para validar que el pago en efectivo simple cubra el total antes
+// de cobrar (ver comentario "Integridad de dinero" más abajo).
+var _ultimoEfectivoRaw = 0;
 
 // Estado de valores multi-moneda ingresados en el panel MM
 var _mmVals = { gs: 0, brl: 0, ars: 0, usd: 0 };
 var _pixMpMode = null; // 'pix' | 'mp' | null
 function updVuelto(entregado) {
+  _ultimoEfectivoRaw = entregado;
   const total  = calcTotal();
   const vuelto = entregado - total;
   const row    = document.getElementById('vueltoRow');
@@ -1341,6 +1354,27 @@ async function confirmarPago() {
   if (_isCredito) {
     if (typeof creditoClienteSel === 'undefined' || !creditoClienteSel) {
       toast('Seleccioná un cliente para el crédito');
+      confirmarPago._running = false;
+      if (_btnConfirmar) _btnConfirmar.disabled = false;
+      return;
+    }
+  }
+
+  // Integridad de dinero (continuación del chequeo de arriba para pago
+  // dividido): en efectivo simple o multi-moneda, el monto entregado debe
+  // cubrir el total -- sin esto, la venta quedaba registrada como cobrada
+  // sin haber recibido el importe completo. Mismo riesgo que ya se blindó
+  // para pago dividido, pero nunca se extendió a estos otros 2 caminos.
+  if (!esDividido && !_isCredito) {
+    if (_mmPagosConf) {
+      if (_mmPagosConf.totalGs < totalVenta) {
+        toast('El monto entregado (' + gs(_mmPagosConf.totalGs) + ') no cubre el total (' + gs(totalVenta) + '). Faltan ' + gs(totalVenta - _mmPagosConf.totalGs) + '.');
+        confirmarPago._running = false;
+        if (_btnConfirmar) _btnConfirmar.disabled = false;
+        return;
+      }
+    } else if (metodoPago.toLowerCase() === 'efectivo' && _ultimoEfectivoRaw < totalVenta) {
+      toast('El efectivo entregado (' + gs(_ultimoEfectivoRaw) + ') no cubre el total (' + gs(totalVenta) + '). Faltan ' + gs(totalVenta - _ultimoEfectivoRaw) + '.');
       confirmarPago._running = false;
       if (_btnConfirmar) _btnConfirmar.disabled = false;
       return;
