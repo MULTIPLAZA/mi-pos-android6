@@ -30,4 +30,27 @@ test.describe('XSS en super-admin.html (pNom sin escapar)', () => {
     expect(result).not.toContain('<img src=x onerror');
     expect(result).toContain('&lt;img');
   });
+
+  // buildTerCard() (usada por renderTer(), lista de terminales) insertaba
+  // t.device_id sin esc(), solo truncado a 24 caracteres -- un payload corto
+  // (ej. <img src=1 onerror=x()>, 23 caracteres) entra completo en ese limite.
+  // device_id no tiene validacion de formato server-side (ni la RPC
+  // activar_licencia, ni la tabla `activaciones` misma vía RLS-desactivado),
+  // asi que un valor malicioso podia llegar sin pasar por licGetDeviceId().
+  test('renderTer() escapa device_id (buildTerCard)', async ({ page }) => {
+    const result = await page.evaluate(() => {
+      document.body.insertAdjacentHTML('beforeend', '<div id="terCount"></div><div id="terList"></div>');
+      const ter = {
+        id: 1, email: 'a@b.com', nombre_negocio: 'Negocio Test', nombre_terminal: 'Caja 1',
+        sucursal: 'Central', activa: true, modo: 'caja', ultima_consulta: null,
+        device_id: '<img src=1 onerror=window.__xss_executed=true>resto-del-id',
+        licencias: { planes: { nombre: 'Básico' } },
+      };
+      window.renderTer([ter]);
+      return document.getElementById('terList').innerHTML;
+    });
+
+    expect(result).not.toContain('<img src=1 onerror');
+    expect(result).toContain('&lt;img');
+  });
 });

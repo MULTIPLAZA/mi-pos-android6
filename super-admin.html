@@ -1410,8 +1410,15 @@ function buildTerCard(t, g, hoy) {
   parts.push('</div>');
 
   // Device ID
+  // t.device_id sin esc(): un device_id normal es siempre 'dev_'+hex/uuid (ver
+  // licGetDeviceId(), js/licencia.js), pero la fila real en `activaciones` no
+  // tiene ninguna validacion de formato server-side -- ni la RPC activar_licencia
+  // (que ademas RLS-desactivado permite saltear con un INSERT directo a la
+  // tabla, mismo root cause que planes.nombre mas arriba) impide que llegue
+  // cualquier string. El truncado a 24 caracteres NO alcanza como proteccion:
+  // un payload corto tipo <img src=1 onerror=x()> entra completo en ese limite.
   parts.push('<div style="font-size:10px;color:var(--muted);margin-top:2px;font-family:var(--mono);">');
-  parts.push((t.device_id || '').substring(0, 24) + '...');
+  parts.push(esc((t.device_id || '').substring(0, 24)) + '...');
   parts.push('</div>');
 
   // Alertas — solo para caja activa
