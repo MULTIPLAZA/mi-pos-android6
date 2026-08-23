@@ -55,7 +55,14 @@ test.describe('ARCH-001: ES Modules', () => {
     const res = await request.get('/index.html');
     const html = await res.text();
     expect(html).not.toMatch(/<script\s+src=["'][^"']*nodo-ico\.js/);
-    expect(html).toMatch(/<script\s+type=["']module["']\s+src=["'][^"']*lib\/index\.mjs/);
+    // Este fork (mi-pos-android6, compatible con Chrome 55+/Android 6) nunca usa
+    // <script type="module"> -- ver js/lib/index-compat.js: "Reemplaza js/lib/
+    // index.mjs para Chrome < 61 (Android 6). Expone los mismos globals que el
+    // modulo ESM original" (asi desde el commit inicial del fork, c14edea).
+    // js/lib/index.mjs sigue existiendo en el repo (lo sirven las otras pruebas
+    // de este archivo) pero index.html carga el compat, no el modulo.
+    expect(html).toMatch(/<script\s+src=["'][^"']*lib\/index-compat\.js["']/);
+    expect(html).not.toMatch(/<script\s+type=["']module["']/);
   });
 
   test('lib/escape.mjs exporta escapeHtml y esc', async ({ request }) => {

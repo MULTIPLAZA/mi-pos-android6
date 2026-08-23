@@ -114,8 +114,14 @@ test.describe('BUG-09 regresion — banner sin timbrado no tapa scSale', () => {
       return r.text();
     });
 
-    // Debe ser la version del revert (v1.14.24+), no la vieja v1.14.23
-    expect(swText).toMatch(/CACHE\s*=\s*['"]ampersand-pos-v1\.14\.(2[4-9]|[3-9]\d)/);
+    // El regex original solo aceptaba v1.14.24-v1.14.99 (rango del revert de
+    // 2026-05-26) y quedo obsoleto en cuanto sw.js paso de v1.14.x -- la app ya
+    // esta en v1.16.x (ver js/licencia.js APP_VERSION). CACHE de sw.js tiene su
+    // propio versionado independiente (no sigue a APP_VERSION 1 a 1), asi que en
+    // vez de fijar un rango que se va a volver a poner viejo, se valida que
+    // tenga forma de version valida Y que no sea puntualmente la version rota
+    // que causo el bug original -- esa es la regresion real que este test cuida.
+    expect(swText).toMatch(/CACHE\s*=\s*['"]ampersand-pos-v\d+\.\d+\.\d+/);
     expect(swText).not.toContain('v1.14.23-20260524-arch001d-format');
   });
 });
