@@ -912,6 +912,13 @@ async function ivaCalcular(){
       +'&fecha=gte.'+fd+'&fecha=lte.'+fh
       +'&select=items,total,tiene_factura&limit=5000'
     );
+    // limit= en cada consulta de abajo: si alguna llega exacto al tope,
+    // probablemente hay mas filas cortadas -- para un calculo que se guarda
+    // como liquidacion de IVA y se puede "cerrar" como declaracion oficial,
+    // el debito/credito fiscal quedaria subestimado en silencio. Se junta en
+    // _ivaTruncado y se avisa en ivaRenderResultado() (mismo criterio ya
+    // aplicado al RG90).
+    var _ivaTruncado = ventas.length >= 5000;
 
     var venta10=0, venta5=0, ventaExenta=0;
     ventas.forEach(function(v){
@@ -945,6 +952,7 @@ async function ivaCalcular(){
       +'&fecha=gte.'+fd+'&fecha=lte.'+fh
       +'&select=id,total_monto,tiene_factura&limit=1000'
     );
+    if(compras.length>=1000) _ivaTruncado=true;
     // Cargar items de compras para determinar IVA por producto
     var compIds=compras.map(function(c){return c.id;});
     var compra10=0, compra5=0;
@@ -953,6 +961,7 @@ async function ivaCalcular(){
         'comprobante_id=in.('+compIds.join(',')+')'
         +'&select=producto_id,cantidad,costo_unitario&limit=5000'
       );
+      if(compItems.length>=5000) _ivaTruncado=true;
       compItems.forEach(function(i){
         var cant=Math.abs(parseFloat(i.cantidad)||0);
         var costo=parseFloat(i.costo_unitario)||0;
@@ -974,6 +983,7 @@ async function ivaCalcular(){
       +'&tiene_factura=eq.true'
       +'&select=monto,categoria&limit=500'
     );
+    if(gastosConFact.length>=500) _ivaTruncado=true;
     // Gastos generales se asume IVA 10% (servicios, alquiler, etc.)
     var gasto10=gastosConFact.reduce(function(s,g){return s+(g.monto||0);},0);
     var creditoGastos10=Math.round(gasto10/11);
@@ -1010,7 +1020,7 @@ async function ivaCalcular(){
       }
     }catch(e){ toast('Error al guardar liquidación IVA'); console.warn('[IVA] save error:', e.message); }
 
-    ivaRenderResultado(data);
+    ivaRenderResultado(data, _ivaTruncado);
 
   }catch(e){
     body.innerHTML='<div style="padding:24px;color:var(--red)">Error: '+e.message+'</div>';
@@ -1022,7 +1032,7 @@ async function ivaCargarPeriodo(periodo){
   await ivaCalcular();
 }
 
-function ivaRenderResultado(d){
+function ivaRenderResultado(d, truncado){
   var body=document.getElementById('ivaBody');
   if(!body) return;
 
@@ -1030,7 +1040,14 @@ function ivaRenderResultado(d){
   var saldoLabel=d.iva_pagar>0?'IVA A PAGAR':'SALDO A FAVOR';
   var saldoVal=d.iva_pagar>0?d.iva_pagar:d.iva_favor;
 
+  var avisoTruncado = truncado ?
+    '<div style="background:#f8d7da;border:1px solid #f1aeb5;border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:#58151c;">'+
+      '<strong>Este período tiene demasiados registros</strong> (ventas, compras o gastos) — el cálculo puede estar incompleto porque el sistema trae como máximo un tope fijo de filas por consulta. '+
+      'No cierres el período todavía; avisá a soporte para revisar este caso.'+
+    '</div>' : '';
+
   body.innerHTML=
+    avisoTruncado +
     // ESTADO y PERÍODO
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">'
       +'<div style="font-size:15px;font-weight:700">Período: <span style="color:var(--green)">'+d.periodo+'</span>'
