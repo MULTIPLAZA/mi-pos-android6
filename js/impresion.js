@@ -402,7 +402,7 @@ function generarHTMLTicket(data, size){
   // filtro un descuento se imprimia DOS VECES, una como "producto" con precio negativo
   // acá y otra vez bien formateado en el resumen de descuentos.
   data.items.filter(i=>!i.esDescuento).forEach(item => {
-    const subtot = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : Math.round(item.price*item.qty);
+    const subtot = item.desc>0 ? Math.round(lineBaseTotal(item)*(1-item.desc/100)) : Math.round(lineBaseTotal(item));
     lineas += '<p class="it-nom">'+esc(item.name)+'</p>';
     if(item.esKilo){
       const kg = parseFloat(item.qty)||0;
@@ -426,7 +426,7 @@ function generarHTMLTicket(data, size){
   // Totales
   const subtotal = data.items
     .filter(i=>!i.esDescuento)
-    .reduce((s,i)=>s+(i.desc>0?Math.round(i.price*i.qty*(1-i.desc/100)):i.price*i.qty),0);
+    .reduce((s,i)=>s+(i.desc>0?Math.round(lineBaseTotal(i)*(1-i.desc/100)):lineBaseTotal(i)),0);
   const totalDescuentos = data.items
     .filter(i=>i.esDescuento)
     .reduce((s,i)=>s+(i.montoDesc||0),0);
@@ -503,13 +503,13 @@ function generarHTMLFactura(data, size){
   let grav10=0, grav5=0, exento=0;
   const subtotalFact = data.items
     .filter(i=>!i.esDescuento)
-    .reduce((s,i)=>s+(i.desc>0?Math.round(i.price*i.qty*(1-i.desc/100)):i.price*i.qty),0);
+    .reduce((s,i)=>s+(i.desc>0?Math.round(lineBaseTotal(i)*(1-i.desc/100)):lineBaseTotal(i)),0);
   const totalDescFact = data.items
     .filter(i=>i.esDescuento)
     .reduce((s,i)=>s+(i.montoDesc||0),0);
 
   data.items.filter(i=>!i.esDescuento).forEach(item=>{
-    const sub = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : item.price*item.qty;
+    const sub = item.desc>0 ? Math.round(lineBaseTotal(item)*(1-item.desc/100)) : lineBaseTotal(item);
     // Default sin iva seteado -> Gravado 10% (mismo default que productos.js:
     // `if(!p.iva) p.iva='10'`, y que BTPrinter.buildTicket mas abajo para el mismo
     // documento) - antes caia en Exento, que subestima el IVA declarado en la factura.
@@ -563,7 +563,7 @@ function generarHTMLFactura(data, size){
 
   // Items — nombre en línea 1, detalle en línea 2
   data.items.filter(i=>!i.esDescuento).forEach(item=>{
-    const sub = item.desc>0 ? Math.round(item.price*item.qty*(1-item.desc/100)) : item.price*item.qty;
+    const sub = item.desc>0 ? Math.round(lineBaseTotal(item)*(1-item.desc/100)) : lineBaseTotal(item);
     const ivaLabel = item.iva==='exento'?'Exnt':(item.iva||'10')+'%';
     lineas += '<p class="if-nom">'+esc(item.name)+'</p>';
     // esKilo: mostrar "X kg x precio/kg" en vez de "cant x precio" — faltaba acá
@@ -751,7 +751,7 @@ function generarHTMLFacturaA4(data){
   var exento = 0, grav5 = 0, grav10 = 0;
   var itemsFact = (data.items || []).filter(function(i){ return !i.esDescuento; });
   itemsFact.forEach(function(it){
-    var sub = it.desc > 0 ? Math.round(it.price*it.qty*(1-it.desc/100)) : Math.round(it.price*it.qty);
+    var sub = it.desc > 0 ? Math.round(lineBaseTotal(it)*(1-it.desc/100)) : Math.round(lineBaseTotal(it));
     // Mismo default que generarHTMLFactura/BTPrinter.buildTicket: sin iva seteado
     // -> Gravado 10%, no Exento (ver comentario en generarHTMLFactura mas arriba).
     if(it.iva === '10' || it.iva === 10)         grav10 += sub;
@@ -777,7 +777,7 @@ function generarHTMLFacturaA4(data){
   function filasItems(){
     var out = '';
     itemsFact.forEach(function(it){
-      var sub = it.desc > 0 ? Math.round(it.price*it.qty*(1-it.desc/100)) : Math.round(it.price*it.qty);
+      var sub = it.desc > 0 ? Math.round(lineBaseTotal(it)*(1-it.desc/100)) : Math.round(lineBaseTotal(it));
       var col10 = (it.iva === '10' || it.iva === 10) ? gn(sub) : '0';
       var col5  = (it.iva === '5'  || it.iva === 5)  ? gn(sub) : '0';
       var colE  = (!(it.iva === '10'||it.iva===10||it.iva==='5'||it.iva===5)) ? gn(sub) : '0';
@@ -1353,7 +1353,7 @@ function imprimirTicketPendiente(idx){
   const size = getPaperSize('ticket');
   const data = {
     items:      JSON.parse(JSON.stringify(items)),
-    total:      t.total || items.reduce((s,i)=>s+(i.price*i.qty),0),
+    total:      t.total || items.reduce((s,i)=>s+lineBaseTotal(i),0),
     metodo:     '',
     fecha:      t.fecha ? new Date(t.fecha) : new Date(),
     nroTicket:  t.nro,
@@ -2546,12 +2546,21 @@ async function imprimirPCUSB(htmlContent, size){
     for(var i=0;i<str.length;i++){
       var c=str.charCodeAt(i);
       if(c<128) out.push(c);
-      else if(c===0xC1||c===0xE1) out.push(0xC1);
-      else if(c===0xC9||c===0xE9) out.push(0xC9);
-      else if(c===0xCD||c===0xED) out.push(0xCD);
-      else if(c===0xD3||c===0xF3) out.push(0xD3);
-      else if(c===0xDA||c===0xFA) out.push(0xDA);
-      else if(c===0xD1||c===0xF1) out.push(0xD1);
+      else if(c===0xE1) out.push(0xA0); // á (CP437)
+      else if(c===0xE9) out.push(0x82); // é
+      else if(c===0xED) out.push(0xA1); // í
+      else if(c===0xF3) out.push(0xA2); // ó
+      else if(c===0xFA) out.push(0xA3); // ú
+      else if(c===0xF1) out.push(0xA4); // ñ
+      else if(c===0xD1) out.push(0xA5); // Ñ
+      else if(c===0xBF) out.push(0xA8); // ¿
+      else if(c===0xA1) out.push(0xAD); // ¡
+      else if(c===0xC1) out.push(0x41); // Á -> A (CP437 no tiene mayusculas acentuadas)
+      else if(c===0xC9) out.push(0x45); // É -> E
+      else if(c===0xCD) out.push(0x49); // Í -> I
+      else if(c===0xD3) out.push(0x4F); // Ó -> O
+      else if(c===0xDA) out.push(0x55); // Ú -> U
+      else if(c===0xD7) out.push(0x78); // × -> x
       else out.push(0x3F);
     }
     return out;
@@ -2872,12 +2881,21 @@ async function imprimirAndroidNativo(htmlContent, size){
     for(let i = 0; i < str.length; i++){
       const c = str.charCodeAt(i);
       if(c < 128)                        out.push(c);
-      else if(c === 0xC1 || c === 0xE1)  out.push(0xC1); // Á á
-      else if(c === 0xC9 || c === 0xE9)  out.push(0xC9); // É é
-      else if(c === 0xCD || c === 0xED)  out.push(0xCD); // Í í
-      else if(c === 0xD3 || c === 0xF3)  out.push(0xD3); // Ó ó
-      else if(c === 0xDA || c === 0xFA)  out.push(0xDA); // Ú ú
-      else if(c === 0xD1 || c === 0xF1)  out.push(0xD1); // Ñ ñ
+      else if(c===0xE1) out.push(0xA0); // á (CP437)
+      else if(c===0xE9) out.push(0x82); // é
+      else if(c===0xED) out.push(0xA1); // í
+      else if(c===0xF3) out.push(0xA2); // ó
+      else if(c===0xFA) out.push(0xA3); // ú
+      else if(c===0xF1) out.push(0xA4); // ñ
+      else if(c===0xD1) out.push(0xA5); // Ñ
+      else if(c===0xBF) out.push(0xA8); // ¿
+      else if(c===0xA1) out.push(0xAD); // ¡
+      else if(c===0xC1) out.push(0x41); // Á -> A (CP437 no tiene mayusculas acentuadas)
+      else if(c===0xC9) out.push(0x45); // É -> E
+      else if(c===0xCD) out.push(0x49); // Í -> I
+      else if(c===0xD3) out.push(0x4F); // Ó -> O
+      else if(c===0xDA) out.push(0x55); // Ú -> U
+      else if(c===0xD7) out.push(0x78); // × -> x
       else out.push(0x3F); // ?
     }
     return out;
@@ -3000,12 +3018,21 @@ async function imprimirUSBLocal(htmlContent, size){
     for(var i=0;i<str.length;i++){
       var c=str.charCodeAt(i);
       if(c<128)                       out.push(c);
-      else if(c===0xC1||c===0xE1)     out.push(0xC1);
-      else if(c===0xC9||c===0xE9)     out.push(0xC9);
-      else if(c===0xCD||c===0xED)     out.push(0xCD);
-      else if(c===0xD3||c===0xF3)     out.push(0xD3);
-      else if(c===0xDA||c===0xFA)     out.push(0xDA);
-      else if(c===0xD1||c===0xF1)     out.push(0xD1);
+      else if(c===0xE1) out.push(0xA0); // á (CP437)
+      else if(c===0xE9) out.push(0x82); // é
+      else if(c===0xED) out.push(0xA1); // í
+      else if(c===0xF3) out.push(0xA2); // ó
+      else if(c===0xFA) out.push(0xA3); // ú
+      else if(c===0xF1) out.push(0xA4); // ñ
+      else if(c===0xD1) out.push(0xA5); // Ñ
+      else if(c===0xBF) out.push(0xA8); // ¿
+      else if(c===0xA1) out.push(0xAD); // ¡
+      else if(c===0xC1) out.push(0x41); // Á -> A (CP437 no tiene mayusculas acentuadas)
+      else if(c===0xC9) out.push(0x45); // É -> E
+      else if(c===0xCD) out.push(0x49); // Í -> I
+      else if(c===0xD3) out.push(0x4F); // Ó -> O
+      else if(c===0xDA) out.push(0x55); // Ú -> U
+      else if(c===0xD7) out.push(0x78); // × -> x
       else out.push(0x3F);
     }
     return out;
@@ -3118,12 +3145,21 @@ async function imprimirSerial(port, htmlContent, size){
     for(var i=0;i<str.length;i++){
       var c=str.charCodeAt(i);
       if(c<128)                       out.push(c);
-      else if(c===0xC1||c===0xE1)     out.push(0xC1);
-      else if(c===0xC9||c===0xE9)     out.push(0xC9);
-      else if(c===0xCD||c===0xED)     out.push(0xCD);
-      else if(c===0xD3||c===0xF3)     out.push(0xD3);
-      else if(c===0xDA||c===0xFA)     out.push(0xDA);
-      else if(c===0xD1||c===0xF1)     out.push(0xD1);
+      else if(c===0xE1) out.push(0xA0); // á (CP437)
+      else if(c===0xE9) out.push(0x82); // é
+      else if(c===0xED) out.push(0xA1); // í
+      else if(c===0xF3) out.push(0xA2); // ó
+      else if(c===0xFA) out.push(0xA3); // ú
+      else if(c===0xF1) out.push(0xA4); // ñ
+      else if(c===0xD1) out.push(0xA5); // Ñ
+      else if(c===0xBF) out.push(0xA8); // ¿
+      else if(c===0xA1) out.push(0xAD); // ¡
+      else if(c===0xC1) out.push(0x41); // Á -> A (CP437 no tiene mayusculas acentuadas)
+      else if(c===0xC9) out.push(0x45); // É -> E
+      else if(c===0xCD) out.push(0x49); // Í -> I
+      else if(c===0xD3) out.push(0x4F); // Ó -> O
+      else if(c===0xDA) out.push(0x55); // Ú -> U
+      else if(c===0xD7) out.push(0x78); // × -> x
       else out.push(0x3F);
     }
     return out;
@@ -3242,12 +3278,21 @@ async function imprimirBluetooth(device, htmlContent, size){
     for(let i=0;i<str.length;i++){
       const c=str.charCodeAt(i);
       if(c<128) out.push(c);
-      else if(c===0xC1||c===0xE1) out.push(0xC1);  // Á á
-      else if(c===0xC9||c===0xE9) out.push(0xC9);  // É é
-      else if(c===0xCD||c===0xED) out.push(0xCD);  // Í í
-      else if(c===0xD3||c===0xF3) out.push(0xD3);  // Ó ó
-      else if(c===0xDA||c===0xFA) out.push(0xDA);  // Ú ú
-      else if(c===0xD1||c===0xF1) out.push(0xD1);  // Ñ ñ
+      else if(c===0xE1) out.push(0xA0); // á (CP437)
+      else if(c===0xE9) out.push(0x82); // é
+      else if(c===0xED) out.push(0xA1); // í
+      else if(c===0xF3) out.push(0xA2); // ó
+      else if(c===0xFA) out.push(0xA3); // ú
+      else if(c===0xF1) out.push(0xA4); // ñ
+      else if(c===0xD1) out.push(0xA5); // Ñ
+      else if(c===0xBF) out.push(0xA8); // ¿
+      else if(c===0xA1) out.push(0xAD); // ¡
+      else if(c===0xC1) out.push(0x41); // Á -> A (CP437 no tiene mayusculas acentuadas)
+      else if(c===0xC9) out.push(0x45); // É -> E
+      else if(c===0xCD) out.push(0x49); // Í -> I
+      else if(c===0xD3) out.push(0x4F); // Ó -> O
+      else if(c===0xDA) out.push(0x55); // Ú -> U
+      else if(c===0xD7) out.push(0x78); // × -> x
       else out.push(0x3F);  // ?
     }
     return out;
@@ -3776,7 +3821,7 @@ var BTPrinter = {
         txt += pad(detKg, subKg) + n;
       } else {
         var detalle  = '  ' + item.qty + ' x ' + gs(item.price);
-        var subtotal = gs(item.price * item.qty * (1 - (item.desc||0)/100));
+        var subtotal = gs(lineBaseTotal(item) * (1 - (item.desc||0)/100));
         txt += pad(detalle, subtotal) + n;
       }
       if (item.obs) txt += '  (' + item.obs + ')' + n;
@@ -3869,7 +3914,7 @@ var BTPrinter = {
       // IVA desglose
       var grav10 = 0, grav5 = 0, exento = 0;
       (data.items || []).filter(function(i){ return !i.esDescuento; }).forEach(function(item){
-        var sub = item.desc > 0 ? Math.round(item.price * item.qty * (1 - item.desc/100)) : item.price * item.qty;
+        var sub = item.desc > 0 ? Math.round(lineBaseTotal(item) * (1 - item.desc/100)) : lineBaseTotal(item);
         if (item.iva === '5')           grav5  += sub;
         else if (item.iva === 'exento') exento += sub;
         else                            grav10 += sub;
