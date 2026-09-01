@@ -182,12 +182,10 @@ export async function actualizarActivacion(db, tenant, params) {
 // se guardaba en localStorage para un tenant Cloudflare. Tambien faltaba la
 // idempotencia que el comentario del cliente ya asume ("crea o reutiliza por
 // nombre") -- sin buscar antes de insertar, cada llamada duplicaba la fila.
-// p_deposito (nombre de deposito) queda sin usar: D1 todavia no tiene tabla
-// `depositos` (ver docs/RUNBOOK.md, mismo pendiente que descontar_stock_venta) --
-// no se inventa una a medias aca, se documenta la limitacion.
 export async function crearSucursal(db, tenant, params) {
   const p_nombre = params && params.p_nombre;
   const p_direccion = params && params.p_direccion;
+  const p_deposito = (params && params.p_deposito) || 'Principal';
   if (!p_nombre) throw new ShimError('crear_sucursal: falta p_nombre', 400);
 
   // El SELECT-then-INSERT anterior tenía la misma carrera check-then-insert
@@ -215,7 +213,29 @@ export async function crearSucursal(db, tenant, params) {
     .prepare('SELECT id FROM sucursales WHERE licencia_id = ? AND nombre = ? AND activa = 1')
     .bind(tenant.lid, p_nombre)
     .first();
-  return { ok: true, sucursal_id: row.id };
+
+  // Depósito por sucursal (agregado 2026-08-25 junto con d1-migrations/0007_depositos_stock.sql
+  // -- antes p_deposito llegaba y se ignoraba porque la tabla no existía). Mismo patrón
+  // idempotente INSERT...WHERE NOT EXISTS que sucursales arriba, scopeado por
+  // (licencia_id, sucursal_id, nombre) para que llamar esto de nuevo sobre una sucursal
+  // YA existente (sin depósito, caso de tenants activados antes de esta fecha) la backfillee
+  // en vez de no hacer nada.
+  await db
+    .prepare(
+      `INSERT INTO depositos (licencia_id, sucursal_id, nombre, es_principal, activo)
+       SELECT ?, ?, ?, 1, 1
+       WHERE NOT EXISTS (
+         SELECT 1 FROM depositos WHERE licencia_id = ? AND sucursal_id = ? AND activo = 1
+       )`,
+    )
+    .bind(tenant.lid, row.id, p_deposito, tenant.lid, row.id)
+    .run();
+  const depRow = await db
+    .prepare('SELECT id FROM depositos WHERE licencia_id = ? AND sucursal_id = ? AND activo = 1 ORDER BY id ASC LIMIT 1')
+    .bind(tenant.lid, row.id)
+    .first();
+
+  return { ok: true, sucursal_id: row.id, deposito_id: depRow ? depRow.id : null };
 }
 
 // El dueño del negocio puede cambiar su propio rubro desde admin-negocio.html (Configuración),

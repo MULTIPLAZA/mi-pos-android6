@@ -54,7 +54,7 @@ export const TABLES = {
       'iva', 'color', 'color_propio', 'mitad', 'inventario', 'comanda', 'item_libre',
       'activo', 'terminal', 'licencia_email', 'updated_at', 'deleted_at', 'es_descuento',
       'desc_tipo', 'desc_valor', 'imagen', 'es_insumo', 'foto_url', 'codigos',
-      'es_kilo', 'es_favorito',
+      'es_kilo', 'es_favorito', 'promo_cant', 'promo_precio',
     ],
     booleans: [
       'precio_variable', 'color_propio', 'mitad', 'inventario', 'comanda',
@@ -159,6 +159,137 @@ export const TABLES = {
       'pagado', 'fecha_pago', 'metodo_pago',
     ],
     booleans: ['pagado'],
+  },
+  // Primer par de tablas de Inventario/Stock (ver d1-migrations/0007_depositos_stock.sql).
+  // Columnas confirmadas 2026-08-25 contra filas reales de Supabase (GET .../depositos
+  // y .../stock con select=*), no inferidas del uso en JS como pos_egresos/pos_ingresos.
+  depositos: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: ['id', 'licencia_id', 'sucursal_id', 'nombre', 'es_principal', 'activo', 'created_at'],
+    booleans: ['es_principal', 'activo'],
+  },
+  stock: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'deposito_id', 'sucursal_id', 'producto_id',
+      'nombre_producto', 'cantidad', 'cantidad_minima', 'costo_unitario', 'updated_at',
+    ],
+    booleans: [],
+  },
+  // Ver d1-migrations/0008_stock_movimientos.sql -- admin-inventario.js:guardarAjuste()
+  // inserta acá ANTES de tocar `stock`, sin tolerar que falle.
+  stock_movimientos: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'deposito_id', 'sucursal_id', 'producto_id', 'nombre_producto',
+      'tipo', 'cantidad', 'cantidad_antes', 'cantidad_despues', 'referencia', 'observacion',
+      'terminal', 'usuario', 'fecha', 'comprobante_id',
+    ],
+    booleans: [],
+  },
+  // Ver d1-migrations/0010_stock_conteos_comprobantes.sql -- completa Inventario
+  // (Conteo Físico + Compras/Movimientos de Stock, que comparten stock_comprobantes).
+  stock_conteos: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'deposito_id', 'sucursal_id', 'numero', 'estado',
+      'observacion', 'usuario', 'fecha', 'fecha_confirm', 'created_at',
+    ],
+    booleans: [],
+  },
+  // licencia_id: columna D1-only, no existe en Supabase (ver comentario en la migración).
+  stock_conteo_items: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'conteo_id', 'producto_id', 'nombre_producto',
+      'stock_sistema', 'stock_fisico', 'diferencia', 'ajustado',
+    ],
+    booleans: ['ajustado'],
+  },
+  stock_comprobantes: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'deposito_id', 'sucursal_id', 'tipo', 'referencia',
+      'venta_id', 'observacion', 'terminal', 'usuario', 'fecha', 'created_at',
+      'proveedor', 'total_monto', 'metodo_pago', 'tiene_factura', 'factura_nro', 'factura_ruc',
+    ],
+    booleans: ['tiene_factura'],
+  },
+  // licencia_id: columna D1-only, no existe en Supabase (ver comentario en la migración).
+  stock_comprobante_items: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'comprobante_id', 'producto_id', 'nombre_producto',
+      'cantidad', 'cantidad_antes', 'cantidad_despues', 'costo_unitario',
+    ],
+    booleans: [],
+  },
+  // Ver d1-migrations/0011_gastos_iva_timbrados.sql -- completa Finanzas
+  // (Gastos Fijos/Plan de Gastos, Liquidación IVA) y Facturación Electrónica (Timbrados).
+  gasto_categorias: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: ['id', 'licencia_id', 'nombre', 'orden', 'activa', 'created_at'],
+    booleans: ['activa'],
+  },
+  gasto_conceptos: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'categoria_id', 'nombre', 'descripcion', 'orden',
+      'activo', 'created_at',
+    ],
+    booleans: ['activo'],
+  },
+  gastos: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'fecha', 'concepto', 'categoria', 'monto', 'observacion',
+      'sucursal', 'usuario', 'created_at', 'concepto_id', 'categoria_id',
+      'tiene_factura', 'factura_nro', 'factura_ruc',
+    ],
+    booleans: ['tiene_factura'],
+  },
+  iva_liquidaciones: {
+    tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'periodo', 'venta_10', 'venta_5', 'venta_exenta',
+      'debito_10', 'debito_5', 'debito_total', 'compra_10', 'compra_5',
+      'credito_compras', 'gasto_10', 'gasto_5', 'credito_gastos', 'credito_total',
+      'iva_pagar', 'iva_favor', 'estado', 'notas', 'usuario', 'created_at', 'updated_at',
+    ],
+    booleans: [],
+  },
+  // UNIQUE(licencia_email,nro) en la migración -- guardarTim() hace UPSERT con
+  // on_conflict='licencia_email,nro' (mismo patrón que ya rompió pos_productos).
+  timbrados: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_email', 'nro', 'tipo', 'vig_ini', 'vig_fin', 'sucursal',
+      'nombre_suc', 'desde', 'hasta', 'cert_venc', 'cert_emis', 'activo',
+      'created_at', 'updated_at',
+    ],
+    booleans: ['activo'],
+  },
+  // UNIQUE(licencia_email,terminal) en la migración -- mismo motivo que timbrados arriba.
+  timbrado_terminales: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'timbrado_id', 'licencia_email', 'terminal', 'sucursal', 'punto_exp',
+      'nro_actual', 'activo', 'created_at', 'updated_at',
+    ],
+    booleans: ['activo'],
   },
 };
 
