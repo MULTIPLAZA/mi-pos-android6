@@ -259,6 +259,9 @@ export const TABLES = {
       // borrar (mismo patron que pos_ventas.anulada/fecha_anulacion/
       // motivo_anulacion, + usuario_eliminacion que ventas no tiene).
       'eliminado', 'fecha_eliminacion', 'motivo_eliminacion', 'usuario_eliminacion',
+      // 0016_gastos_iva.sql -- IVA real por gasto (10/5/exento) en vez de
+      // asumir 10% fijo en el credito fiscal.
+      'iva',
     ],
     booleans: ['tiene_factura', 'eliminado'],
   },

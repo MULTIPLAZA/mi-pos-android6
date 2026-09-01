@@ -231,9 +231,26 @@ async function renderGastos(tab){
           +'<div style="grid-column:1/-1"><label style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Observación (opcional)</label>'
             +'<input type="text" id="gObs" class="cfg-inp" style="width:100%" placeholder="Notas adicionales..."></div>'
           +'<div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--card2);border-radius:8px">'
-            +'<input type="checkbox" id="gTieneFact" style="width:16px;height:16px;cursor:pointer">'
+            +'<input type="checkbox" id="gTieneFact" onchange="gToggleFactCampos()" style="width:16px;height:16px;cursor:pointer">'
             +'<div><div style="font-size:13px;font-weight:600">Tiene factura (genera crédito fiscal IVA)</div>'
               +'<div style="font-size:11px;color:var(--muted)">Marcá si este gasto tiene factura timbrada del proveedor</div></div>'
+          +'</div>'
+          // Nro./RUC/IVA -- las columnas ya existían (factura_nro/factura_ruc)
+          // o se agregaron ahora (iva) pero el form nunca las pedía: un gasto
+          // marcado "con factura" no era trazable contra la factura física
+          // real, y el crédito fiscal asumía 10% siempre (ver bug de
+          // auditoría 2026-09-01). Ocultos hasta tildar el checkbox de arriba.
+          +'<div id="gFactCampos" style="grid-column:1/-1;display:none;gap:12px;grid-template-columns:1fr 1fr 1fr">'
+            +'<div><label style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Nro. Factura</label>'
+              +'<input type="text" id="gFacturaNro" class="cfg-inp" style="width:100%" placeholder="001-001-0000123"></div>'
+            +'<div><label style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">RUC Proveedor</label>'
+              +'<input type="text" id="gFacturaRuc" class="cfg-inp" style="width:100%" placeholder="80012345-6"></div>'
+            +'<div><label style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">IVA</label>'
+              +'<select id="gIva" class="cfg-inp" style="width:100%">'
+                +'<option value="10">Gravado 10%</option>'
+                +'<option value="5">Gravado 5%</option>'
+                +'<option value="exento">Exento</option>'
+              +'</select></div>'
           +'</div>'
           +'<div style="grid-column:1/-1;display:flex;gap:10px;justify-content:flex-end">'
             +'<button onclick="renderGastos(&apos;lista&apos;)" class="btn-dn" style="padding:11px 22px">Cancelar</button>'
@@ -277,6 +294,12 @@ async function renderGastos(tab){
   await gastosBuscar();
 }
 
+function gToggleFactCampos(){
+  var chk=document.getElementById('gTieneFact');
+  var box=document.getElementById('gFactCampos');
+  if(box) box.style.display=(chk&&chk.checked)?'grid':'none';
+}
+
 async function gastoGuardar(){
   var conId=parseInt((document.getElementById('gConceptoId')||{}).value||'0')||null;
   var desc=(document.getElementById('gConcepto')||{}).value.trim();
@@ -291,6 +314,7 @@ async function gastoGuardar(){
   var cat=_plan.cats.find(function(c){return c.id===catId;});
   var btn=document.querySelector('[onclick="gastoGuardar()"]');
   if(btn){ btn.disabled=true; btn.textContent='Guardando...'; }
+  var tieneFact=!!(document.getElementById('gTieneFact')||{}).checked;
   try{
     await supaPost('gastos',{
       licencia_id:_gastosLicId, concepto:desc,
@@ -298,7 +322,12 @@ async function gastoGuardar(){
       concepto_id:conId, categoria_id:catId,
       monto:monto, fecha:fecha,
       observacion:obs||null, usuario:SE,
-      tiene_factura:!!(document.getElementById('gTieneFact')||{}).checked,
+      tiene_factura:tieneFact,
+      // Nro./RUC/IVA solo tienen sentido si hay factura real -- se guardan
+      // null si el checkbox está destildado, para no dejar datos fantasma.
+      factura_nro:tieneFact?((document.getElementById('gFacturaNro')||{}).value||'').trim().substring(0,50)||null:null,
+      factura_ruc:tieneFact?((document.getElementById('gFacturaRuc')||{}).value||'').trim().substring(0,20)||null:null,
+      iva:tieneFact?((document.getElementById('gIva')||{}).value||'10'):null,
       created_at:new Date().toISOString()
     },null);
     toast('Gasto guardado — '+gs(monto));
@@ -973,11 +1002,17 @@ async function ivaCalcular(){
     var debitoTotal=debito10+debito5;
 
     // ── CRÉDITO FISCAL COMPRAS ────────────────────────────────
-    // Tomar compras con tiene_factura=true O todas las compras
-    // (Paraguay: cualquier factura de compra genera crédito)
+    // Solo compras con tiene_factura=true generan crédito fiscal -- antes
+    // se contaban TODAS las compras registradas, incluidas las informales
+    // (cargadas solo para llevar el stock al día, sin factura real), lo que
+    // sobreestimaba el crédito en la Liquidación de IVA (bug de auditoría
+    // 2026-09-01). El checkbox nace tildado en el form de Nueva Compra
+    // (admin-inventario.js) -- se destilda a propósito para una compra sin
+    // factura.
     var compras=await sg('stock_comprobantes',
       'licencia_id=eq.'+licId
       +'&tipo=eq.compra'
+      +'&tiene_factura=eq.true'
       +'&fecha=gte.'+fd+'&fecha=lte.'+fh
       +'&select=id,total_monto,tiene_factura&limit=1000'
     );
@@ -1011,13 +1046,23 @@ async function ivaCalcular(){
       +'&fecha=gte.'+periodo+'-01'
       +'&fecha=lte.'+periodo+'-'+ultimoDia
       +'&tiene_factura=eq.true'
-      +'&select=monto,categoria&limit=500'
+      +'&select=monto,categoria,iva&limit=500'
     );
     if(gastosConFact.length>=500) _ivaTruncado=true;
-    // Gastos generales se asume IVA 10% (servicios, alquiler, etc.)
-    var gasto10=gastosConFact.reduce(function(s,g){return s+(g.monto||0);},0);
+    // IVA real por gasto (campo nuevo, ver form) en vez de asumir 10% fijo
+    // para todos -- antes esto inflaba el crédito fiscal si el dueño cargaba
+    // gastos con IVA 5% o exentos (bug de auditoría 2026-09-01). Gastos
+    // guardados ANTES de este campo existir no tienen `iva` -- se asume 10%
+    // para esos (mismo criterio que tenían todos antes del fix).
+    var gasto10=0, gasto5=0;
+    gastosConFact.forEach(function(g){
+      var rate=g.iva||'10';
+      if(rate==='5') gasto5+=(g.monto||0);
+      else if(rate!=='exento'&&rate!=='0') gasto10+=(g.monto||0);
+    });
     var creditoGastos10=Math.round(gasto10/11);
-    var creditoGastosTotal=creditoGastos10;
+    var creditoGastos5 =Math.round(gasto5/21);
+    var creditoGastosTotal=creditoGastos10+creditoGastos5;
 
     var creditoTotal=creditoCompras+creditoGastosTotal;
     var saldo=debitoTotal-creditoTotal;
@@ -1030,7 +1075,7 @@ async function ivaCalcular(){
       debito_10:debito10, debito_5:debito5, debito_total:debitoTotal,
       compra_10:Math.round(compra10), compra_5:Math.round(compra5),
       credito_compras:creditoCompras,
-      gasto_10:Math.round(gasto10), gasto_5:0,
+      gasto_10:Math.round(gasto10), gasto_5:Math.round(gasto5),
       credito_gastos:creditoGastosTotal,
       credito_total:creditoTotal,
       iva_pagar:ivaPagar, iva_favor:ivaFavor,
