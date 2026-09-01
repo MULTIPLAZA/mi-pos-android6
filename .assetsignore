@@ -2,6 +2,14 @@
 # Sintaxis tipo .gitignore. Sin esto, Wrangler intenta subir TODO el repo
 # (incluyendo node_modules/) y el binario workerd (119 MiB) supera el límite
 # de 25 MiB por asset de Cloudflare Workers, abortando el deploy.
+#
+# OJO (2026-08-10): `wrangler pages deploy .` (classic Pages, sin build conectado a
+# Git) NO respeta este archivo — se confirmó subiendo un archivo nunca antes visto
+# (workers/mipos-gateway/src/index.js) y quedó accesible igual. Hasta que se
+# confirme un mecanismo que sí funcione, el deploy real se hace copiando a un
+# directorio limpio (ver scripts/deploy-pages.sh) que excluye a mano estas mismas
+# rutas — este archivo queda como documentación de qué se excluye, no como
+# mecanismo activo.
 
 # Dependencias Node — el build instala todo en /opt/buildhome/repo y queda acá
 node_modules/
@@ -27,6 +35,18 @@ playwright.config.ts
 
 # Migrations SQL — corren server-side, no se sirven como assets
 supabase-migrations/
+database/
+_EJECUTAR_EN_SUPABASE/
+
+# Proyecto Gradle del wrapper Android — NUNCA debe ser público, contiene
+# keystore.jks + storePassword/keyPassword en texto plano en build.gradle.
+# Hallazgo 2026-08-10: esto estaba público en producción, tratar la clave como
+# comprometida (rotar) independientemente de esta exclusión.
+android-apk/
+
+# Worker/D1 gateway — proyecto Cloudflare separado, se deploya con su propio
+# `wrangler deploy` desde workers/mipos-gateway/, no es parte del sitio estático
+workers/
 
 # Mockups y docs internos
 *-mockup-*.html
