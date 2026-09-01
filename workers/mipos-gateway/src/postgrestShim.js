@@ -140,12 +140,22 @@ export async function runSelect(db, table, query, tenantValue) {
 }
 
 // rows: array de objetos (soporta insert masivo, igual que supaPost con array)
+// db.batch() en vez de un `for` con un await por fila: para un INSERT masivo
+// (import Excel de productos, alta de items de un conteo físico -- 73 filas
+// en un caso real, ver [[project_mipos_gateway_runinsert_n1]]) el for
+// secuencial hacía 73 round-trips a D1 uno detrás del otro -- confirmado en
+// vivo 2026-08-26 contra el Worker real: 14.1 SEGUNDOS para ese insert,
+// suficiente para que el botón "Cargando productos..." de
+// admin-inventario.js:cntIniciar() se sintiera colgado en el navegador del
+// cliente. db.batch() manda todas las sentencias en una sola llamada RPC al
+// binding D1 -- las ejecuta secuencialmente server-side dentro de una
+// transacción implícita (todo o nada, más seguro que el for anterior, que
+// dejaba filas parciales insertadas si alguna a mitad de camino fallaba).
 export async function runInsert(db, table, rows, { onConflictCols, tenantValue, returnMinimal }) {
   const tableDef = TABLES[table];
   if (!tableDef) throw new ShimError(`tabla no soportada en D1: ${table}`, 501);
   const list = Array.isArray(rows) ? rows : [rows];
-  const out = [];
-  for (const row of list) {
+  const stmts = list.map((row) => {
     const data = { ...row };
     if (tableDef.tenant) data[tableDef.tenant.column] = tenantValue; // siempre inyectado, nunca confiado del body
     if (tableDef.uuidPk && !data[tableDef.pk]) data[tableDef.pk] = crypto.randomUUID();
@@ -164,15 +174,13 @@ export async function runInsert(db, table, rows, { onConflictCols, tenantValue, 
       sql += ` ON CONFLICT(${onConflictCols.join(',')}) DO UPDATE SET ${updateSet}`;
     }
     if (!returnMinimal) sql += ' RETURNING *';
-    const stmt = db.prepare(sql).bind(...values);
-    if (returnMinimal) {
-      await stmt.run();
-    } else {
-      const { results } = await stmt.all();
-      out.push(...results.map((r) => fromSqliteRow(tableDef, r)));
-    }
-  }
-  return returnMinimal ? [] : out;
+    return db.prepare(sql).bind(...values);
+  });
+  const results = await db.batch(stmts);
+  if (returnMinimal) return [];
+  const out = [];
+  for (const r of results) out.push(...r.results.map((row) => fromSqliteRow(tableDef, row)));
+  return out;
 }
 
 // Blindaje de rango de daño para tablas admin-only (tableDef.tenant === null,
