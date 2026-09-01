@@ -421,6 +421,11 @@ async function doLogin(){
         emailMismatch = true; // clave válida pero de otro dueño
       } else {
         lic = { id: L.id, plan: L.plan_id||'Pro', vence: L.fecha_vence||'—' };
+        // Encontrada directo en Supabase => tenant 'supabase' con certeza. Forzar
+        // el flag por si este navegador logueó antes a un tenant 'cloudflare'
+        // (soporte atendiendo a varios clientes) y quedó pegado en localStorage.
+        localStorage.setItem('lic_backend', 'supabase');
+        localStorage.removeItem('lic_gateway_token');
       }
     }
 
@@ -430,6 +435,16 @@ async function doLogin(){
       try{
         var d = await srpc('activar_licencia',{p_clave:clave,p_email:email,p_device_id:'admin_web_'+Date.now()});
         if(d && d.ok){
+          // Persistir el backend ANTES de la siguiente consulta -- si no, sg()
+          // (que respeta usaGateway()/lic_backend) sigue pegándole a Supabase
+          // para un tenant que en realidad vive en D1 (mipos-gateway), y la
+          // licencia nunca aparece: SLI queda null y, peor, TODO el resto del
+          // panel (productos, ventas, etc.) sigue consultando el backend
+          // equivocado durante toda la sesión. Mismo patrón que licGuardar()
+          // en js/licencia.js del lado del POS.
+          localStorage.setItem('lic_backend', d.backend || 'supabase');
+          if(d.backend === 'cloudflare' && d.token) localStorage.setItem('lic_gateway_token', d.token);
+          else localStorage.removeItem('lic_gateway_token');
           // Resolver el id real para no dejar SLI en null y re-verificar dueño.
           var lr2 = await sg('licencias','clave=eq.'+encodeURIComponent(clave)+'&select=id,plan_id,fecha_vence,email_cliente&limit=1');
           if(lr2 && lr2.length){
@@ -494,7 +509,8 @@ function doLogout(){
   // viejos se mostraban mezclados con el email nuevo. Ver también
   // cargarConfigNegocioActual(), que además siempre re-trae del servidor.
   ['ae','ap','av','ali','an','ar','ad','at','factura_formato','actividad_economica',
-   'factura_giro','habilitacion','logo_url','pos_tipo_negocio','pos_comandas','lic_email']
+   'factura_giro','habilitacion','logo_url','pos_tipo_negocio','pos_comandas','lic_email',
+   'lic_backend','lic_gateway_token']
     .concat((typeof RUBRO_CAPACIDADES !== 'undefined' ? RUBRO_CAPACIDADES : ['mesas','cocina','delivery','mitades']).map(function(c){ return 'pos_flag_' + c; }))
     .forEach(function(k){localStorage.removeItem(k);});
   SE=null; SP=null; SV=null; SLI=null;
