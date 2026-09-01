@@ -2388,10 +2388,10 @@ async function movEjecutarAnulacion(compId){
       'deposito_id=eq.'+orig.deposito_id
       +'&producto_id=in.('+prodIds.join(',')+')'
       +'&licencia_id=eq.'+licId
-      +'&select=producto_id,cantidad'
+      +'&select=producto_id,cantidad,costo_unitario'
     );
     var stockMap={};
-    stockR.forEach(function(s){stockMap[s.producto_id]=s.cantidad||0;});
+    stockR.forEach(function(s){stockMap[s.producto_id]={cantidad:s.cantidad||0, costo:s.costo_unitario||0};});
 
     // Crear comprobante de anulación (cantidades invertidas)
     var compAnulR=await supaPost('stock_comprobantes',{
@@ -2408,7 +2408,7 @@ async function movEjecutarAnulacion(compId){
     // Items invertidos
     var itemsInv=items.map(function(i){
       var cantInv=-(i.cantidad||0);
-      var antes=stockMap[i.producto_id]||0;
+      var antes=(stockMap[i.producto_id]||{}).cantidad||0;
       var desp=antes+cantInv;
       return {
         comprobante_id:newCompId,
@@ -2423,16 +2423,38 @@ async function movEjecutarAnulacion(compId){
     await supaPost('stock_comprobante_items',itemsInv,null);
 
     // Actualizar stock — invertir cada item
+    // Y revertir el costo promedio ponderado si esta compra/entrada lo había
+    // recalculado (bug detectado en auditoría 2026-09-01: antes solo se
+    // revertía la cantidad, el costo quedaba contaminado para siempre con
+    // el promedio de una compra ya anulada). Solo se puede recalcular el
+    // "costo antes" con exactitud cuando había stock previo a la compra
+    // original (cantidad_antes>0) — si no, no hay valor recuperable y se
+    // deja el costo actual como está.
     for(var k=0;k<items.length;k++){
       var it=items[k];
-      var antes2=stockMap[it.producto_id]||0;
+      var prevStock=stockMap[it.producto_id]||{cantidad:0,costo:0};
+      var antes2=prevStock.cantidad;
       var cantInv2=-(it.cantidad||0);
-      supaPostResiliente('stock',{
+      var patchStock={
           deposito_id:orig.deposito_id, sucursal_id:orig.sucursal_id,
           licencia_id:licId, producto_id:it.producto_id,
           nombre_producto:it.nombre_producto,
           cantidad:antes2+cantInv2, updated_at:now
-      },'deposito_id,producto_id','pos_stock_sync_fallback');
+      };
+      var cantMovOrig=it.cantidad||0; // cantidad comprada/ingresada original (positiva)
+      if(it.costo_unitario>0 && it.cantidad_antes>0 && cantMovOrig>0){
+        var costoAntesRev=Math.round(
+          (prevStock.costo*(it.cantidad_antes+cantMovOrig) - cantMovOrig*it.costo_unitario)
+          / it.cantidad_antes
+        );
+        if(isFinite(costoAntesRev) && costoAntesRev>=0){
+          patchStock.costo_unitario=costoAntesRev;
+          if(orig.tipo==='compra'){
+            supaPatchResiliente('pos_productos','id=eq.'+it.producto_id+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoAntesRev,updated_at:now},'pos_costo_sync_fallback');
+          }
+        }
+      }
+      supaPostResiliente('stock',patchStock,'deposito_id,producto_id','pos_stock_sync_fallback');
     }
 
     // Marcar comprobante original como anulado
@@ -2863,14 +2885,14 @@ function cntRenderFormulario(){
       +'</div>'
       +'<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
         +'<div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px">'
-          +'<div style="font-size:18px;font-weight:800;color:var(--green)">'+contados+'/'+total+'</div>'
+          +'<div id="cntStatContados" style="font-size:18px;font-weight:800;color:var(--green)">'+contados+'/'+total+'</div>'
           +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Contados</div>'
         +'</div>'
         +'<div style="text-align:center;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px 16px">'
-          +'<div style="font-size:18px;font-weight:800;color:'+(conDif>0?'var(--red)':'var(--muted)')+'">'+conDif+'</div>'
+          +'<div id="cntStatDif" style="font-size:18px;font-weight:800;color:'+(conDif>0?'var(--red)':'var(--muted)')+'">'+conDif+'</div>'
           +'<div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px">Con diferencia</div>'
         +'</div>'
-        +'<button onclick="cntConfirmar()" class="btn-sv" style="padding:10px 20px;font-size:13px" '+(contados===0?'disabled title="Contá al menos un producto"':'')+'>'
+        +'<button id="cntBtnConfirmar" onclick="cntConfirmar()" class="btn-sv" style="padding:10px 20px;font-size:13px" '+(contados===0?'disabled title="Contá al menos un producto"':'')+'>'
           +'Confirmar y ajustar</button>'
       +'</div>'
     +'</div>'
@@ -2972,9 +2994,24 @@ async function cntSetFisico(idx, val){
 
   // Re-render solo los stats y la fila (no todo)
   cntFiltrar((document.getElementById('cntBusq')||{}).value||'');
-  // Actualizar header stats
+  // Actualizar header stats -- ANTES esto calculaba contados/conDif pero
+  // nunca los pintaba en ningún lado ni tocaba el botón: el número
+  // "Contados" quedaba congelado en 0/total (el valor del render inicial) y
+  // "Confirmar y ajustar" seguía disabled aunque ya hubiera productos
+  // cargados, porque su atributo `disabled` solo se setea una vez en
+  // cntRenderFormulario(). Solo la barra de progreso sí se actualizaba.
   var contados=ct.items.filter(function(i){return i.stock_fisico!==null;}).length;
   var conDif=ct.items.filter(function(i){return i.stock_fisico!==null&&i.diferencia!==0;}).length;
+  var elC=document.getElementById('cntStatContados');
+  if(elC) elC.textContent=contados+'/'+ct.items.length;
+  var elD=document.getElementById('cntStatDif');
+  if(elD){ elD.textContent=conDif; elD.style.color=conDif>0?'var(--red)':'var(--muted)'; }
+  var btn=document.getElementById('cntBtnConfirmar');
+  if(btn){
+    btn.disabled=contados===0;
+    if(contados===0) btn.setAttribute('title','Contá al menos un producto');
+    else btn.removeAttribute('title');
+  }
   // Actualizar barra de progreso
   var barra=document.querySelector('[style*="transition:width"]');
   if(barra) barra.style.width=Math.round(contados/Math.max(ct.items.length,1)*100)+'%';
@@ -3164,12 +3201,41 @@ async function cntCargarLista(){
             ?'<button onclick="cntReanudar('+ct.id+')" style="background:var(--o2);border:1px solid var(--orange);border-radius:6px;color:var(--orange);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 9px;cursor:pointer">Continuar</button>'
             :'')
           +'<button onclick="cntVerDetalle('+ct.id+')" style="background:var(--b2);border:1px solid var(--blue);border-radius:6px;color:var(--blue);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 9px;cursor:pointer">Ver</button>'
+          +(esBorrador
+            // Solo borrador: un conteo CONFIRMADO ya aplicó ajustes reales de
+            // stock (ver cntConfirmar()) -- borrarlo dejaría el historial sin
+            // rastro de un movimiento que sí pasó. Un borrador todavía no tocó
+            // stock, así que eliminarlo no tiene ese riesgo.
+            ?'<button onclick="cntEliminar('+ct.id+',\''+ct.numero+'\')" style="background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 9px;cursor:pointer">Eliminar</button>'
+            :'')
         +'</td>'
       +'</tr>';
     }).join('');
   }catch(e){
     document.getElementById('cntListBody').innerHTML='<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--red)">Error: '+e.message+'</td></tr>';
   }
+}
+
+async function cntEliminar(conteoId, numero){
+  if(!confirm('¿Eliminar el conteo '+numero+'? Esta acción no se puede deshacer.')) return;
+  try{
+    var licId=await cntGetLicId();
+    // licencia_id=eq.: mismo motivo que el resto del archivo -- sin esto, con
+    // RLS desactivado en Supabase, alcanzaba con adivinar/conocer un id de
+    // OTRO tenant para borrar su conteo.
+    var comps=await sg('stock_conteos','id=eq.'+conteoId+'&licencia_id=eq.'+licId+'&select=id,estado');
+    if(!comps.length){ toast('Conteo no encontrado'); renderConteo('lista'); return; }
+    if(comps[0].estado!=='borrador'){ toast('Solo se pueden eliminar conteos en borrador'); return; }
+    // stock_conteo_items no tiene columna de tenant propia del lado Supabase
+    // (mismo motivo documentado en cntConfirmar() más abajo) -- alcanza con
+    // conteo_id porque el conteo padre ya se verificó arriba que es de este
+    // tenant.
+    await supaDelete('stock_conteo_items','conteo_id=eq.'+conteoId);
+    await supaDelete('stock_conteos','id=eq.'+conteoId+'&licencia_id=eq.'+licId);
+    if(_cnt.conteoActual&&_cnt.conteoActual.id===conteoId) _cnt.conteoActual=null;
+    toast('Conteo '+numero+' eliminado');
+    renderConteo('lista');
+  }catch(e){ toast('Error: '+e.message); }
 }
 
 async function cntReanudar(conteoId){
