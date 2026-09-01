@@ -323,17 +323,22 @@ async function gastosBuscar(){
       +(fh?'&fecha=lte.'+fh:'')
       +'&order=fecha.desc,id.desc&limit=500';
     var rows=await sg('gastos',q);
-    var total=rows.reduce(function(s,r){return s+(r.monto||0);},0);
-    var prom=rows.length?Math.round(total/rows.length):0;
+    // Los eliminados siguen apareciendo en la tabla (marcados, ver más abajo)
+    // para no dejar irreproducible un reporte que ya los incluyó -- pero no
+    // cuentan en los KPIs ni en "N gastos", igual que una venta anulada no
+    // suma al total de ventas.
+    var rowsAct=rows.filter(function(r){return !r.eliminado;});
+    var total=rowsAct.reduce(function(s,r){return s+(r.monto||0);},0);
+    var prom=rowsAct.length?Math.round(total/rowsAct.length):0;
     var catMap={};
-    rows.forEach(function(r){catMap[r.categoria]=(catMap[r.categoria]||0)+(r.monto||0);});
+    rowsAct.forEach(function(r){catMap[r.categoria]=(catMap[r.categoria]||0)+(r.monto||0);});
     var mayorCat=Object.entries(catMap).sort(function(a,b){return b[1]-a[1];})[0];
     if(document.getElementById('gKpis')) document.getElementById('gKpis').style.display='grid';
     if(document.getElementById('gKTotal')) document.getElementById('gKTotal').textContent=gs(total);
-    if(document.getElementById('gKCant'))  document.getElementById('gKCant').textContent=rows.length+' registros';
+    if(document.getElementById('gKCant'))  document.getElementById('gKCant').textContent=rowsAct.length+' registros';
     if(document.getElementById('gKCat'))   document.getElementById('gKCat').textContent=mayorCat?mayorCat[0]:'—';
     if(document.getElementById('gKProm'))  document.getElementById('gKProm').textContent=gs(prom);
-    if(document.getElementById('gCount'))  document.getElementById('gCount').textContent=rows.length+' gastos';
+    if(document.getElementById('gCount'))  document.getElementById('gCount').textContent=rowsAct.length+' gastos';
     if(!rows.length){
       tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:28px;color:var(--muted)">Sin gastos en el período</td></tr>';
       return;
@@ -341,16 +346,18 @@ async function gastosBuscar(){
     tbody.innerHTML=rows.map(function(r){
       var con=_plan.cons.find(function(c){return c.id===r.concepto_id;})||{nombre:'—'};
       var cat=_plan.cats.find(function(c){return c.id===r.categoria_id;})||{nombre:r.categoria||'—'};
-      return '<tr>'
+      var elim=!!r.eliminado;
+      var accionCell=elim
+        ? '<span title="'+esc(r.motivo_eliminacion||'')+'" style="padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;background:var(--r2);color:var(--red)">ELIMINADO</span>'
+        : '<button onclick="gastoEliminar('+r.id+')" style="background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 9px;cursor:pointer">Eliminar</button>';
+      return '<tr'+(elim?' style="opacity:.5;text-decoration:line-through"':'')+'>'
         +'<td style="font-size:12px;white-space:nowrap;color:var(--muted)">'+fmt(r.fecha)+'</td>'
         +'<td><span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:var(--b2);color:var(--blue)">'+esc(cat.nombre)+'</span></td>'
         +'<td style="font-size:12px;font-weight:600">'+esc(con.nombre)+'</td>'
         +'<td style="font-size:12px">'+esc(r.concepto)+'</td>'
         +'<td style="text-align:right;font-weight:800;color:var(--red)">'+gs(r.monto)+'</td>'
         +'<td style="font-size:11px;color:var(--muted)">'+esc(r.observacion||'')+'</td>'
-        +'<td style="text-align:center">'
-          +'<button onclick="gastoEliminar('+r.id+')" style="background:var(--r2);border:1px solid var(--red);border-radius:6px;color:var(--red);font-family:Barlow,sans-serif;font-size:11px;font-weight:700;padding:5px 9px;cursor:pointer">Eliminar</button>'
-        +'</td>'
+        +'<td style="text-align:center">'+accionCell+'</td>'
       +'</tr>';
     }).join('');
   }catch(e){
@@ -359,11 +366,27 @@ async function gastosBuscar(){
 }
 
 async function gastoEliminar(id){
-  if(!confirm('¿Eliminar este gasto?')) return;
+  // Antes esto hacía un DELETE real (sin motivo/fecha/usuario) -- único
+  // hard-delete de un registro contable real en todo el sistema (ver
+  // memoria project_mipos_gasto_hard_delete_sin_auditoria): un gasto ya
+  // usado en una Liquidación de IVA podía borrarse sin dejar rastro, y es
+  // vector clásico de fraude interno (cargar un gasto falso y borrar la
+  // evidencia después). Ahora sigue el mismo patrón "marcar, no borrar" que
+  // ya usa pos_ventas (anulada/fecha_anulacion/motivo_anulacion) -- acá con
+  // el motivo pedido vía prompt(), igual que el estándar de anulación del
+  // resto del sistema.
+  var motivo=prompt('Motivo de la eliminación (obligatorio):');
+  if(motivo===null) return; // canceló el prompt
+  if(!motivo.trim()){ toast('El motivo es obligatorio'); return; }
   try{
     // licencia_id=eq. en el filtro: mismo motivo que planEliminarCat/Con --
-    // sin acotar por tenant, un id de otra licencia se podía borrar igual.
-    await supaDelete('gastos','id=eq.'+id+'&licencia_id=eq.'+_gastosLicId);
+    // sin acotar por tenant, un id de otra licencia se podía tocar igual.
+    await supaPatch('gastos','id=eq.'+id+'&licencia_id=eq.'+_gastosLicId,{
+      eliminado:true,
+      fecha_eliminacion:new Date().toISOString(),
+      motivo_eliminacion:motivo.trim().substring(0,500),
+      usuario_eliminacion:SE
+    });
     toast('Gasto eliminado');
     await gastosBuscar();
   }catch(e){ toast('Error: '+e.message); }
@@ -457,6 +480,7 @@ async function balanceBuscar(licId){
     // 1b. Gastos
     var fetchGastos=sg('gastos',
       'licencia_id=eq.'+licId
+      +'&eliminado=is.false'
       +(fd?'&fecha=gte.'+fd:'')
       +(fh?'&fecha=lte.'+fh:'')
       +'&select=monto,categoria,concepto,concepto_id,categoria_id&limit=2000'
@@ -706,7 +730,7 @@ async function balDibujarTendencia(fd,fh,ventaActual,utilActual,licId){
         +'&select=total&limit=5000'
       );
       var venta=v.reduce(function(s,x){return s+(x.total||0);},0);
-      var g=await sg('gastos','licencia_id=eq.'+licId+'&fecha=gte.'+mStr+'-01&fecha=lte.'+mStr+'-'+ultimoDia+'&select=monto&limit=500');
+      var g=await sg('gastos','licencia_id=eq.'+licId+'&eliminado=is.false&fecha=gte.'+mStr+'-01&fecha=lte.'+mStr+'-'+ultimoDia+'&select=monto&limit=500');
       var gasto=g.reduce(function(s,x){return s+(x.monto||0);},0);
       puntos.push({label:mStr,venta:venta,util:venta-gasto}); // ventas menos gastos (sin costo mercadería histórico)
     }catch(e){ puntos.push({label:mStr,venta:0,util:0}); }
@@ -983,6 +1007,7 @@ async function ivaCalcular(){
     // ── CRÉDITO FISCAL GASTOS ─────────────────────────────────
     var gastosConFact=await sg('gastos',
       'licencia_id=eq.'+licId
+      +'&eliminado=is.false'
       +'&fecha=gte.'+periodo+'-01'
       +'&fecha=lte.'+periodo+'-'+ultimoDia
       +'&tiene_factura=eq.true'

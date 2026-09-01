@@ -255,8 +255,12 @@ export const TABLES = {
       'id', 'licencia_id', 'fecha', 'concepto', 'categoria', 'monto', 'observacion',
       'sucursal', 'usuario', 'created_at', 'concepto_id', 'categoria_id',
       'tiene_factura', 'factura_nro', 'factura_ruc',
+      // 0014_gastos_eliminacion.sql -- gastoEliminar() ahora marca en vez de
+      // borrar (mismo patron que pos_ventas.anulada/fecha_anulacion/
+      // motivo_anulacion, + usuario_eliminacion que ventas no tiene).
+      'eliminado', 'fecha_eliminacion', 'motivo_eliminacion', 'usuario_eliminacion',
     ],
-    booleans: ['tiene_factura'],
+    booleans: ['tiene_factura', 'eliminado'],
   },
   iva_liquidaciones: {
     tenant: { column: 'licencia_id', kind: TENANT_LICENCIA_ID },
