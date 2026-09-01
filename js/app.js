@@ -599,7 +599,7 @@ function renderTkt(){
           `</button>`+
           `<button class="qbtn" onclick="chgQty(${i.lineId},-1)">−</button><span class="qnum">${i.esKilo ? (parseFloat(i.qty)||0).toFixed(3)+' kg' : i.qty}</span><button class="qbtn" onclick="chgQty(${i.lineId},1)">+</button>`+
         `</div>`+
-        `<div class="tiprice">${gs(i.price*i.qty)}</div>`+
+        `<div class="tiprice">${gs(calcItemTotal(i))}</div>`+
       `</div>`
   ).join('') + _pieVenta;
 }
@@ -1412,7 +1412,7 @@ function renderDetalle(){
       list.appendChild(div); return;
     }
     div.innerHTML =
-      '<div class="det-item-main"><div class="det-item-color" style="background:'+item.color+'"></div><div class="det-item-name">'+esc(item.name)+'</div><div class="det-item-subtotal">'+gs(item.price*item.qty)+'</div></div>' +
+      '<div class="det-item-main"><div class="det-item-color" style="background:'+item.color+'"></div><div class="det-item-name">'+esc(item.name)+'</div><div class="det-item-subtotal">'+gs(calcItemTotal(item))+'</div></div>' +
       '<div class="det-item-controls"><div class="det-qty-row"><button class="det-qbtn del" onclick="detChgQty('+item.lineId+',-1)">'+(item.qty===1?delIcon:'−')+'</button><span class="det-qnum">'+item.qty+'</span><button class="det-qbtn" onclick="detChgQty('+item.lineId+',1)">+</button></div>' +
       '<span class="det-unit-price">'+gs(item.price)+' c/u</span>' +
       '<button class="det-obs-toggle" onclick="toggleDetObs('+item.lineId+')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'+(item.obs?'Obs: '+esc(item.obs.substring(0,20)):'Observación')+'</button>' +
@@ -2968,7 +2968,12 @@ async function _confirmarNuevoProducto(codigo){
     precioVariable: false, costo: 0,
     codigo: codigo, codigos: [codigo], color: '#455a64',
     colorPropio: false, cat: 'General',
-    iva: '10', mitad: false, inventario: false, comanda: false,
+    // inventario:true -- un producto nuevo controla stock por default, se
+    // destilda a propósito desde el editor cuando no interesa llevarle
+    // existencias (ver pedido del usuario 2026-08-26). Esta alta rápida por
+    // código no encontrado es el camino más común para cargar catálogo
+    // (escaneo en caja), así que era el que más impacto tenía dejar en false.
+    iva: '10', mitad: false, inventario: true, comanda: false,
     activo: true,
   };
   PRODS.push(newProd);

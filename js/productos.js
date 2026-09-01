@@ -329,6 +329,8 @@ PRODS.forEach((p,i) => {
   if(p.inventario === undefined)     p.inventario     = false;
   if(p.comanda === undefined)        p.comanda        = false;
   if(p.colorPropio === undefined)    p.colorPropio    = false;
+  if(p.promoCant === undefined)      p.promoCant      = null;
+  if(p.promoPrecio === undefined)    p.promoPrecio    = null;
 });
 nextProdId = PRODS.length + 1;
 
@@ -730,8 +732,14 @@ function nuevoArticulo(){
   // codigos es ahora textarea — limpiar
   document.getElementById('artPrecio').value = '';
   document.getElementById('artCosto').value = '';
+  document.getElementById('artPromoCant').value = '';
+  document.getElementById('artPromoPrecio').value = '';
   document.getElementById('artMitad').checked    = false;
-  document.getElementById('artInventario').checked = false;
+  // Por default un producto nuevo SÍ controla stock -- el dueño lo destilda
+  // a propósito cuando no le interesa llevar existencias de ese ítem (ver
+  // pedido del usuario 2026-08-26: todo lo que se carga debería entrar al
+  // conteo físico salvo que se lo excluya a mano).
+  document.getElementById('artInventario').checked = true;
   document.getElementById('artComanda').checked   = false;
   document.getElementById('artEsKilo').checked    = false;
   document.getElementById('artFavorito').checked  = false;
@@ -761,6 +769,8 @@ function editarArticulo(idx){
   document.getElementById('artCodigo').value = _allCodigos.join('\n');
   document.getElementById('artPrecio').value = p.precioVariable ? '' : p.price;
   document.getElementById('artCosto').value = p.costo || '';
+  document.getElementById('artPromoCant').value = p.promoCant || '';
+  document.getElementById('artPromoPrecio').value = p.promoPrecio || '';
   document.getElementById('artMitad').checked = !!p.mitad;
   document.getElementById('artInventario').checked = !!p.inventario;
   document.getElementById('artComanda').checked  = !!p.comanda;
@@ -852,6 +862,12 @@ async function guardarArticulo(){
   const comanda    = document.getElementById('artComanda').checked;
   const esKilo     = document.getElementById('artEsKilo').checked;
   const esFavorito = document.getElementById('artFavorito').checked;
+  // Promo por cantidad: ambos vacíos/0 = sin promo (null, no 0 -- 0 haría que
+  // lineBaseTotal() interprete "grupos de 0 unidades").
+  const promoCantV = Math.max(0, parseInt(document.getElementById('artPromoCant').value) || 0);
+  const promoPrecioV = Math.max(0, parseFloat(document.getElementById('artPromoPrecio').value) || 0);
+  const promoCant = (promoCantV >= 2 && promoPrecioV > 0) ? promoCantV : null;
+  const promoPrecio = (promoCantV >= 2 && promoPrecioV > 0) ? promoPrecioV : null;
   if(!nombre){ toast('Ingresá el nombre del artículo'); return; }
 
   // Validar que ningún código ya esté en otro producto
@@ -873,6 +889,7 @@ async function guardarArticulo(){
       precioVariable, costo, codigo, codigos, color: artColorSel,
       colorPropio: artColorManual,
       cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda, esKilo, esFavorito,
+      promoCant, promoPrecio,
       ...imgUpdate
     });
     const prod = PRODS[artEditIdx];
@@ -900,7 +917,8 @@ async function guardarArticulo(){
       name: nombre.toUpperCase(), price: precioVariable?0:precio,
       precioVariable, costo, codigo, codigos, color: artColorSel,
       colorPropio: artColorManual,
-      cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda, esKilo, esFavorito
+      cat: artCatSel, iva: artIvaSel, mitad, inventario, comanda, esKilo, esFavorito,
+      promoCant, promoPrecio
     };
     PRODS.push(newProd);
     nextProdId++;
@@ -1251,6 +1269,13 @@ async function supaUpsertProducto(prod){
     licencia_email:  email,
     updated_at:      new Date().toISOString()
   };
+  // promo_cant/promo_precio: solo existen en D1 (tenants Cloudflare-nativos).
+  // Mandarlas a un tenant Supabase rompe el guardado ENTERO del producto --
+  // ver mismo comentario en admin-productos.js:_guardarProd().
+  if(typeof usaGateway==='function' && usaGateway()){
+    payload.promo_cant = prod.promoCant || null;
+    payload.promo_precio = prod.promoPrecio || null;
+  }
   try {
     // on_conflict por (licencia_email,id), NO por "id" solo — "id" lo genera
     // cada dispositivo como contador LOCAL por tenant (nextProdId = max local+1),
@@ -2193,6 +2218,8 @@ async function supaLoadProductos(){
         comanda:        p.comanda || false,
         esKilo:         p.es_kilo || false,
         esFavorito:     p.es_favorito || false,
+        promoCant:      p.promo_cant || null,
+        promoPrecio:    p.promo_precio || null,
         itemLibre:      false,
         activo:         p.activo !== false && p.activo !== 0,
         imagen:         p.imagen || null,
@@ -2264,6 +2291,8 @@ async function supaLoadProductos(){
             item_libre:      false,
             activo:          p.activo !== false && p.activo !== 0,
             imagen:          p.imagen || null,
+            promo_cant:      p.promo_cant || null,
+            promo_precio:    p.promo_precio || null,
             updatedAt:       new Date().toISOString(),
           };
         });

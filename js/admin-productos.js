@@ -352,6 +352,12 @@ async function impConfirmar(){
             codigo:r.codigo||'',
             color:r.color||'#546e7a',
             activo:true,
+            // Producto nuevo controla stock por default -- mismo criterio
+            // que abrirProdPanel()/nuevoArticulo() (ver pedido del usuario
+            // 2026-08-26). Solo aplica a INSERT, no a las filas con id que
+            // van por el camino de UPDATE más arriba -- no pisa un valor que
+            // el dueño ya haya elegido a mano para un producto existente.
+            inventario:true,
             licencia_email:SE,
             updated_at:ahora
           };
@@ -453,6 +459,13 @@ function abrirProdPanel(prod){
   var preV   = prod ? !!prod.precio_variable        : false;
   var com    = prod ? !!prod.comanda                : false;
   var esKilo = prod ? !!prod.es_kilo                : false;
+  // Un producto nuevo controla stock por default -- se destilda a propósito
+  // cuando no interesa llevarle existencias (ver memoria feedback del
+  // usuario 2026-08-26). Al editar, respeta el valor ya guardado.
+  var inv    = prod ? !!prod.inventario             : true;
+  // Promo por cantidad (ej. "3 unidades por Gs 10.000"). 0/vacío = sin promo.
+  var promoCant = prod && prod.promo_cant   ? prod.promo_cant   : '';
+  var promoPre  = prod && prod.promo_precio ? prod.promo_precio : '';
   var col  = prod ? (prod.color||'#546e7a')       : '#546e7a';
   var cod  = prod ? _esc(prod.codigo||'')         : '';
   var fotoUrl = prod ? (prod.foto_url||'') : '';
@@ -508,6 +521,16 @@ function abrirProdPanel(prod){
           +'<div><label style="'+LBL+'">Precio (₲)</label><input id="ppPre" type="number" min="0" value="'+pre+'" placeholder="0" style="'+INP+';font-weight:700" onfocus="this.style.borderColor=\'var(--green)\'" onblur="this.style.borderColor=\'var(--border)\'"></div>'
           +'<div><label style="'+LBL+'">Costo (₲)</label><input id="ppCos" type="number" min="0" value="'+cos+'" placeholder="0" style="'+INP+';font-weight:700" onfocus="this.style.borderColor=\'var(--green)\'" onblur="this.style.borderColor=\'var(--border)\'"></div>'
         +'</div>'
+        // Promo por cantidad
+        +'<div style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:12px">'
+          +'<label style="'+LBL+'">Promo por cantidad (opcional)</label>'
+          +'<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center">'
+            +'<input id="ppPromoCant" type="number" min="2" step="1" value="'+promoCant+'" placeholder="Cant. ej: 3" style="'+INP+';font-weight:700" onfocus="this.style.borderColor=\'var(--green)\'" onblur="this.style.borderColor=\'var(--border)\'">'
+            +'<span style="font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap">unid. por ₲</span>'
+            +'<input id="ppPromoPrecio" type="number" min="0" value="'+promoPre+'" placeholder="Precio total ej: 10000" style="'+INP+';font-weight:700" onfocus="this.style.borderColor=\'var(--green)\'" onblur="this.style.borderColor=\'var(--border)\'">'
+          +'</div>'
+          +'<div style="font-size:11px;color:var(--muted);margin-top:6px">Ej: 3 y 10.000 → al llegar a 3 unidades en el carrito, cobra ₲10.000 por el grupo. Dejar vacío para no usar promo.</div>'
+        +'</div>'
         // IVA
         +'<div><label style="'+LBL+'">IVA</label>'
           +'<input type="hidden" id="ppIva" value="'+iva+'">'
@@ -521,9 +544,12 @@ function abrirProdPanel(prod){
           +'<label style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer">'
             +'<input type="checkbox" id="ppCom"'+(com?' checked':'')+' style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">'
             +'<span style="font-size:12px;font-weight:600">Va a comanda</span></label>'
-          +'<label style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer;grid-column:1/-1">'
+          +'<label style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer">'
+            +'<input type="checkbox" id="ppInv"'+(inv?' checked':'')+' style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">'
+            +'<span style="font-size:12px;font-weight:600">Controlar existencia</span></label>'
+          +'<label style="display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer">'
             +'<input type="checkbox" id="ppEsKilo"'+(esKilo?' checked':'')+' style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">'
-            +'<span style="font-size:12px;font-weight:600">&#9878; Vender por kg (precio es por kilo)</span></label>'
+            +'<span style="font-size:12px;font-weight:600">&#9878; Vender por kg</span></label>'
         +'</div>'
         // Color + Código
         +'<div style="display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:end">'
@@ -565,6 +591,12 @@ async function _guardarProd(){
   // negativo -- ver mismo fix en productos.js guardarArticulo().
   var pre=Math.max(0, parseFloat(document.getElementById('ppPre').value)||0);
   var cos=Math.max(0, parseFloat(document.getElementById('ppCos').value)||0);
+  // Promo por cantidad: ambos campos vacíos/0 = sin promo (null, no 0 -- 0
+  // haría que lineBaseTotal() del POS interprete "grupos de 0 unidades").
+  var promoCantV=Math.max(0, parseInt(document.getElementById('ppPromoCant').value)||0);
+  var promoPreV=Math.max(0, parseFloat(document.getElementById('ppPromoPrecio').value)||0);
+  var promoCant=(promoCantV>=2 && promoPreV>0) ? promoCantV : null;
+  var promoPrecio=(promoCantV>=2 && promoPreV>0) ? promoPreV : null;
   var iva=document.getElementById('ppIva').value||'10';
   var preV=document.getElementById('ppPreV').checked;
   var com=document.getElementById('ppCom').checked;
@@ -579,10 +611,21 @@ async function _guardarProd(){
     precio:preV?0:pre, costo:cos, iva:iva,
     precio_variable:preV, comanda:com,
     color:col, codigo:cod,
+    inventario:document.getElementById('ppInv').checked,
     es_kilo:document.getElementById('ppEsKilo').checked,
     activo:true, es_insumo:false, licencia_email:SE,
     updated_at:new Date().toISOString()
   };
+  // promo_cant/promo_precio: columnas nuevas, solo existen en D1 (tenants
+  // Cloudflare-nativos) -- ver d1-migrations/0012_pos_productos_promo.sql.
+  // Mandarlas a un tenant Supabase (la mayoría hoy) rompe el guardado
+  // ENTERO del producto: PostgREST rechaza el payload completo si trae una
+  // columna que no existe ("PGRST204 Could not find the column"), confirmado
+  // en vivo. Sacar este guard el día que se corra
+  // supabase-migrations/add_promo_cantidad.sql en Supabase.
+  if(typeof usaGateway==='function' && usaGateway()){
+    payload.promo_cant=promoCant; payload.promo_precio=promoPrecio;
+  }
 
   try{
     if(_ppFoto.blob){

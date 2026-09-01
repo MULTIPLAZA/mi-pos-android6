@@ -133,10 +133,23 @@ async function dbSaveProducto(prod){
     imagen:         prod.imagen || null,
     es_kilo:        prod.esKilo || false,
     es_favorito:    prod.esFavorito || false,
+    promo_cant:     prod.promoCant || null,
+    promo_precio:   prod.promoPrecio || null,
     updatedAt:      new Date().toISOString(),
   };
   await db.productos.put(data);
-  await dbQueueSync('productos', 'upsert', data);
+  // promo_cant/promo_precio solo existen en la tabla pos_productos de D1
+  // (tenants Cloudflare-nativos) -- mandarlas a un tenant Supabase rompe el
+  // guardado ENTERO del producto (PGRST204: columna inexistente), no solo
+  // esos 2 campos. Local sí las necesita (data arriba) para leer/mostrar la
+  // promo offline; lo que se encola hacia el servidor debe gatearse igual
+  // que ya hace supaUpsertProducto() en productos.js/admin-productos.js.
+  const dataParaCola = Object.assign({}, data);
+  if(!(typeof usaGateway === 'function' && usaGateway())){
+    delete dataParaCola.promo_cant;
+    delete dataParaCola.promo_precio;
+  }
+  await dbQueueSync('productos', 'upsert', dataParaCola);
 }
 
 async function dbDeleteProducto(id){
@@ -180,6 +193,8 @@ async function dbLoadProductos(){
         descValor:      p.desc_valor != null ? p.desc_valor : null,
         esKilo:         p.es_kilo || false,
         esFavorito:     p.es_favorito || false,
+        promoCant:      p.promo_cant || null,
+        promoPrecio:    p.promo_precio || null,
       });
     });
     _log('[DB] Productos cargados:', PRODS.length);
@@ -394,6 +409,24 @@ async function dbSaveIngreso(ingreso){
 }
 
 // ── SYNC QUEUE ────────────────────────────────────────────
+// Arma la etiqueta visible de un item de sync_queue según su tabla real --
+// antes se mostraba "Venta" fijo para CUALQUIER item (producto, categoría,
+// egreso...), lo que confundía el diagnóstico de errores de sync que en
+// realidad venían de guardar un producto (ver caso promo_cant 2026-08-29).
+function _syncItemLabel(item, datos){
+  const total = datos.total ? gs(datos.total) : '';
+  switch(item.tabla){
+    case 'productos':  return 'Producto' + (datos.nombre ? ' · ' + datos.nombre : '');
+    case 'categorias': return 'Categoría' + (datos.nombre ? ' · ' + datos.nombre : '');
+    case 'egresos':    return 'Egreso' + (datos.monto ? ' · ' + gs(datos.monto) : '');
+    case 'ingresos':   return 'Ingreso' + (datos.monto ? ' · ' + gs(datos.monto) : '');
+    case 'turno':      return 'Turno';
+    case 'ventas':
+    default:
+      return 'Venta ' + (total ? '· ' + total : '') + (datos.metodo_pago ? ' · ' + datos.metodo_pago : '');
+  }
+}
+
 async function dbQueueSync(tabla, operacion, datos){
   if(!db) return;
   // Limpiar campos locales que Supabase rechazaría
@@ -785,10 +818,9 @@ async function renderSyncPanel(){
         let datos = {};
         try { datos = JSON.parse(item.datos); } catch(e){ /* safe to ignore: fallback to empty datos */ }
         const fecha = item.timestamp ? new Date(item.timestamp).toLocaleString('es-PY') : '—';
-        const total = datos.total ? gs(datos.total) : '';
         html += '<div class="sync-item-row error">';
         html += '<div class="sync-item-fecha">' + fecha + '</div>';
-        html += '<div class="sync-item-info">Venta ' + (total ? '· ' + total : '') + (datos.metodo_pago ? ' · ' + datos.metodo_pago : '') + '</div>';
+        html += '<div class="sync-item-info">' + _syncItemLabel(item, datos) + '</div>';
         if(item.error_msg) html += '<div style="font-size:11px;color:#e53935;margin-top:3px;">' + item.error_msg + '</div>';
         html += '<button class="sync-btn-retry" onclick="reintentarSyncItem(' + item.id + ')">↻ Reintentar</button>';
         html += '</div>';
@@ -807,10 +839,9 @@ async function renderSyncPanel(){
         let datos = {};
         try { datos = JSON.parse(item.datos); } catch(e){ /* safe to ignore: fallback to empty datos */ }
         const fecha = item.timestamp ? new Date(item.timestamp).toLocaleString('es-PY') : '—';
-        const total = datos.total ? gs(datos.total) : '';
         html += '<div class="sync-item-row pending">';
         html += '<div class="sync-item-fecha">' + fecha + '</div>';
-        html += '<div class="sync-item-info">Venta ' + (total ? '· ' + total : '') + (datos.metodo_pago ? ' · ' + datos.metodo_pago : '') + '</div>';
+        html += '<div class="sync-item-info">' + _syncItemLabel(item, datos) + '</div>';
         html += '</div>';
       });
       if(pendientes > 20) html += '<div style="text-align:center;font-size:12px;color:var(--muted);padding:8px;">...y ' + (pendientes - 20) + ' más</div>';

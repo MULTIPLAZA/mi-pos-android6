@@ -171,9 +171,26 @@ function chgQty(lineId,d){
   updUI(); updBtnGuardar(); renderTkt();
 }
 
+// Única fuente de price×qty con soporte de promo por cantidad (ej. "3 unidades
+// por Gs 10.000") -- antes cada lugar que necesitaba el subtotal de una línea
+// (carrito, recibo impreso, comanda, factura) recalculaba item.price*item.qty
+// por su cuenta; con la promo agregada, hay que centralizarlo en un solo lugar
+// para que el carrito y el ticket impreso nunca muestren un total distinto.
+// No aplica a venta por peso (esKilo) ni precio variable: en esos casos qty/
+// price no representan "unidades a precio de lista", la promo por cantidad
+// no tiene sentido ahí.
+function lineBaseTotal(item){
+  if(!item.esKilo && !item.precioVariable && item.promoCant > 1 && item.promoPrecio > 0){
+    var grupos = Math.floor(item.qty / item.promoCant);
+    var resto  = item.qty - grupos * item.promoCant;
+    return grupos * item.promoPrecio + resto * item.price;
+  }
+  return item.price * item.qty;
+}
+
 function calcItemTotal(item) {
   if (item.esDescuento) return item.price;
-  const base = item.price * item.qty;
+  const base = lineBaseTotal(item);
   if (item.desc && item.desc > 0) return Math.round(base * (1 - item.desc / 100));
   // Redondear: en venta por peso, price × qty puede ser fraccionario
   // (ej. 6000 × 0.83333 = 4999.98) y debe cerrar en Gs entero.
