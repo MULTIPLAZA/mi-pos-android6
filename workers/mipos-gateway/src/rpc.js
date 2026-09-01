@@ -290,6 +290,135 @@ export async function descontarStockVenta(db, tenant, params) {
   throw new ShimError('descontar_stock_venta: pendiente de implementar (ver comentario en rpc.js)', 501);
 }
 
+// ajustar_stock_compra: alta de Compra/Entrada/Salida/Transferencia
+// (admin-inventario.js:movGuardar/procesarLado). Simetrica a
+// supabase-migrations/stock_atomic_compra.sql -- mismo bug de raza que
+// descontar_stock_venta de arriba, pero en Compras: procesarLado() hacia un
+// SELECT de `stock` y despues un POST aparte para escribir, dos compras
+// simultaneas del mismo producto+deposito podian pisarse el resultado
+// (cantidad Y costo promedio ponderado). D1/SQLite serializa los writes por
+// base, asi que una sola sentencia INSERT...ON CONFLICT...DO UPDATE (que
+// referencia el valor VIEJO de la fila via `stock.cantidad`/
+// `stock.costo_unitario` dentro del propio UPDATE, resuelto contra la fila ya
+// bloqueada por esta sentencia) alcanza para que el promedio ponderado no se
+// pise con otra escritura concurrente -- no hace falta un SELECT previo.
+// Requiere el UNIQUE(deposito_id, producto_id) de
+// 0013_stock_unique_deposito_producto.sql (la tabla nacio con un INDEX comun
+// nada mas -- ON CONFLICT no funciona sin una UNIQUE real, confirmado en vivo
+// con un duplicado real que dejo esa carrera antes del fix).
+export async function ajustarStockCompra(db, tenant, params) {
+  const depId = params && params.p_deposito_id;
+  const items = (params && Array.isArray(params.p_items)) ? params.p_items : [];
+  const actualizarCostoProducto = !!(params && params.p_actualizar_costo_producto);
+  if (!depId || !items.length) return { ok: true };
+
+  const sql = `INSERT INTO stock (licencia_id, deposito_id, sucursal_id, producto_id, nombre_producto, cantidad, costo_unitario, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, CASE WHEN ?6 > 0 AND ?7 > 0 THEN ?7 ELSE 0 END, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(deposito_id, producto_id) DO UPDATE SET
+       costo_unitario = CASE
+         WHEN ?6 > 0 AND ?7 > 0 THEN
+           CASE WHEN stock.cantidad > 0 AND stock.costo_unitario > 0
+             THEN ROUND((stock.cantidad * stock.costo_unitario + ?6 * ?7) / (stock.cantidad + ?6))
+             ELSE ?7
+           END
+         ELSE stock.costo_unitario
+       END,
+       cantidad = stock.cantidad + ?6,
+       nombre_producto = excluded.nombre_producto,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     RETURNING producto_id, costo_unitario`;
+  // ?1 licencia_id ?2 deposito_id ?3 sucursal_id ?4 producto_id ?5 nombre_producto
+  // ?6 cantidad (delta con signo) ?7 costo (de ESTE movimiento, 0 si no aplica)
+
+  const stmts = items.map((it) => db.prepare(sql).bind(
+    tenant.lid,
+    depId,
+    it.sucursal_id != null ? Number(it.sucursal_id) : null,
+    Number(it.producto_id),
+    it.nombre_producto || '',
+    Number(it.cantidad) || 0,
+    Number(it.costo) || 0,
+  ));
+  const results = await db.batch(stmts);
+
+  // pos_productos.costo solo se sincroniza para tipo='compra' (no
+  // entrada/salida/transferencia) -- mismo criterio que el JS que reemplaza.
+  if (actualizarCostoProducto) {
+    const patchStmts = [];
+    results.forEach((r, idx) => {
+      const it = items[idx];
+      const costo = Number(it.costo) || 0;
+      const row = r.results && r.results[0];
+      if (costo > 0 && row) {
+        patchStmts.push(
+          db.prepare('UPDATE pos_productos SET costo = ?, updated_at = ? WHERE id = ? AND licencia_email = ?')
+            .bind(row.costo_unitario, new Date().toISOString(), Number(it.producto_id), tenant.em),
+        );
+      }
+    });
+    if (patchStmts.length) await db.batch(patchStmts);
+  }
+
+  return { ok: true };
+}
+
+// revertir_stock_compra: anulacion de Compra/Entrada/Salida/Transferencia
+// (admin-inventario.js:movEjecutarAnulacion). Simetrica a
+// revertir_stock_venta pero ademas recalcula el "costo antes" (formula del
+// promedio ponderado en reversa) -- bug real de auditoria 2026-09-01: antes
+// solo se revertia la cantidad, el costo quedaba contaminado para siempre
+// con el promedio de un movimiento ya anulado. El UPDATE referencia
+// `costo_unitario`/`cantidad` sin calificar, que en SQLite (igual que en
+// Postgres) se resuelve contra el valor de la fila ANTES de este UPDATE --
+// atomico sin necesitar SELECT previo. Si no habia stock previo al
+// movimiento original (cantidad_antes=0), no hay costo "antes" recuperable
+// con exactitud y se deja el costo actual como esta, en vez de revertir a
+// ciegas (misma condicion `v_puede_revertir` del lado Supabase).
+export async function revertirStockCompra(db, tenant, params) {
+  const depId = params && params.p_deposito_id;
+  const items = (params && Array.isArray(params.p_items)) ? params.p_items : [];
+  if (!depId || !items.length) return { ok: true };
+
+  const sql = `UPDATE stock SET
+       costo_unitario = CASE WHEN ?2 > 0 AND ?3 > 0 AND ?4 > 0
+         THEN MAX(0, ROUND((costo_unitario * (?3 + ?4) - ?4 * ?2) / ?3))
+         ELSE costo_unitario
+       END,
+       cantidad = cantidad - ?4,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+     WHERE deposito_id = ?1 AND producto_id = ?5
+     RETURNING costo_unitario`;
+  // ?1 deposito_id ?2 costo_unitario del movimiento original ?3 cantidad_antes
+  // (stock previo a ese movimiento) ?4 cantidad del movimiento original ?5 producto_id
+
+  const stmts = items.map((it) => db.prepare(sql).bind(
+    depId,
+    Number(it.costo_unitario) || 0,
+    Number(it.cantidad_antes) || 0,
+    Number(it.cantidad) || 0,
+    Number(it.producto_id),
+  ));
+  const results = await db.batch(stmts);
+
+  const patchStmts = [];
+  results.forEach((r, idx) => {
+    const it = items[idx];
+    const puedeRevertir = (Number(it.costo_unitario) || 0) > 0
+      && (Number(it.cantidad_antes) || 0) > 0
+      && (Number(it.cantidad) || 0) > 0;
+    const row = r.results && r.results[0];
+    if (puedeRevertir && it.es_compra && row) {
+      patchStmts.push(
+        db.prepare('UPDATE pos_productos SET costo = ?, updated_at = ? WHERE id = ? AND licencia_email = ?')
+          .bind(row.costo_unitario, new Date().toISOString(), Number(it.producto_id), tenant.em),
+      );
+    }
+  });
+  if (patchStmts.length) await db.batch(patchStmts);
+
+  return { ok: true };
+}
+
 export const RPC_HANDLERS = {
   activar_licencia: (db, secret, _tenant, params) => activarLicencia(db, secret, params),
   verificar_licencia: (db, secret, _tenant, params) => verificarLicencia(db, secret, params),
@@ -298,4 +427,6 @@ export const RPC_HANDLERS = {
   actualizar_rubro: (db, _secret, tenant, params) => actualizarRubro(db, tenant, params),
   avanzar_correlativo: (db, _secret, tenant, params) => avanzarCorrelativo(db, tenant, params),
   descontar_stock_venta: (db, _secret, tenant, params) => descontarStockVenta(db, tenant, params),
+  ajustar_stock_compra: (db, _secret, tenant, params) => ajustarStockCompra(db, tenant, params),
+  revertir_stock_compra: (db, _secret, tenant, params) => revertirStockCompra(db, tenant, params),
 };

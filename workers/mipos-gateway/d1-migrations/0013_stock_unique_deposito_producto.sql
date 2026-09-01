@@ -1,0 +1,19 @@
+-- `stock` (0007_depositos_stock.sql) nacio con un INDEX comun en
+-- (deposito_id, producto_id), no UNIQUE -- cualquier `INSERT ... ON
+-- CONFLICT(deposito_id, producto_id)` (el patron que ya usa
+-- supaPostResiliente('stock', ..., 'deposito_id,producto_id', ...) desde
+-- admin-inventario.js) tira "ON CONFLICT clause does not match any PRIMARY
+-- KEY or UNIQUE constraint" en SQLite/D1 sin esto.
+--
+-- Confirmado en vivo 2026-09-01: la fila deposito_id=1/producto_id=42
+-- (licencia_id=6, ultima@gmail.com) tenia 2 registros duplicados
+-- (cantidad=0/costo=0 ambos, creados con 11s de diferencia) -- el mismo tipo
+-- de carrera que esta migracion previene a futuro. El duplicado ya se
+-- elimino a mano (DELETE puntual por id) antes de correr esto, porque
+-- CREATE UNIQUE INDEX falla si ya hay filas repetidas.
+--
+-- Habilita ademas ajustar_stock_compra/revertir_stock_compra (RPCs nuevas,
+-- ver rpc.js) hacer upsert atomico de una sola sentencia via ON CONFLICT, en
+-- vez del patron actual de leer con un SELECT y escribir con un POST aparte
+-- (dos round-trips separados = ventana de carrera real entre terminales).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_deposito_producto ON stock(deposito_id, producto_id);

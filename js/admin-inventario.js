@@ -1977,7 +1977,14 @@ async function movGuardar(){
       var dep=(_mov.deps.find(function(d){return d.id===depId;})||{});
       var sucId=dep.sucursal_id||null;
 
-      // Leer stock actual + costo (para costo promedio ponderado en compras)
+      // Leer stock actual + costo -- best-effort, SOLO para dejar
+      // cantidad_antes/cantidad_despues en el histórico (stock_comprobante_items).
+      // La escritura REAL de stock/costo va atómica por RPC más abajo (ver
+      // ajustar_stock_compra) -- sin esto, dos compras simultáneas del mismo
+      // producto+depósito podían pisarse el resultado (cantidad Y costo
+      // promedio ponderado, bug de auditoría 2026-09-01). Mismo patrón que
+      // stockDescontarVenta() en turno.js (lee para el histórico, ajusta de
+      // verdad vía RPC atómica).
       var prodIds=_mov.items.map(function(i){return i.prodId;});
       var stockR=await sg('stock',
         'deposito_id=eq.'+depId+'&producto_id=in.('+prodIds.join(',')+')'
@@ -1999,43 +2006,74 @@ async function movGuardar(){
       },null);
       var compId=Array.isArray(compR)?compR[0].id:compR.id;
 
-      // Construir items + upserts
+      // Items del histórico (antes/después "best effort", ver comentario
+      // arriba) + payload para el ajuste atómico de stock
       var itemsIns=[];
+      var rpcItems=[];
       for(var k=0;k<_mov.items.length;k++){
         var it=_mov.items[k];
         var prev=stockMap[it.prodId]||{cantidad:0, costo:0};
         var antes=prev.cantidad;
         var cantMov=it.cantidad*signo;
         var desp=antes+cantMov;
-        // COSTO PROMEDIO PONDERADO: solo en ingresos con costo (compra/entrada).
-        // nuevo = (stock_antes × costo_antes + cant_comprada × costo_compra)
-        //         / (stock_antes + cant_comprada)
-        // Si no había stock previo (o sin costo), el costo pasa a ser el de la compra.
-        var costoStock=it.costo||prev.costo||0;
-        if(signo>0 && it.costo>0){
-          costoStock=(antes>0 && prev.costo>0)
-            ? Math.round((antes*prev.costo + it.cantidad*it.costo) / (antes + it.cantidad))
-            : it.costo;
-        }
-        it._costoProm=costoStock; // lo usa la actualización de pos_productos abajo
         itemsIns.push({
           comprobante_id:compId, producto_id:it.prodId,
           nombre_producto:it.nombre,
           cantidad:cantMov, cantidad_antes:antes, cantidad_despues:desp,
           costo_unitario:it.costo||0   // costo de ESTA compra (registro histórico)
         });
-        // Upsert stock con el costo promedio (fire and forget, con cola de
-        // respaldo — ver supaPostResiliente en config.js)
-        supaPostResiliente('stock',{
-            deposito_id:depId, sucursal_id:sucId, licencia_id:licId,
-            producto_id:it.prodId, nombre_producto:it.nombre,
-            cantidad:desp, costo_unitario:costoStock,
-            updated_at:now
-        },'deposito_id,producto_id','pos_stock_sync_fallback');
+        rpcItems.push({
+          producto_id:it.prodId, cantidad:cantMov, costo:it.costo||0,
+          sucursal_id:sucId, licencia_id:licId, nombre_producto:it.nombre,
+          licencia_email:SE
+        });
       }
 
       // Insertar items en bloque
       await supaPost('stock_comprobante_items',itemsIns,null);
+
+      // Ajuste atómico de stock (cantidad + costo promedio ponderado, y
+      // pos_productos.costo si es compra) -- todo en una sola transacción,
+      // sin ventana entre "leer stock actual" y "escribir el resultado".
+      // Ver supabase-migrations/stock_atomic_compra.sql /
+      // workers/mipos-gateway/src/rpc.js:ajustarStockCompra.
+      try{
+        await supaRPC('ajustar_stock_compra',{
+          p_deposito_id:depId,
+          p_items:rpcItems,
+          p_actualizar_costo_producto:(tipoComp==='compra'),
+          p_referencia:comp||(tipoComp.toUpperCase()+'-'+Date.now()),
+          p_terminal:'admin'
+        });
+      }catch(_rpcErr){
+        // Fallback: mismo cálculo lectura-en-JS-y-escritura-aparte que tenía
+        // este archivo antes de la RPC atómica -- no protege contra la
+        // carrera, pero mejor que perder la compra si la RPC todavía no
+        // existe en este backend (ej. migración de Supabase sin correr).
+        console.warn('[Stock] RPC ajustar_stock_compra no disponible, usando fallback no atómico:', _rpcErr.message||_rpcErr);
+        for(var k2=0;k2<_mov.items.length;k2++){
+          var it2=_mov.items[k2];
+          var prev2=stockMap[it2.prodId]||{cantidad:0, costo:0};
+          var antes2=prev2.cantidad;
+          var cantMov2=it2.cantidad*signo;
+          var desp2=antes2+cantMov2;
+          var costoStock2=it2.costo||prev2.costo||0;
+          if(signo>0 && it2.costo>0){
+            costoStock2=(antes2>0 && prev2.costo>0)
+              ? Math.round((antes2*prev2.costo + it2.cantidad*it2.costo) / (antes2 + it2.cantidad))
+              : it2.costo;
+          }
+          supaPostResiliente('stock',{
+              deposito_id:depId, sucursal_id:sucId, licencia_id:licId,
+              producto_id:it2.prodId, nombre_producto:it2.nombre,
+              cantidad:desp2, costo_unitario:costoStock2,
+              updated_at:now
+          },'deposito_id,producto_id','pos_stock_sync_fallback');
+          if(tipoComp==='compra' && it2.costo>0){
+            supaPatchResiliente('pos_productos','id=eq.'+it2.prodId+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoStock2,updated_at:now},'pos_costo_sync_fallback');
+          }
+        }
+      }
       return compId;
     }
 
@@ -2048,23 +2086,9 @@ async function movGuardar(){
       toast('Salida guardada — '+_mov.items.length+' productos');
     } else { // compra o entrada
       await procesarLado(depEntradaId, +1, tipo==='compra'?'compra':'entrada');
-      // Si es compra: actualizar el costo del producto al PROMEDIO PONDERADO
-      // (calculado en procesarLado y guardado en it._costoProm), no al último.
-      if(tipo==='compra'){
-        _mov.items.forEach(function(it){
-          if(it.costo>0){
-            var costoFinal=(it._costoProm!=null)?it._costoProm:it.costo;
-            // Con id ya no globalmente único (ver database/PATCH_pos_productos_licencia_id_uq_v1.sql),
-            // hay que filtrar también por licencia_email — si no, esto podía pisar
-            // el costo de un producto de OTRO cliente que comparta el mismo id.
-            // supaPatchResiliente (js/config.js): antes era un supaPatch suelto con
-            // catch mudo — si fallaba (red caída), la compra quedaba bien registrada
-            // (stock_comprobantes/items ya están AWAITED arriba) pero el producto se
-            // quedaba con el costo VIEJO para siempre, sin ningún reintento ni aviso.
-            supaPatchResiliente('pos_productos','id=eq.'+it.prodId+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoFinal,updated_at:now},'pos_costo_sync_fallback');
-          }
-        });
-      }
+      // El costo promedio ponderado de pos_productos ya se actualiza dentro
+      // de procesarLado() (vía ajustar_stock_compra o su fallback) cuando
+      // tipoComp==='compra' -- no duplicar el patch acá.
       var totalComp=_mov.items.reduce(function(s,i){return s+(i.cantidad||0)*(i.costo||0);},0);
       toast(''+(tipo==='compra'?'Compra':'Entrada')+' guardada — '+_mov.items.length+' productos — Total: '+gs(totalComp));
     }
@@ -2422,39 +2446,64 @@ async function movEjecutarAnulacion(compId){
     });
     await supaPost('stock_comprobante_items',itemsInv,null);
 
-    // Actualizar stock — invertir cada item
-    // Y revertir el costo promedio ponderado si esta compra/entrada lo había
-    // recalculado (bug detectado en auditoría 2026-09-01: antes solo se
-    // revertía la cantidad, el costo quedaba contaminado para siempre con
-    // el promedio de una compra ya anulada). Solo se puede recalcular el
-    // "costo antes" con exactitud cuando había stock previo a la compra
-    // original (cantidad_antes>0) — si no, no hay valor recuperable y se
-    // deja el costo actual como está.
-    for(var k=0;k<items.length;k++){
-      var it=items[k];
-      var prevStock=stockMap[it.producto_id]||{cantidad:0,costo:0};
-      var antes2=prevStock.cantidad;
-      var cantInv2=-(it.cantidad||0);
-      var patchStock={
-          deposito_id:orig.deposito_id, sucursal_id:orig.sucursal_id,
-          licencia_id:licId, producto_id:it.producto_id,
-          nombre_producto:it.nombre_producto,
-          cantidad:antes2+cantInv2, updated_at:now
+    // Revertir stock (cantidad + costo promedio ponderado si esta compra/
+    // entrada lo había recalculado) de forma atómica -- todo el cálculo
+    // "costo antes" ocurre DENTRO de la misma sentencia UPDATE en el
+    // servidor (ver revertir_stock_compra), sin ventana entre leer y
+    // escribir. Bug de auditoría 2026-09-01: antes esto se calculaba acá en
+    // JS a partir de un SELECT hecho aparte (stockMap arriba) -- dos
+    // anulaciones simultáneas del mismo producto (o una anulación concurrente
+    // con una compra nueva) podían pisarse el resultado.
+    var rpcItemsRev=items.map(function(it){
+      return {
+        producto_id:it.producto_id,
+        cantidad:it.cantidad||0,              // cantidad ORIGINAL del movimiento (positiva)
+        costo_unitario:it.costo_unitario||0,  // costo de ESE movimiento
+        cantidad_antes:it.cantidad_antes||0,  // stock antes de ese movimiento
+        es_compra:(orig.tipo==='compra'),
+        sucursal_id:orig.sucursal_id, licencia_id:licId,
+        nombre_producto:it.nombre_producto, licencia_email:SE
       };
-      var cantMovOrig=it.cantidad||0; // cantidad comprada/ingresada original (positiva)
-      if(it.costo_unitario>0 && it.cantidad_antes>0 && cantMovOrig>0){
-        var costoAntesRev=Math.round(
-          (prevStock.costo*(it.cantidad_antes+cantMovOrig) - cantMovOrig*it.costo_unitario)
-          / it.cantidad_antes
-        );
-        if(isFinite(costoAntesRev) && costoAntesRev>=0){
-          patchStock.costo_unitario=costoAntesRev;
-          if(orig.tipo==='compra'){
-            supaPatchResiliente('pos_productos','id=eq.'+it.producto_id+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoAntesRev,updated_at:now},'pos_costo_sync_fallback');
+    });
+    try{
+      await supaRPC('revertir_stock_compra',{
+        p_deposito_id:orig.deposito_id,
+        p_items:rpcItemsRev,
+        p_referencia:'ANU-'+(orig.referencia||orig.id),
+        p_terminal:'admin'
+      });
+    }catch(_rpcErr){
+      // Fallback: mismo cálculo lectura-en-JS-y-escritura-aparte de antes de
+      // la RPC atómica -- no protege contra la carrera, pero mejor que dejar
+      // la anulación a medias (el comprobante/items de arriba ya quedaron
+      // AWAITED) si la RPC todavía no existe en este backend.
+      console.warn('[Stock] RPC revertir_stock_compra no disponible, usando fallback no atómico:', _rpcErr.message||_rpcErr);
+      for(var k=0;k<items.length;k++){
+        var it=items[k];
+        var prevStock=stockMap[it.producto_id]||{cantidad:0,costo:0};
+        var antes2=prevStock.cantidad;
+        var cantInv2=-(it.cantidad||0);
+        var patchStock={
+            deposito_id:orig.deposito_id, sucursal_id:orig.sucursal_id,
+            licencia_id:licId, producto_id:it.producto_id,
+            nombre_producto:it.nombre_producto,
+            cantidad:antes2+cantInv2, updated_at:now
+        };
+        var cantMovOrig=it.cantidad||0; // cantidad comprada/ingresada original (positiva)
+        if(it.costo_unitario>0 && it.cantidad_antes>0 && cantMovOrig>0){
+          var costoAntesRev=Math.round(
+            (prevStock.costo*(it.cantidad_antes+cantMovOrig) - cantMovOrig*it.costo_unitario)
+            / it.cantidad_antes
+          );
+          if(isFinite(costoAntesRev) && costoAntesRev>=0){
+            patchStock.costo_unitario=costoAntesRev;
+            if(orig.tipo==='compra'){
+              supaPatchResiliente('pos_productos','id=eq.'+it.producto_id+'&licencia_email=ilike.'+encodeURIComponent(SE),{costo:costoAntesRev,updated_at:now},'pos_costo_sync_fallback');
+            }
           }
         }
+        supaPostResiliente('stock',patchStock,'deposito_id,producto_id','pos_stock_sync_fallback');
       }
-      supaPostResiliente('stock',patchStock,'deposito_id,producto_id','pos_stock_sync_fallback');
     }
 
     // Marcar comprobante original como anulado
