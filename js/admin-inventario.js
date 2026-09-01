@@ -395,9 +395,12 @@ async function cargarStockDeposito(){
   document.getElementById('invBody').innerHTML='<tr><td colspan="7" class="loading"><span class="sp"></span>Cargando...</td></tr>';
   try{
     // 1. Cargar productos con inventario=true
+    // limit=2000 (antes 500) -- un negocio con más de 500 productos con
+    // "Controlar existencia" activo quedaba con la pantalla de Inventarios
+    // incompleta en silencio, sin ningún aviso de que faltaban productos.
     var prdsDB=await sg('pos_productos',
       'licencia_email=ilike.'+encodeURIComponent(SE)+
-      '&inventario=eq.true&activo=eq.true&order=nombre.asc&limit=500'
+      '&inventario=eq.true&activo=eq.true&order=nombre.asc&limit=2000'
     );
     // 2. Determinar depósitos a consultar
     var depIds;
@@ -1119,7 +1122,7 @@ async function renderExtracto(){
   try{
     var licId=await extGetLicId();
     var res=await Promise.all([
-      sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&inventario=eq.true&activo=eq.true&order=nombre.asc&select=id,nombre,codigo,color,categoria&limit=500'),
+      sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&inventario=eq.true&activo=eq.true&order=nombre.asc&select=id,nombre,codigo,color,categoria&limit=2000'),
       sg('sucursales','licencia_id=eq.'+licId+'&activa=eq.true&order=nombre.asc'),
       sg('depositos','licencia_id=eq.'+licId+'&activo=eq.true&order=nombre.asc')
     ]);
@@ -1602,7 +1605,7 @@ async function movCargarMaestros(){
   var res=await Promise.all([
     sg('sucursales','licencia_id=eq.'+licId+'&activa=eq.true&order=nombre.asc'),
     sg('depositos', 'licencia_id=eq.'+licId+'&activo=eq.true&order=nombre.asc'),
-    sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&inventario=eq.true&activo=eq.true&order=nombre.asc&select=id,nombre,codigo,color,categoria,precio,costo&limit=500')
+    sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&inventario=eq.true&activo=eq.true&order=nombre.asc&select=id,nombre,codigo,color,categoria,precio,costo&limit=2000')
   ]);
   _mov.sucs=res[0]; _mov.deps=res[1]; _mov.prds=res[2];
   _mov.sucsU=_mov.sucs; // DB ya normalizada
@@ -1628,7 +1631,7 @@ async function renderCompras(tab){
       titulo:'Nueva Compra', subtit:'Ingreso de mercadería al depósito',
       hoy:hoy, tipoFixed:'Compra / Ingreso',
       depEntradaOpts:movBuildDepOpts(null,false), depSalidaOpts:null,
-      mostrarCosto:true, mostrarProveedor:true
+      mostrarCosto:true, mostrarProveedor:true, mostrarFactura:true
     });
     movRenderGrilla();
   }
@@ -1728,6 +1731,17 @@ function movBuildShell(cfg){
         +(cfg.mostrarProveedor?
           '<div><label style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Proveedor</label>'
           +'<input type="text" id="movProveedor" class="cfg-inp" style="width:100%" placeholder="Nombre del proveedor..."></div>'
+        :'')
+        +(cfg.mostrarFactura?
+          // Sin esto la Liquidación de IVA contaba TODA compra registrada
+          // como generadora de crédito fiscal, incluso una compra informal
+          // sin factura real cargada solo para llevar el stock al día.
+          '<div style="display:flex;align-items:flex-end;padding-bottom:2px">'
+            +'<label style="display:flex;align-items:center;gap:8px;cursor:pointer">'
+              +'<input type="checkbox" id="movTieneFactura" checked style="width:16px;height:16px;accent-color:var(--green);cursor:pointer">'
+              +'<span style="font-size:12px;font-weight:600">Tiene factura (genera crédito fiscal de IVA)</span>'
+            +'</label>'
+          +'</div>'
         :'')
         +'<div style="grid-column:1/-1">'
           +'<label style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.4px;display:block;margin-bottom:5px">Observación</label>'
@@ -1947,6 +1961,10 @@ async function movGuardar(){
   var comp=document.getElementById('movComp').value.trim();
   var obs=document.getElementById('movObs').value.trim();
   var prov=(document.getElementById('movProveedor')||{value:''}).value.trim();
+  // Default true si el checkbox no existe en este modo (entrada/salida/
+  // transferencia no muestran el campo -- solo compra genera crédito
+  // fiscal, así que ahí sí importa el valor real).
+  var tieneFactura=(document.getElementById('movTieneFactura')||{checked:true}).checked;
   var tipo=_mov.modo; // 'compra'|'entrada'|'salida'|'transferencia'
 
   // Validar depósitos
@@ -2002,6 +2020,7 @@ async function movGuardar(){
         observacion:obs, terminal:'admin', usuario:SE,
         proveedor:prov||null,
         total_monto:totalMonto,
+        tiene_factura:(tipoComp==='compra'?tieneFactura:false),
         fecha:now
       },null);
       var compId=Array.isArray(compR)?compR[0].id:compR.id;
@@ -2837,33 +2856,52 @@ async function cntIniciar(){
   if(btn){ btn.disabled=true; btn.textContent='Cargando productos...'; }
 
   try{
-    // Generar número de conteo
-    var prevs=await sg('stock_conteos','licencia_id=eq.'+licId+'&select=numero&order=created_at.desc&limit=1');
-    var lastNum=0;
-    if(prevs&&prevs.length){
-      var m=(prevs[0].numero||'').match(/(\d+)$/);
-      if(m) lastNum=parseInt(m[1]);
-    }
-    var numero='CONTEO-'+String(lastNum+1).padStart(3,'0');
-
     // Cargar productos con inventario=true y su stock en este depósito
+    // (no depende del número de conteo, se hace una sola vez)
+    // limit=2000 en ambas (antes 500/1000) -- tienen que ir sincronizadas:
+    // si el límite de productos fuera mayor al de stock, algunos productos
+    // quedarían sin su fila de stock y se verían con cantidad 0 sin serlo.
     var prds=await sg('pos_productos',
       'licencia_email=ilike.'+encodeURIComponent(SE)+
-      '&inventario=eq.true&activo=eq.true&order=nombre.asc&select=id,nombre,codigo,color,categoria&limit=500'
+      '&inventario=eq.true&activo=eq.true&order=nombre.asc&select=id,nombre,codigo,color,categoria&limit=2000'
     );
     var stockRows=await sg('stock',
-      'deposito_id=eq.'+depId+'&licencia_id=eq.'+licId+'&select=producto_id,cantidad&limit=1000'
+      'deposito_id=eq.'+depId+'&licencia_id=eq.'+licId+'&select=producto_id,cantidad&limit=2000'
     );
     var stockMap={};
     stockRows.forEach(function(r){ stockMap[r.producto_id]=parseFloat(r.cantidad)||0; });
 
-    // Crear conteo en DB
-    var conteoR=await supaPost('stock_conteos',{
-      licencia_id:licId, deposito_id:depId, sucursal_id:dep.sucursal_id||null,
-      numero:numero, estado:'borrador', observacion:obs||null,
-      usuario:SE, fecha:fecha
-    },null);
-    var conteoId=Array.isArray(conteoR)?conteoR[0].id:conteoR.id;
+    // Generar número de conteo + crear el conteo -- con reintento si choca
+    // con uno generado en paralelo (dos conteos iniciados a la vez podían
+    // terminar con el mismo "CONTEO-XXX": SELECT max+1 e INSERT por separado,
+    // sin nada que impida a otra terminal leer el mismo max en el medio).
+    // La UNIQUE(licencia_id, numero) de 0017_stock_conteos_unique_numero.sql
+    // hace de árbitro -- si choca, se vuelve a leer el máximo actualizado y
+    // se reintenta, en vez de una RPC atómica dedicada (impacto bajo: es
+    // solo el número de referencia visual, no afecta el ajuste de stock).
+    var numero, conteoR, conteoId;
+    for(var intento=1;intento<=5;intento++){
+      var prevs=await sg('stock_conteos','licencia_id=eq.'+licId+'&select=numero&order=created_at.desc&limit=1');
+      var lastNum=0;
+      if(prevs&&prevs.length){
+        var m=(prevs[0].numero||'').match(/(\d+)$/);
+        if(m) lastNum=parseInt(m[1]);
+      }
+      numero='CONTEO-'+String(lastNum+1).padStart(3,'0');
+      try{
+        conteoR=await supaPost('stock_conteos',{
+          licencia_id:licId, deposito_id:depId, sucursal_id:dep.sucursal_id||null,
+          numero:numero, estado:'borrador', observacion:obs||null,
+          usuario:SE, fecha:fecha
+        },null);
+        conteoId=Array.isArray(conteoR)?conteoR[0].id:conteoR.id;
+        break;
+      }catch(_dupErr){
+        var esChoqueUnique=/409|unique|duplicate/i.test(_dupErr.message||'');
+        if(!esChoqueUnique || intento===5) throw _dupErr;
+        // reintenta con el número siguiente ya actualizado
+      }
+    }
 
     // Crear ítems
     var items=prds.map(function(p){
@@ -3291,7 +3329,10 @@ async function cntReanudar(conteoId){
   try{
     var licId=await cntGetLicId();
     var comps=await sg('stock_conteos','id=eq.'+conteoId+'&licencia_id=eq.'+licId+'&select=*');
-    var items=await sg('stock_conteo_items','conteo_id=eq.'+conteoId+'&order=nombre_producto.asc');
+    // limit=2000 -- sin límite explícito acá dependía del default del
+    // backend (distinto entre Supabase/D1); un conteo con más ítems que ese
+    // default se reanudaba incompleto en silencio.
+    var items=await sg('stock_conteo_items','conteo_id=eq.'+conteoId+'&order=nombre_producto.asc&limit=2000');
     if(!comps.length) return toast('Conteo no encontrado');
     var ct=comps[0];
     var dep=_cnt.deps.find(function(d){return d.id===ct.deposito_id;})||{};
@@ -3301,13 +3342,13 @@ async function cntReanudar(conteoId){
     var stockRows=await sg('stock',
       'deposito_id=eq.'+ct.deposito_id+'&licencia_id=eq.'+licId
       +'&producto_id=in.('+prodIds.join(',')+')'
-      +'&select=producto_id,cantidad&limit=1000'
+      +'&select=producto_id,cantidad&limit=2000'
     );
     var stockMap={};
     stockRows.forEach(function(r){ stockMap[r.producto_id]=parseFloat(r.cantidad)||0; });
     // Enriquecer items
     var prds=await sg('pos_productos',
-      'id=in.('+prodIds.join(',')+')'+'&select=id,color,codigo&limit=500'
+      'id=in.('+prodIds.join(',')+')'+'&select=id,color,codigo&limit=2000'
     );
     var prdMap={};
     prds.forEach(function(p){ prdMap[p.id]=p; });

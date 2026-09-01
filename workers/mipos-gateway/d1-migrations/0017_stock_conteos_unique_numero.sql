@@ -1,0 +1,11 @@
+-- cntIniciar() (admin-inventario.js) genera el numero de conteo con un
+-- SELECT max+1 y recien despues inserta -- dos conteos iniciados a la vez
+-- (mismo deposito o distinto, misma licencia) podian terminar con el mismo
+-- "CONTEO-XXX". Impacto bajo (es solo el numero de referencia visual, no
+-- afecta el ajuste de stock -- cada conteo tiene su propio id real), pero se
+-- previene igual con una UNIQUE + reintento en la app, mismo patron ya usado
+-- para timbrados/timbrado_terminales.
+--
+-- Confirmado sin duplicados existentes antes de aplicar esta migracion
+-- (SELECT licencia_id, numero, COUNT(*) ... HAVING c>1 -- vacio).
+CREATE UNIQUE INDEX IF NOT EXISTS ux_stock_conteos_licencia_numero ON stock_conteos(licencia_id, numero);
