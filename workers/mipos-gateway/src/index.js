@@ -144,6 +144,14 @@ async function handleRpc(request, env, fn) {
           if (r.ok) return jsonResponse(r);
         }
       }
+      // Deployments 100% D1-nativos (sin proyecto Supabase propio, ej. un
+      // white-label como Distrisoft) no configuran SUPA_URL a proposito --
+      // sin este guard, new URL(..., undefined) en supabasePassthrough.js
+      // tira una excepcion no controlada (500 crudo) en vez de un error de
+      // licencia invalida prolijo cuando alguien tipea mal la clave.
+      if (!env.SUPA_URL) {
+        return jsonResponse({ error: 'clave invalida o licencia inactiva' }, 404);
+      }
       const resp = await passthroughRpc(env, fn, { method: 'POST', headers: request.headers, body: JSON.stringify(body) });
       const data = await resp.json().catch(() => null);
       if (data && typeof data === 'object') data.backend = 'supabase';
