@@ -298,6 +298,90 @@ export const TABLES = {
     ],
     booleans: ['activo'],
   },
+  // Ver d1-migrations/0018_hospedaje_barberia_modificadores.sql -- completa
+  // Hospedaje (rubro habitaciones), Barberia/Citas (rubro agenda+profesionales)
+  // y Modificadores de producto (cualquier rubro), que faltaban desde el
+  // Fase 0 original (ver docs/fase0-inventario.md).
+  pos_habitaciones: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'licencia_email', 'sucursal', 'numero', 'tipo',
+      'piso', 'capacidad', 'precio_noche', 'estado', 'orden', 'activo',
+      'created_at', 'updated_at',
+    ],
+    booleans: ['activo'],
+  },
+  pos_estadias: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    uuidPk: true,
+    columns: [
+      'id', 'licencia_id', 'licencia_email', 'sucursal', 'habitacion_id',
+      'huesped_nombre', 'huesped_documento', 'huesped_tel', 'huesped_nacionalidad',
+      'cantidad_huespedes', 'checkin', 'checkout_previsto', 'checkout_real',
+      'tarifa_noche', 'tarifa_personalizada', 'modalidad', 'cargos', 'abonos',
+      'total', 'estado', 'comprobante_venta', 'pago_anulado', 'pago_anulado_fecha',
+      'nota', 'created_at', 'updated_at',
+    ],
+    booleans: ['tarifa_personalizada', 'pago_anulado'],
+  },
+  pos_huespedes: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_email', 'nombre', 'documento', 'telefono', 'nacionalidad',
+      'created_at', 'updated_at',
+    ],
+    booleans: [],
+  },
+  pos_citas: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    uuidPk: true,
+    columns: [
+      'id', 'licencia_id', 'licencia_email', 'sucursal', 'profesional_id',
+      'cliente_id', 'cliente_nombre', 'cliente_tel', 'inicio', 'fin',
+      'duracion_min', 'servicios', 'total', 'estado', 'venta_id', 'nota',
+      'created_at', 'updated_at',
+    ],
+    booleans: [],
+  },
+  pos_profesionales: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_id', 'licencia_email', 'sucursal', 'nombre', 'color',
+      'avatar_url', 'orden', 'activo', 'created_at', 'updated_at',
+    ],
+    booleans: ['activo'],
+  },
+  // Best-effort (sin CREATE TABLE versionado en Supabase, inferido del uso
+  // real en js/productos.js -- ver migracion).
+  pos_modificadores: {
+    tenant: { column: 'licencia_email', kind: TENANT_EMAIL },
+    pk: 'id',
+    columns: [
+      'id', 'licencia_email', 'nombre', 'tipo', 'obligatorio', 'orden',
+      'activo', 'created_at', 'updated_at',
+    ],
+    booleans: ['obligatorio', 'activo'],
+  },
+  // Sin columna de tenant propia en Supabase (confirmado en productos.js) --
+  // protegida solo a nivel app verificando el dueño del modificador padre.
+  pos_modificador_opciones: {
+    tenant: null,
+    pk: 'id',
+    columns: ['id', 'modificador_id', 'nombre', 'precio_adicional', 'orden', 'activo'],
+    booleans: ['activo'],
+  },
+  // Idem arriba -- tabla puente producto<->modificador, sin tenant propio.
+  pos_producto_modificadores: {
+    tenant: null,
+    pk: 'id',
+    columns: ['id', 'producto_id', 'modificador_id'],
+    booleans: [],
+  },
 };
 
 export function isSupportedTable(table) {

@@ -17,3 +17,4 @@ blob-report/
 # Wrangler (Cloudflare Workers/D1) — cache/estado local
 .wrangler/
 workers/*/.wrangler/
+workers/mipos-gateway/backups/
