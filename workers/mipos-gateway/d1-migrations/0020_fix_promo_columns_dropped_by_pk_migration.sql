@@ -1,0 +1,33 @@
+-- INCIDENTE ACTIVO 2026-09-03: cliente real (ultima@gmail.com) reporta HTTP 500
+-- "error interno" al guardar/editar CUALQUIER producto (screenshot del cliente,
+-- boton "Guardar producto"). Causa raiz confirmada en vivo:
+--
+-- La migracion 0006_fix_productos_categorias_pk_compuesta.sql (aplicada ayer,
+-- 2026-09-02) recreo la tabla pos_productos desde cero (DROP+CREATE, patron
+-- obligatorio en SQLite para cambiar la PK) usando el set de columnas de
+-- 0001_init_mvp.sql -- que es ANTERIOR a que existieran promo_cant/promo_precio
+-- (agregadas por 03ffc21, migraciones 0007-0012, aplicadas el 2026-09-01, UN DIA
+-- ANTES de que se corriera 0006). Migracion 0006 fue ESCRITA el 2026-08-23
+-- (cuando el bug de PK se detecto por primera vez, antes de que promo_cant/
+-- promo_precio existieran) pero recien se APLICO el 2026-09-02, sin actualizarla
+-- para reflejar el esquema real vigente en ese momento -- asi que al correrla
+-- se perdieron esas 2 columnas en silencio (sin error, sin aviso: un DROP+CREATE
+-- que simplemente no las volvio a crear).
+--
+-- js/productos.js:supaUpsertProducto() SIEMPRE manda promo_cant/promo_precio
+-- en el payload para cualquier tenant Cloudflare (aunque sean null), asi que
+-- CADA guardado de producto (alta o edicion) desde que se aplico 0006 rompe con
+-- "no such column: promo_cant" -> el Worker lo devuelve como 500 generico.
+--
+-- Confirmado en vivo contra D1 real: PRAGMA table_info(pos_productos) no lista
+-- promo_cant ni promo_precio.
+--
+-- Fix: agregar las 2 columnas de vuelta. ALTER TABLE ADD COLUMN es seguro en
+-- SQLite/D1 (no reescribe la tabla, no toca filas existentes). NO es
+-- idempotente (SQLite tira "duplicate column name" si se corre dos veces) --
+-- confirmado en vivo antes de aplicar que ninguna de las 2 columnas existe
+-- todavia, asi que se corre una sola vez. Si hay que reaplicar este archivo
+-- en otra base, verificar antes con PRAGMA table_info(pos_productos).
+
+ALTER TABLE pos_productos ADD COLUMN promo_cant INTEGER;
+ALTER TABLE pos_productos ADD COLUMN promo_precio REAL;
