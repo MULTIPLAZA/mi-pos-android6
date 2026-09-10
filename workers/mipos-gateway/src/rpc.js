@@ -283,11 +283,70 @@ export async function avanzarCorrelativo(db, tenant, params) {
   return { ok: true, nro_actual: row.nro_actual };
 }
 
+// Implementado 2026-09-09 -- simetrica a supabase-migrations/stock_atomic_decrement.sql
+// y al patron ya probado en ajustarStockCompra() de arriba (mismo UNIQUE(deposito_id,
+// producto_id) de 0013_stock_unique_deposito_producto.sql). Hasta ahora tiraba 501 y
+// turno.js:stockDescontarVenta() caia siempre al fallback no-atomico (SELECT + POST
+// separados) -- ventana de carrera real entre terminales de una misma sucursal
+// vendiendo el mismo producto al mismo tiempo (motivo del pedido: 3 dispositivos
+// activados para chavo@gmail.com en la sucursal "Principal"). Sin stock previo
+// cargado para el producto, nace en negativo (mismo comportamiento que la version
+// Postgres) en vez de fallar -- la venta nunca se bloquea por esto.
 export async function descontarStockVenta(db, tenant, params) {
-  // NO IMPLEMENTADO todavia - la tabla `stock` no forma parte del MVP schema
-  // (0001_init_mvp.sql). Implementar junto con la migracion del modulo de stock,
-  // usando db.batch() para que el descuento sea atomico por item vendido.
-  throw new ShimError('descontar_stock_venta: pendiente de implementar (ver comentario en rpc.js)', 501);
+  const depId = params && params.p_deposito_id;
+  const items = (params && Array.isArray(params.p_items)) ? params.p_items : [];
+  if (!depId || !items.length) return { ok: true };
+
+  const sql = `INSERT INTO stock (licencia_id, deposito_id, sucursal_id, producto_id, nombre_producto, cantidad, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, -?6, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(deposito_id, producto_id) DO UPDATE SET
+       cantidad = stock.cantidad - ?6,
+       nombre_producto = excluded.nombre_producto,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
+  // ?1 licencia_id ?2 deposito_id ?3 sucursal_id ?4 producto_id ?5 nombre_producto
+  // ?6 cantidad vendida (siempre positiva -- el signo lo pone el SQL, no el caller)
+
+  const stmts = items.map((it) => db.prepare(sql).bind(
+    tenant.lid,
+    depId,
+    it.sucursal_id != null ? Number(it.sucursal_id) : null,
+    Number(it.producto_id),
+    it.nombre_producto || '',
+    Number(it.cantidad) || 0,
+  ));
+  await db.batch(stmts);
+  return { ok: true };
+}
+
+// revertir_stock_venta: anulacion de una venta (turno.js:stockRevertirVenta) --
+// simetrica a descontar_stock_venta de arriba (mismo motivo: el cliente ya la
+// llama hoy, tambien caia siempre al fallback no-atomico porque esta RPC no
+// existia en RPC_HANDLERS -- ni siquiera devolvia 501 desde adentro de la
+// funcion, `handleRpc()` en index.js corta antes por `rpc no soportada`).
+export async function revertirStockVenta(db, tenant, params) {
+  const depId = params && params.p_deposito_id;
+  const items = (params && Array.isArray(params.p_items)) ? params.p_items : [];
+  if (!depId || !items.length) return { ok: true };
+
+  const sql = `INSERT INTO stock (licencia_id, deposito_id, sucursal_id, producto_id, nombre_producto, cantidad, updated_at)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+     ON CONFLICT(deposito_id, producto_id) DO UPDATE SET
+       cantidad = stock.cantidad + ?6,
+       nombre_producto = excluded.nombre_producto,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`;
+  // ?1 licencia_id ?2 deposito_id ?3 sucursal_id ?4 producto_id ?5 nombre_producto
+  // ?6 cantidad a devolver (siempre positiva)
+
+  const stmts = items.map((it) => db.prepare(sql).bind(
+    tenant.lid,
+    depId,
+    it.sucursal_id != null ? Number(it.sucursal_id) : null,
+    Number(it.producto_id),
+    it.nombre_producto || '',
+    Number(it.cantidad) || 0,
+  ));
+  await db.batch(stmts);
+  return { ok: true };
 }
 
 // ajustar_stock_compra: alta de Compra/Entrada/Salida/Transferencia
@@ -427,6 +486,7 @@ export const RPC_HANDLERS = {
   actualizar_rubro: (db, _secret, tenant, params) => actualizarRubro(db, tenant, params),
   avanzar_correlativo: (db, _secret, tenant, params) => avanzarCorrelativo(db, tenant, params),
   descontar_stock_venta: (db, _secret, tenant, params) => descontarStockVenta(db, tenant, params),
+  revertir_stock_venta: (db, _secret, tenant, params) => revertirStockVenta(db, tenant, params),
   ajustar_stock_compra: (db, _secret, tenant, params) => ajustarStockCompra(db, tenant, params),
   revertir_stock_compra: (db, _secret, tenant, params) => revertirStockCompra(db, tenant, params),
 };

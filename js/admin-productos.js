@@ -312,6 +312,19 @@ async function impConfirmar(){
   if(btn){btn.disabled=true;btn.textContent='Importando...';}
   var ok=0,err=0,errs=[];
   var lote=20;
+  // pos_productos.id no tiene autoincrement en NINGUN backend (ni Supabase
+  // ni D1/Cloudflare) -- _guardarProd() de un solo producto ya lo sabe y usa
+  // _postProductoConIdSeguro() (ver mas abajo), pero esta importacion masiva
+  // asumia "Postgres auto-genera el id", lo cual nunca fue cierto para
+  // Supabase (igual quedaba enmascarado ahi por el on_conflict) y para D1
+  // directamente insertaba NULL en la columna id (confirmado en vivo
+  // 2026-09-09 importando 976 productos para un tenant Cloudflare nuevo --
+  // ver [[project_mipos_import_productos_id_null_d1]]): con id NULL, editar
+  // o desactivar cualquiera de esos productos despues no encontraba la fila
+  // (el filtro id=eq.<algo> nunca matchea NULL) y fallaba en silencio.
+  // Se calcula UN próximo id al arrancar la importación (no por lote) y se
+  // asigna secuencial a cada INSERT nuevo, igual que hace el alta individual.
+  var _nextImpId=await _nextProductoId();
   for(var i=0;i<validos.length;i+=lote){
     var batch=validos.slice(i,i+lote);
     // Separar updates de inserts
@@ -337,11 +350,12 @@ async function impConfirmar(){
         }));
         ok+=updates.length;
       }
-      // INSERT: dejar que Postgres auto-genere el ID (serial/identity)
+      // INSERT: id calculado client-side (ver comentario arriba de este for)
       if(inserts.length){
         var ahora=new Date().toISOString();
         var payload=inserts.map(function(r){
           return {
+            id:_nextImpId++,
             nombre:r.nombre.toUpperCase(),
             categoria:r.categoria||'Sin categoría',
             precio:r.precio||0,
