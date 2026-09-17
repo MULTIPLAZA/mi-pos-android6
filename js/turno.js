@@ -1084,6 +1084,14 @@ async function fpConfirmar(ventaId){
 
   if(!db) return toast('Sin base de datos local');
 
+  // Refrescar el timbrado contra Supabase antes de leer nro_actual -- mismo
+  // fix y mismo motivo que en cobro.js confirmarPago() (AuditFile 2026-09-12,
+  // Hotel Nico): imprimir desde el caché local sin refrescar repite un número
+  // ya avanzado por otra sesión. get_timbrado_terminal es de solo lectura.
+  if(!USAR_DEMO && typeof cargarTimbradoSesion === 'function'){
+    try { await cargarTimbradoSesion(); } catch(e){ /* cae al cache local */ }
+  }
+
   const tim = getTimbradoActivo();
   if(!tim){ toast('Sin timbrado configurado'); return; }
   // Aviso (no bloqueante) si el timbrado autoimpresor/preimpreso llegó o superó

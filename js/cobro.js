@@ -1417,6 +1417,19 @@ async function confirmarPago() {
   // ni el correlativo — antes se incrementaba el contador y recién después se
   // validaba, dejando huecos en la numeración al abortar.
   if (facturaActiva) {
+    // Refrescar el timbrado contra Supabase justo antes de asignar el número
+    // -- AuditFile 2026-09-12 (Hotel Nico): getFacturaData() más abajo arma
+    // el número a partir del nro_actual CACHEADO, que puede llevar horas/días
+    // sin refrescarse desde el último load de la app. Si otra terminal/sesión
+    // ya avanzó el correlativo mientras tanto, imprimir desde ese caché viejo
+    // repite un número ya usado (causa confirmada de 3 duplicados reales:
+    // 001-002-0000056/57/62). get_timbrado_terminal es de solo lectura (solo
+    // hidrata el caché, no incrementa -- avanzar_correlativo es la única RPC
+    // que muta el contador) y ya cae de nuevo al caché local si falla la red,
+    // así que este await no bloquea el cobro offline.
+    if (!timbradoSeleccionado && typeof cargarTimbradoSesion === 'function') {
+      await cargarTimbradoSesion();
+    }
     const elRuc    = document.getElementById('factRuc');
     const elNombre = document.getElementById('factNombre');
     const tim      = timbradoSeleccionado || getTimbradoActivo();
