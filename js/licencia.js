@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.122 (2026-09-17)';
+var APP_VERSION = 'v1.16.123 (2026-09-22)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -70,6 +70,32 @@ function cookieGet(name){
 // campos (ver commits de datos de negocio y de catálogo de productos
 // filtrándose entre licencias) — de ahí centralizar esto en un solo lugar.
 async function limpiarCacheTenantAnterior(){
+  // ── Último intento de drenar las colas de reintento ANTES de borrarlas ──
+  // Caso real (Nico Palace, 22/09/2026): un producto de consumo (bar) se
+  // guardó sin internet, quedó en pos_productos_sync_fallback esperando
+  // reintento -- y este dispositivo se reasignó de licencia (o se reactivó)
+  // antes de que esa cola drenara. El removeItem de abajo la borró sin
+  // avisar, y el producto se perdió PARA SIEMPRE (nunca llegó a Supabase,
+  // ni rastro ni error visible). Cada payload en estas colas ya lleva
+  // adentro el licencia_email del tenant VIEJO (se arma así al encolar), así
+  // que drenarlas acá no mezcla datos con el tenant nuevo -- solo termina de
+  // escribir en Supabase lo que el tenant anterior ya había hecho.
+  // fe_cola queda AFUERA a propósito (mismo motivo que el comentario de más
+  // abajo sobre fe_tenant_id/timbrado): reintentarla acá podría emitir un DE
+  // real ante SIFEN ya en el momento de cambio de sesión -- ese caso se
+  // maneja limpiándola, no drenándola.
+  if(navigator.onLine){
+    var _drenados = [
+      typeof drenarProductosFallback === 'function' ? drenarProductosFallback() : null,
+      typeof drenarVentasFallback === 'function' ? drenarVentasFallback() : null,
+      typeof _credReintentarPendientes === 'function' ? _credReintentarPendientes() : null,
+      typeof _hospReintentarPendientes === 'function' ? _hospReintentarPendientes() : null,
+      typeof supaReintentarResilientes === 'function' ? supaReintentarResilientes('pos_costo_sync_fallback') : null,
+      typeof supaReintentarResilientesPost === 'function' ? supaReintentarResilientesPost('pos_stock_sync_fallback') : null,
+      typeof supaReintentarResilientes === 'function' ? supaReintentarResilientes('pos_pedidos_sync_fallback') : null,
+    ].filter(Boolean);
+    try { await Promise.allSettled(_drenados); } catch(e){}
+  }
   ['an','ar','ad','at','ciudad','pie_recibo','mostrar_ruc','moneda',
    'factura_formato','actividad_economica','factura_giro','habilitacion','logo_url',
    'pos_logo','pos_sucursal','pos_sucursal_id','pos_deposito','pos_deposito_id',
