@@ -52,7 +52,7 @@ function _rubroDefaults(tipo){
   // cocina: en gastronomía refleja el toggle legacy de comandas; en el
   // resto arranca apagada (override explícito la puede prender igual).
   var cocinaDefault = (tipo === 'gastronomia')
-    ? !!(configData && configData.comandasHabilitadas !== undefined
+    ? !!(typeof configData !== 'undefined' && configData && configData.comandasHabilitadas !== undefined
           ? configData.comandasHabilitadas
           : localStorage.getItem('pos_comandas') === '1')
     : false;

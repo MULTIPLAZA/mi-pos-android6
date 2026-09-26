@@ -592,7 +592,15 @@ function goTo(p){
   c.innerHTML='<div class="loading"><span class="sp"></span>Cargando...</div>';
   // PERF-001: cargar el modulo JS de la pagina si todavia no esta en memoria
   (window.ensureAdminModule ? window.ensureAdminModule(p) : Promise.resolve())
-    .then(function(){ setTimeout(function(){renderPage(p);}, 10); })
+    .then(function(){
+      setTimeout(function(){
+        try{ renderPage(p); }
+        catch(err){
+          console.error('[render]', p, err);
+          c.innerHTML = '<div class="loading" style="color:#ef5350">Error al mostrar esta sección. Recargá la página.</div>';
+        }
+      }, 10);
+    })
     .catch(function(err){
       console.error('[lazy-load]', err);
       c.innerHTML = '<div class="loading" style="color:#ef5350">Error al cargar el modulo. Recargá la página.</div>';
