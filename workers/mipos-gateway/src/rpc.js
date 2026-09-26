@@ -478,6 +478,42 @@ export async function revertirStockCompra(db, tenant, params) {
   return { ok: true };
 }
 
+// get_timbrado_terminal: NUNCA estuvo implementada en el gateway D1. El
+// llamador real (js/cobro.js cargarTimbradoSesion(), corre en CADA apertura
+// del POS) le pega directo y hardcodeado a SUPA_URL/rest/v1/rpc/
+// get_timbrado_terminal -- nunca paso por supaRPC()/usaGateway() como el
+// resto de las llamadas del POS. Consecuencia real: para CUALQUIER tenant
+// Cloudflare (D1), esa consulta siempre le pegaba a Supabase real, donde el
+// tenant D1-nativo no tiene ninguna fila -- el POS mostraba "Sin timbrado
+// configurado" (cobro.js:1007/1438, turno.js:990/1096) SIN IMPORTAR que el
+// timbrado y las terminales estuvieran bien cargados y asignados del lado
+// D1. Confirmado en vivo 2026-09-26: chavo@gmail.com con el timbrado
+// 19012720 y Pos1/Pos2/Pos3 asignados correctamente (puntos 004/005/006)
+// en el panel admin, pero sin poder facturar en ningun dispositivo -- la
+// causa no era el timbrado, era que el POS jamas llegaba a consultar D1.
+// Contrato de respuesta replicado exacto del lado Supabase (confirmado
+// leyendo el consumo en cobro.js: d.nro, d.tipo, d.vig_ini/d.vig_fin,
+// d.sucursal, d.punto_exp, d.nro_actual) -- JOIN de la fila del timbrado
+// (datos generales) con la fila de asignacion de ESTA terminal (punto de
+// expedicion + proximo numero, que son por-terminal, no por-timbrado, ver
+// agregarAsig() en js/admin-finanzas.js).
+export async function getTimbradoTerminal(db, tenant, params) {
+  const terminal = params && params.p_terminal;
+  if (!terminal) return null;
+  const row = await db
+    .prepare(
+      `SELECT t.nro, t.tipo, t.sucursal, t.vig_ini, t.vig_fin, t.desde, t.hasta,
+              tt.punto_exp, tt.nro_actual
+       FROM timbrado_terminales tt
+       JOIN timbrados t ON t.id = tt.timbrado_id
+       WHERE tt.licencia_email = ? AND tt.terminal = ? AND tt.activo = 1 AND t.activo = 1
+       LIMIT 1`,
+    )
+    .bind(tenant.em, terminal)
+    .first();
+  return row || null;
+}
+
 export const RPC_HANDLERS = {
   activar_licencia: (db, secret, _tenant, params) => activarLicencia(db, secret, params),
   verificar_licencia: (db, secret, _tenant, params) => verificarLicencia(db, secret, params),
@@ -489,4 +525,5 @@ export const RPC_HANDLERS = {
   revertir_stock_venta: (db, _secret, tenant, params) => revertirStockVenta(db, tenant, params),
   ajustar_stock_compra: (db, _secret, tenant, params) => ajustarStockCompra(db, tenant, params),
   revertir_stock_compra: (db, _secret, tenant, params) => revertirStockCompra(db, tenant, params),
+  get_timbrado_terminal: (db, _secret, tenant, params) => getTimbradoTerminal(db, tenant, params),
 };

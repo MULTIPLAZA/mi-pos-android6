@@ -942,16 +942,18 @@ async function cargarTimbradoSesion() {
   if (!email || USAR_DEMO) { timbradoSession = getTimbradoActivo(); return; }
 
   try {
-    const r = await fetch(SUPA_URL + '/rest/v1/rpc/get_timbrado_terminal', {
-      method: 'POST',
-      headers: {
-        'apikey':        SUPA_ANON,
-        'Authorization': 'Bearer ' + SUPA_ANON,
-        'Content-Type':  'application/json',
-      },
-      body: JSON.stringify({ p_email: email, p_terminal: terminal }),
-    });
-    const d = await r.json();
+    // BUG CORREGIDO: esto le pegaba SIEMPRE directo y hardcodeado a
+    // SUPA_URL, sin pasar por supaRPC()/usaGateway() como el resto de las
+    // llamadas del POS. Para un tenant Cloudflare (D1) esta consulta
+    // siempre le pegaba a Supabase real, donde el tenant D1-nativo no tiene
+    // fila -- devolvia "sin timbrado" aunque estuviera bien cargado y
+    // asignado en D1. Confirmado en vivo 2026-09-26 (chavo@gmail.com no
+    // podia facturar en ningun dispositivo pese a tener timbrado y
+    // terminales asignadas correctamente). supaRPC() respeta usaGateway()
+    // y le pega al backend correcto para cada tenant -- ver
+    // get_timbrado_terminal nueva en workers/mipos-gateway/src/rpc.js
+    // (la RPC no existia del lado D1 hasta este fix).
+    const d = await supaRPC('get_timbrado_terminal', { p_email: email, p_terminal: terminal });
     if (d && d.nro) {
       window._timbradoCache = d;
       localStorage.setItem('pos_timbrado_activo', JSON.stringify(d));
