@@ -308,6 +308,21 @@ function applyAdminTheme(){
 // ── CREDENCIALES vienen de js/config.js ──
 const TIM_KEY   = 'pos_timbrados';
 
+// device_id estable del panel admin -- ANTES se generaba 'admin_web_'+Date.now()
+// nuevo en cada login y se descartaba sin guardarlo, asi que verificar_licencia
+// (que necesita el MISMO device_id que activo la fila en `activaciones` para
+// renovar el token) nunca podia usarse desde el auto-login: no habia forma de
+// saber que device_id reutilizar. Persistido, siempre es el mismo para este
+// navegador -- mismo patron que licGetDeviceId() en js/licencia.js del lado POS.
+function _adminDeviceId(){
+  var id = localStorage.getItem('admin_device_id');
+  if(!id){
+    id = 'admin_web_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+    localStorage.setItem('admin_device_id', id);
+  }
+  return id;
+}
+
 let SE=null, SP=null, SV=null, SLI=null, curPage='dashboard';
 let filtroD='hoy', filtroV='hoy', filtroCj='todas';
 let allVP=[], allPrds=[], allCjs=[];
@@ -411,29 +426,51 @@ async function doLogin(){
     // verificamos que el email sea el dueño (email_cliente). Esto blinda el
     // login: no se puede entrar a una licencia ajena solo por tener la clave,
     // y siempre obtenemos el licencia_id real (SLI nunca queda null).
-    var rows = await sg('licencias',
-      'clave=eq.'+encodeURIComponent(clave)+'&activa=eq.true&select=id,plan_id,fecha_vence,email_cliente&limit=1'
-    );
-    if(rows && rows.length > 0){
-      var L = rows[0];
-      var dueno = (L.email_cliente||'').toLowerCase().trim();
-      if(dueno && dueno !== email){
-        emailMismatch = true; // clave válida pero de otro dueño
-      } else {
-        lic = { id: L.id, plan: L.plan_id||'Pro', vence: L.fecha_vence||'—' };
-        // Encontrada directo en Supabase => tenant 'supabase' con certeza. Forzar
-        // el flag por si este navegador logueó antes a un tenant 'cloudflare'
-        // (soporte atendiendo a varios clientes) y quedó pegado en localStorage.
-        localStorage.setItem('lic_backend', 'supabase');
-        localStorage.removeItem('lic_gateway_token');
+    //
+    // BUG CORREGIDO: este bloque asumia que si `rows` viene con datos, vino
+    // de Supabase con certeza -- falso cuando este navegador YA tenia
+    // lic_backend='cloudflare' guardado de un login anterior: sg() respeta
+    // usaGateway(), asi que la consulta en realidad le pega al gateway D1, lo
+    // encuentra ahi, y el codigo de abajo pisaba el flag a 'supabase' y
+    // BORRABA el token gateway valido -- dejaba a un tenant D1 real (ej.
+    // ultima@gmail.com) logueado pero con TODO el resto del panel (productos,
+    // ventas, etc.) consultando el backend equivocado el resto de la sesion.
+    // Ademas, nunca emitia un token nuevo en un re-login explicito de un
+    // tenant D1 ya conocido -- el unico momento en que se minaba un token
+    // fresco era la primera vez que este navegador veia esa licencia.
+    // Fix: si ya sabemos que este navegador es de un tenant cloudflare, ni
+    // siquiera intentar este atajo -- ir directo al RPC de abajo, que SIEMPRE
+    // le pega al gateway (ver supaRPC en js/config.js) y SIEMPRE devuelve un
+    // token fresco.
+    var esCloudflareConocido = localStorage.getItem('lic_backend') === 'cloudflare';
+    if(!esCloudflareConocido){
+      var rows = await sg('licencias',
+        'clave=eq.'+encodeURIComponent(clave)+'&activa=eq.true&select=id,plan_id,fecha_vence,email_cliente&limit=1'
+      );
+      if(rows && rows.length > 0){
+        var L = rows[0];
+        var dueno = (L.email_cliente||'').toLowerCase().trim();
+        if(dueno && dueno !== email){
+          emailMismatch = true; // clave válida pero de otro dueño
+        } else {
+          lic = { id: L.id, plan: L.plan_id||'Pro', vence: L.fecha_vence||'—' };
+          // Esta rama solo corre cuando `esCloudflareConocido` es false, asi
+          // que sg() fue realmente a Supabase -- el flag es correcto acá.
+          localStorage.setItem('lic_backend', 'supabase');
+          localStorage.removeItem('lic_gateway_token');
+        }
       }
     }
 
-    // Fallback RPC SOLO si no existe ninguna licencia con esa clave (caso raro:
-    // licencia que aún no tiene fila consultable). Igual exigimos dueño correcto.
+    // RPC: siempre corre si todavia no tenemos `lic` (incluye el caso
+    // "ya sabiamos que es cloudflare" de arriba, ademas del fallback
+    // original para licencia recien creada sin fila aun consultable).
+    // Usa el MISMO device_id persistido en cada login -- asi
+    // verificar_licencia (auto-login, mas abajo) siempre puede renovar la
+    // MISMA fila de `activaciones` en vez de que cada login cree una nueva.
     if(!lic && !emailMismatch){
       try{
-        var d = await srpc('activar_licencia',{p_clave:clave,p_email:email,p_device_id:'admin_web_'+Date.now()});
+        var d = await srpc('activar_licencia',{p_clave:clave,p_email:email,p_device_id:_adminDeviceId()});
         if(d && d.ok){
           // Persistir el backend ANTES de la siguiente consulta -- si no, sg()
           // (que respeta usaGateway()/lic_backend) sigue pegándole a Supabase
@@ -854,18 +891,52 @@ async function saveConf(){
   if(e&&p&&p!=='Demo'){
     SE=e.toLowerCase().trim();SP=p;SV=v;SLI=li?parseInt(li):null;
     localStorage.setItem('lic_email',SE);
-    // Verificar sesión contra Supabase (previene bypass por DevTools en localStorage)
-    sg('licencias','email_cliente=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id&limit=1')
-      .then(function(rows){
-        if(rows&&rows.length){
-          cargarConfigNegocioActual().then(showApp);
-        } else {
-          doLogout();
-        }
-      })
-      .catch(function(){
-        showApp(); // Sin conexión — no se puede refrescar, confiar en lo cacheado de ESTA sesión
-      });
+    if(localStorage.getItem('lic_backend')==='cloudflare'){
+      // BUG CORREGIDO: este auto-login solo chequeaba que la fila exista en
+      // `licencias` -- esa tabla no exige token en el gateway D1 (ver
+      // workers/mipos-gateway/src/schema.js, tenant:null), asi que ese check
+      // SIEMPRE pasaba aunque el token guardado en lic_gateway_token ya
+      // hubiese vencido (dura 30 dias, ver TOKEN_TTL_SECONDS en rpc.js, y
+      // nunca se renovaba desde el panel admin -- solo el POS lo renueva
+      // via verificar_licencia periodico). Resultado real: la app "entraba"
+      // normal pero CUALQUIER pedido a una tabla propia del tenant
+      // (productos, ventas, etc.) volvia 401 en silencio -- confirmado en
+      // vivo 2026-09-26 con el tenant ultima@gmail.com (activado 2026-08-25,
+      // token vencido ~2026-09-24, admin-productos.js mostraba "Sin
+      // productos sincronizados" sin loguear el error real). Fix: renovar
+      // el token de verdad (verificar_licencia) en cada apertura del panel
+      // -- funciona mientras el token todavia sea valido (aunque este por
+      // vencer), que es el caso normal de alguien que abre el panel con
+      // cierta regularidad. Si ya vencio del todo, no hay forma de renovar
+      // sin la clave (por diseño, ver rpc.js) -- ahi se fuerza logout para
+      // que la vuelva a tipear, en vez de dejarla "adentro" con todo roto.
+      srpc('verificar_licencia',{p_device_id:_adminDeviceId(),p_email:SE})
+        .then(function(d){
+          if(d && d.ok && d.token){
+            localStorage.setItem('lic_gateway_token', d.token);
+            cargarConfigNegocioActual().then(showApp);
+          } else {
+            console.warn('[Auto-login] Token gateway no se pudo renovar, pidiendo re-login:', d&&d.error);
+            doLogout();
+          }
+        })
+        .catch(function(){
+          showApp(); // Sin conexión — no se puede refrescar, confiar en lo cacheado de ESTA sesión
+        });
+    } else {
+      // Verificar sesión contra Supabase (previene bypass por DevTools en localStorage)
+      sg('licencias','email_cliente=ilike.'+encodeURIComponent(SE)+'&activa=eq.true&select=id&limit=1')
+        .then(function(rows){
+          if(rows&&rows.length){
+            cargarConfigNegocioActual().then(showApp);
+          } else {
+            doLogout();
+          }
+        })
+        .catch(function(){
+          showApp(); // Sin conexión — no se puede refrescar, confiar en lo cacheado de ESTA sesión
+        });
+    }
   }
 })();
 

@@ -422,7 +422,14 @@ async function renderProductos(){
     // Excluir insumos (es_insumo=true). is.false captura false y NULL legacy.
     allPrds=await sg('pos_productos','licencia_email=ilike.'+encodeURIComponent(SE)+'&activo=eq.true&es_insumo=is.false&order=nombre.asc&limit=500');
     renderPT(allPrds);
-  }catch(e){document.getElementById('pBody').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin productos sincronizados</td></tr>';}
+  }catch(e){
+    // Antes este catch era mudo -- un 401 real (token de gateway vencido, ver
+    // fix de auto-login en admin-negocio.html) se veia identico a "el tenant
+    // no tiene productos", sin ningun rastro en consola. Loguear el error
+    // real, mismo patron que el resto de este archivo (ej. linea 406).
+    console.warn('[Productos] Error cargando catalogo:', e.message);
+    document.getElementById('pBody').innerHTML='<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted)">Sin productos sincronizados</td></tr>';
+  }
 }
 
 function renderPT(p){
