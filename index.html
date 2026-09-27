@@ -1836,7 +1836,7 @@
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
     <span class="mesas-title">Habitaciones</span>
-    <button class="hbtn" onclick="abrirReservasList()" title="Próximas reservas">
+    <button class="hbtn" onclick="abrirReservasMes()" title="Reservas y calendario de ocupación">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     </button>
     <button class="hbtn" onclick="abrirPreciosTipo()" title="Precios por tipo de habitación">
@@ -1867,6 +1867,54 @@
   <div style="display:flex;gap:16px;padding:10px 14px;font-size:11px;color:#888;border-top:1px solid #2a2a2a;flex-shrink:0;">
     <span><span style="display:inline-block;width:10px;height:10px;background:#e53935;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>Ocupada</span>
     <span><span style="display:inline-block;width:10px;height:10px;background:#3b82f6;border-radius:2px;margin-right:5px;vertical-align:middle;"></span>Reservada</span>
+  </div>
+</div>
+
+<!-- ══════════ Reservas — calendario mensual (punto de entrada por fecha) ══════════ -->
+<div id="scHospReservasMes" class="screen">
+  <div class="mesas-header">
+    <button class="hbtn" onclick="cerrarReservasMes()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span class="mesas-title">Reservas</span>
+    <button class="hbtn" onclick="abrirReservasList()" title="Lista de próximas reservas">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="hosp-mes-nav">
+    <button class="hosp-mes-nav-btn" onclick="hospMesMover(-1)" title="Mes anterior">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <span id="hospMesTitulo" class="hosp-mes-nav-titulo"></span>
+    <button class="hosp-mes-nav-btn" onclick="hospMesMover(1)" title="Mes siguiente">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <button class="hosp-mes-nav-hoy" onclick="hospMesHoy()">HOY</button>
+  </div>
+  <div class="hosp-mes-resumen" id="hospMesResumen"></div>
+  <div class="hosp-mes-card">
+    <div class="hosp-mes-dow">
+      <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+    </div>
+    <div class="hosp-mes-body" id="hospMesGrid"></div>
+  </div>
+  <div class="hosp-mes-leyenda">
+    <span class="chip" style="background:rgba(76,175,80,.14);color:#4caf50;"><span class="dot" style="background:#4caf50;"></span>Poco ocupado</span>
+    <span class="chip" style="background:rgba(239,143,0,.14);color:#ef8f00;"><span class="dot" style="background:#ef8f00;"></span>Casi lleno</span>
+    <span class="chip" style="background:rgba(229,57,53,.14);color:#e53935;"><span class="dot" style="background:#e53935;"></span>Completo</span>
+  </div>
+</div>
+
+<!-- Modal Reservas del mes: grid de habitaciones para el día tocado -->
+<div id="hospDiaOv" class="hosp-modal-ov" onclick="if(event.target===this)cerrarHospDiaModal()">
+  <div class="hosp-modal-panel">
+    <div class="hosp-modal-handle"></div>
+    <div style="font-size:17px;font-weight:800;margin-bottom:4px;color:#fff;" id="hospDiaTitulo">Día</div>
+    <div style="font-size:12px;color:#888;margin-bottom:14px;" id="hospDiaSub"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px;max-height:55vh;overflow-y:auto;" id="hospDiaGrid"></div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button onclick="cerrarHospDiaModal()" style="flex:1;background:#2a2a2a;border:none;border-radius:8px;color:#aaa;font-size:13px;font-weight:700;padding:13px;cursor:pointer;">CERRAR</button>
+    </div>
   </div>
 </div>
 
@@ -2214,7 +2262,7 @@
       <!-- Filter bar: dropdown de categorías -->
       <div class="filter-bar">
         <div class="fdrop" onclick="openCat()"><span id="catLbl">Todos los artículos</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></div>
-        <button id="btnHabResCal" class="fhabcal" onclick="abrirReservasList()" style="display:none;" title="Reservas y calendario de ocupación">
+        <button id="btnHabResCal" class="fhabcal" onclick="abrirReservasMes()" style="display:none;" title="Reservas y calendario de ocupación">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </button>
         <button class="fsearch" onclick="toggleSearch()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>

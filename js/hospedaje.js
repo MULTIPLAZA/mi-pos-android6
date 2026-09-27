@@ -423,15 +423,27 @@ function renderHabitacionesScreen(){
 
 /**
  * Refresca el tablero de habitaciones esté donde esté visible: la pantalla
- * completa (#habitacionesGrid) y/o la vista embebida en Cobrar (#pgrid,
- * cuando la categoría activa es "Habitaciones"). Ambos render son no-op
- * si su contenedor no existe/no está visible, así que llamar a los dos es
- * seguro sin importar desde qué pantalla se disparó el cambio.
+ * completa (#habitacionesGrid), la vista embebida en Cobrar (#pgrid,
+ * cuando la categoría activa es "Habitaciones") y el calendario mensual de
+ * Reservas si está abierto. Todos los render son no-op si su contenedor no
+ * existe/no está visible, así que llamar a los tres es seguro sin importar
+ * desde qué pantalla se disparó el cambio.
+ *
+ * Bug real (Hotel Nico, reporte 2026-09-27): al crear/cancelar/editar una
+ * reserva desde el modal de día del calendario mensual (abrirHospDiaModal),
+ * confirmarCheckIn()/hospCancelarReserva()/etc. llamaban esta función pero
+ * NUNCA volvían a pintar #hospMesGrid -- la pantalla de Reservas quedaba
+ * atrás del modal de check-in y, al cerrarse este, se veía con el conteo de
+ * ocupación de ANTES de guardar, hasta que el usuario salía y volvía a
+ * entrar a la pantalla (ahí sí recién se disparaba abrirReservasMes()).
  */
 function _hospRefrescarVista(){
   renderHabitacionesScreen();
   if(typeof curCat !== 'undefined' && curCat === 'Habitaciones' && document.getElementById('pgrid')){
     renderHabitacionesEnGrid();
+  }
+  if(_hospMesRef && document.getElementById('scHospReservasMes') && document.getElementById('scHospReservasMes').classList.contains('active')){
+    renderReservasMes();
   }
 }
 
@@ -629,7 +641,12 @@ function _hospCkSetTarifaDesdeGs(montoGs){
   hospCkRecalcEquivTarifa();
 }
 
-function abrirCheckIn(habId){
+/**
+ * fechaPreset (opcional, 'YYYY-MM-DD'): usado al reservar desde el
+ * calendario mensual, donde la fecha elegida no es necesariamente hoy.
+ * Sin este parámetro, el check-in arranca en la fecha de hoy como siempre.
+ */
+function abrirCheckIn(habId, fechaPreset){
   const h = hospHabitaciones.find(function(x){ return x.id === habId; });
   if(!h) return;
   _hospHabSel = h;
@@ -642,7 +659,7 @@ function abrirCheckIn(habId){
   document.getElementById('hospCkTel').value = '';
   document.getElementById('hospCkNacionalidad').value = 'Paraguaya';
   document.getElementById('hospCkHuespedes').value = '1';
-  document.getElementById('hospCkCheckin').value = hoyStr;
+  document.getElementById('hospCkCheckin').value = fechaPreset || hoyStr;
   document.getElementById('hospCkCheckout').value = '';
   _hospCkSetTarifaDesdeGs(h.precio_noche || 0);
   hospSetModalidad('noche');
@@ -1191,6 +1208,137 @@ function renderCalendarioOcupacion(){
   document.getElementById('hospCalTabla').innerHTML = hospHabitaciones.length
     ? '<table style="border-collapse:collapse;width:100%;table-layout:fixed;"><thead>' + theadHtml + '</thead><tbody>' + rowsHtml + '</tbody></table>'
     : '<div style="text-align:center;color:#888;padding:30px;">Sin habitaciones configuradas</div>';
+}
+
+// ── CALENDARIO MENSUAL DE RESERVAS ───────────────────────────────────────
+// Complementa al calendario semanal de arriba: ahí el foco es la
+// habitación, acá el foco es la FECHA — de un vistazo se ve cuán llena
+// está cada noche del mes, y tocando un día se abre el grid de
+// habitaciones de ESA fecha para reservar o ver el detalle, sin tener
+// que buscar antes en qué habitación hacerlo. Pedido real de Hotel Nico:
+// que reservar no dependa de encontrar primero la habitación libre.
+var _hospMesRef = null;    // primer día del mes visible (Date)
+var _hospMesOrigen = 'scHabitaciones';
+var _hospDiaSel = null;    // fecha 'YYYY-MM-DD' del modal de día abierto
+var _HOSP_MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+function abrirReservasMes(){
+  const activa = document.querySelector('.screen.active');
+  _hospMesOrigen = (activa && activa.id === 'scSale') ? 'scSale' : 'scHabitaciones';
+  const hoy = new Date();
+  _hospMesRef = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  goTo('scHospReservasMes');
+  renderReservasMes();
+}
+
+function cerrarReservasMes(){
+  goTo(_hospMesOrigen);
+  if(_hospMesOrigen === 'scHabitaciones' && typeof _hospRefrescarVista === 'function') _hospRefrescarVista();
+  if(_hospMesOrigen === 'scSale' && curCat === 'Habitaciones' && typeof renderHabitacionesEnGrid === 'function') renderHabitacionesEnGrid();
+}
+
+function hospMesMover(delta){
+  _hospMesRef = new Date(_hospMesRef.getFullYear(), _hospMesRef.getMonth()+delta, 1);
+  renderReservasMes();
+}
+
+function hospMesHoy(){
+  const hoy = new Date();
+  _hospMesRef = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  renderReservasMes();
+}
+
+/** Reservas/estadías (no canceladas) que cubren una fecha dada, cualquier habitación */
+function _hospHabitacionesEnFecha(fechaStr){
+  return hospEstadias.filter(function(e){
+    return (e.estado === 'en_estadia' || e.estado === 'reservado') && _hospEstadiaCubreDia(e, fechaStr);
+  });
+}
+
+/** Paleta del badge/barra de ocupación de un día, según % de habitaciones tomadas. */
+function _hospMesColorOcupacion(pct){
+  if(pct <= 0)  return { bg:'rgba(120,120,120,.14)', fg:'var(--muted)' };
+  if(pct < 60)  return { bg:'rgba(76,175,80,.16)',  fg:'#4caf50' };
+  if(pct < 100) return { bg:'rgba(255,152,0,.18)',  fg:'#ef8f00' };
+  return          { bg:'rgba(229,57,53,.20)',  fg:'#e53935' };
+}
+
+function renderReservasMes(){
+  if(!_hospMesRef) return;
+  const y = _hospMesRef.getFullYear(), m = _hospMesRef.getMonth();
+  document.getElementById('hospMesTitulo').textContent = _HOSP_MESES[m] + ' ' + y;
+
+  const primerDia = new Date(y, m, 1);
+  const inicioGrid = new Date(y, m, 1 - primerDia.getDay());
+  const hoyStr = _hospFechaISO(new Date());
+  const totalHab = hospHabitaciones.length || 1;
+
+  let html = '';
+  let sumaOcupadas = 0, sumaTotal = 0;
+  for(let i=0;i<42;i++){
+    const d = new Date(inicioGrid.getFullYear(), inicioGrid.getMonth(), inicioGrid.getDate()+i);
+    const dStr = _hospFechaISO(d);
+    const esFinde = d.getDay() === 0 || d.getDay() === 6;
+    if(d.getMonth() !== m){
+      html += '<div class="hosp-mes-otro-mes">' + d.getDate() + '</div>';
+      continue;
+    }
+    const ocupadas = _hospHabitacionesEnFecha(dStr).length;
+    sumaOcupadas += ocupadas; sumaTotal += totalHab;
+    const pct = Math.min(100, Math.round((ocupadas/totalHab)*100));
+    const esHoy = dStr === hoyStr;
+    const col = _hospMesColorOcupacion(pct);
+    html += '<button type="button" class="hosp-mes-day' + (esHoy?' today':'') + (esFinde?' weekend':'') + '" onclick="abrirHospDiaModal(\'' + dStr + '\')">'
+      + '<span class="hosp-mes-day-num">' + d.getDate() + '</span>'
+      + '<span class="hosp-mes-day-badge" style="background:' + col.bg + ';color:' + col.fg + ';">' + ocupadas + '/' + totalHab + '</span>'
+      + '<span class="hosp-mes-bar"><span class="hosp-mes-bar-fill" style="width:' + pct + '%;background:' + col.fg + ';"></span></span>'
+      + '</button>';
+  }
+  document.getElementById('hospMesGrid').innerHTML = html;
+  const resumenEl = document.getElementById('hospMesResumen');
+  if(resumenEl){
+    const pctMes = sumaTotal ? Math.round((sumaOcupadas/sumaTotal)*100) : 0;
+    const colMes = _hospMesColorOcupacion(pctMes);
+    resumenEl.innerHTML = '<span class="dot" style="background:' + colMes.fg + ';"></span>Ocupación promedio del mes: <b style="color:' + colMes.fg + ';">' + pctMes + '%</b>';
+  }
+}
+
+function abrirHospDiaModal(fechaStr){
+  _hospDiaSel = fechaStr;
+  const d = new Date(fechaStr+'T00:00:00');
+  const nombresDia = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  document.getElementById('hospDiaTitulo').textContent = nombresDia[d.getDay()] + ' ' + fmtFechaCorta(fechaStr);
+  const ocupadas = _hospHabitacionesEnFecha(fechaStr);
+  document.getElementById('hospDiaSub').textContent = ocupadas.length + ' de ' + hospHabitaciones.length + ' habitaciones ocupadas — tocá una libre para reservar, u ocupada/reservada para ver el detalle';
+
+  document.getElementById('hospDiaGrid').innerHTML = hospHabitaciones.map(function(h){
+    const est = ocupadas.find(function(e){ return e.habitacion_id === h.id; });
+    const estadoVisual = est ? (est.estado === 'en_estadia' ? 'ocupada' : 'reservada') : 'libre';
+    const color = _hospColorEstado(estadoVisual);
+    const nombre = est ? est.huesped_nombre : 'Libre';
+    return '<button type="button" class="hosp-dia-hab" onclick="hospDiaTapHabitacion(' + h.id + ')" style="border:1.5px solid ' + color + ';">'
+      + '<div style="font-size:14px;font-weight:800;color:#fff;">' + escapeHtml(h.numero) + '</div>'
+      + '<div style="font-size:10.5px;font-weight:700;color:' + color + ';margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escapeHtml(nombre) + '</div>'
+      + '</button>';
+  }).join('');
+  document.getElementById('hospDiaOv').style.display = 'flex';
+}
+
+function cerrarHospDiaModal(){
+  document.getElementById('hospDiaOv').style.display = 'none';
+}
+
+/** Tap en una habitación dentro del modal de día: libre → nueva reserva prellenada con esa fecha; ocupada/reservada → abrir su detalle. */
+function hospDiaTapHabitacion(habId){
+  const fechaStr = _hospDiaSel;
+  const est = _hospHabitacionesEnFecha(fechaStr).find(function(e){ return e.habitacion_id === habId; });
+  cerrarHospDiaModal();
+  if(est){
+    if(est.estado === 'en_estadia') abrirFolio(est.id);
+    else abrirReserva(est.id);
+  } else {
+    abrirCheckIn(habId, fechaStr);
+  }
 }
 
 // ── FOLIO (cuenta acumulada del huésped) ──────────────────
