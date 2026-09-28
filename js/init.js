@@ -69,6 +69,103 @@ setInterval(function(){
   }
 }, 15000);
 
+// ── TAB LOCK — evitar que el sistema quede abierto 2 veces en el mismo
+// dispositivo (2 pestañas/ventanas del mismo navegador o tablet). Pedido
+// real: un empleado abre el POS en 2 pestañas por error y se confunde
+// entre las dos — cobra en una, ve el turno/carrito viejo en la otra.
+// NO afecta a otros terminales/dispositivos del negocio: el lock vive en
+// localStorage, que es por-dispositivo, así que recepción y bar siguen
+// pudiendo trabajar cada uno desde su propio equipo con la misma licencia.
+//
+// Estrategia: localStorage como "mutex" con heartbeat + expiración. La
+// pestaña dueña refresca su timestamp cada 3s; si una pestaña nueva ve un
+// timestamp de hace más de 9s (3 heartbeats perdidos), asume que la dueña
+// se cerró/crasheó sin avisar (beforeunload no es 100% confiable, sobre
+// todo en Android) y toma el lock sola, sin trabar el sistema para siempre.
+var TAB_LOCK_KEY = 'nodo_pos_tab_lock';
+var TAB_LOCK_HEARTBEAT_MS = 3000;
+var TAB_LOCK_STALE_MS = 9000;
+var _tabLockId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now() + '-' + Math.random().toString(36).slice(2));
+var _tabLockHeartbeatTimer = null;
+var _tabLockPollTimer = null;
+
+function _tabLockRead(){
+  try { var raw = localStorage.getItem(TAB_LOCK_KEY); return raw ? JSON.parse(raw) : null; }
+  catch(e){ return null; }
+}
+function _tabLockWrite(){
+  try { localStorage.setItem(TAB_LOCK_KEY, JSON.stringify({ id: _tabLockId, ts: Date.now() })); } catch(e){}
+}
+function _tabLockIsMine(){
+  var lock = _tabLockRead();
+  return !!lock && lock.id === _tabLockId;
+}
+/** true si el lock está libre, vencido, o ya es mío. */
+function _tabLockDisponible(lock){
+  return !lock || lock.id === _tabLockId || (Date.now() - lock.ts) > TAB_LOCK_STALE_MS;
+}
+/** Intenta tomar el lock. Devuelve true si esta pestaña queda como dueña. */
+function _tabLockTryAcquire(){
+  var lock = _tabLockRead();
+  if(!_tabLockDisponible(lock)) return false;
+  _tabLockWrite();
+  return true;
+}
+function _tabLockRelease(){
+  var lock = _tabLockRead();
+  if(lock && lock.id === _tabLockId){ try { localStorage.removeItem(TAB_LOCK_KEY); } catch(e){} }
+}
+function _tabLockStartHeartbeat(){
+  if(_tabLockHeartbeatTimer) return;
+  _tabLockHeartbeatTimer = setInterval(function(){
+    // Si otra pestaña tomó el lock mientras esta estaba en background
+    // (heartbeat throttleado por el navegador), avisar en vez de seguir
+    // como si nada — evita que 2 pestañas queden "activas" a la vez.
+    if(!_tabLockIsMine()){ _tabLockMostrarAviso(); return; }
+    _tabLockWrite();
+  }, TAB_LOCK_HEARTBEAT_MS);
+}
+function _tabLockMostrarAviso(){
+  if(_tabLockHeartbeatTimer){ clearInterval(_tabLockHeartbeatTimer); _tabLockHeartbeatTimer = null; }
+  if(typeof hideSplash === 'function') hideSplash();
+  var sc = document.getElementById('scPestanaDup');
+  if(sc) sc.style.display = 'flex';
+  if(_tabLockPollTimer) return;
+  _tabLockPollTimer = setInterval(function(){
+    if(_tabLockTryAcquire()){
+      clearInterval(_tabLockPollTimer);
+      _tabLockPollTimer = null;
+      location.reload();
+    }
+  }, 2000);
+}
+/** Botón "Reintentar ahora" del aviso. */
+function tabLockReintentar(){
+  if(_tabLockTryAcquire()) location.reload();
+}
+/** Botón "Continuar igual acá" — override manual para el caso raro de una
+ * pestaña trabada cuyo heartbeat no venció todavía. */
+function tabLockUsarIgual(){
+  _tabLockWrite();
+  location.reload();
+}
+window.addEventListener('storage', function(e){
+  if(e.key !== TAB_LOCK_KEY) return;
+  var sc = document.getElementById('scPestanaDup');
+  if(sc && sc.style.display !== 'flex' && !_tabLockIsMine()) _tabLockMostrarAviso();
+});
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState !== 'visible') return;
+  var sc = document.getElementById('scPestanaDup');
+  if(sc && sc.style.display === 'flex'){
+    if(_tabLockTryAcquire()) location.reload();
+  } else if(!_tabLockIsMine()){
+    _tabLockMostrarAviso();
+  }
+});
+window.addEventListener('pagehide', _tabLockRelease);
+window.addEventListener('beforeunload', _tabLockRelease);
+
 // ── FUNCIÓN CENTRAL DE INICIO ─────────────────────────────
 // ══════════════════════════════════════════════════════════════════════════════
 // AUTO-SAVE del cart en localStorage (anti-perdida ante Ctrl+R / corte de luz)
@@ -1373,6 +1470,16 @@ function hideSplash(){
 
 (async function(){
   applyTheme();
+
+  // ── TAB LOCK: si ya hay otra pestaña de este sistema abierta en este
+  // mismo dispositivo, no seguir arrancando (evita 2 sesiones vivas del
+  // POS pisándose: carrito, turno, licencia). Se reactiva sola cuando la
+  // otra pestaña se cierra o vence su heartbeat.
+  if(!_tabLockTryAcquire()){
+    _tabLockMostrarAviso();
+    return;
+  }
+  _tabLockStartHeartbeat();
 
   // Safety net: si algo se cuelga, forzar cierre del splash después de 15s
   var _splashKillTimer = setTimeout(function(){
