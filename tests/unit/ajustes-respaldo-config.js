@@ -1,7 +1,9 @@
-// Prueba del respaldo en servidor de los ajustes de caja (caja_doble_moneda / caja_moneda_principal),
-// js/app.js: cajaMonedaSubirSupabase / cajaMonedaAplicarRemoto + su cableado en sincronizarConfigNegocio.
+// Prueba del respaldo en servidor de los ajustes que vivian solo en localStorage:
+//   - caja (caja_doble_moneda / caja_moneda_principal) -> pos_config 'caja_moneda_config'
+//   - multi-moneda (mm_activo, mm_use_*, mm_cot*, mm_updAt) -> pos_config 'multimoneda_config'
+// js/app.js: _ajustes* + cajaMoneda* / multiMoneda* + su cableado en sincronizarConfigNegocio.
 // Extrae el codigo REAL de app.js y lo corre contra un pos_config simulado -- nunca toca Supabase.
-// Uso: node tests/unit/caja-moneda-config.js
+// Uso: node tests/unit/ajustes-respaldo-config.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const CRLF = String.fromCharCode(13, 10), LF = String.fromCharCode(10);
 const src = fs.readFileSync(path.join(__dirname, '..', '..', 'js', 'app.js'), 'utf8').split(CRLF).join(LF);
@@ -22,7 +24,7 @@ function makeEnv(opts = {}) {
   const posts = [], toasts = [];
   const checks = { cfgCajaDobleMoneda: { checked: false }, cfgCajaMonedaBRL: { checked: false } };
   const ctx = {
-    console, JSON, Promise, String, Object, Math,
+    console, JSON, Promise, String, Object, Math, setTimeout, clearTimeout,
     localStorage: ls, USAR_DEMO: false, configData: {}, _log() {},
     toast: m => toasts.push(m),
     document: { getElementById: id => checks[id] || null },
@@ -45,10 +47,12 @@ function makeEnv(opts = {}) {
   ls.setItem('lic_email', 'hotel@x.com'); ls.setItem('pos_terminal', opts.terminal || 'RECEPCION');
   if (opts.local) Object.entries(opts.local).forEach(([k, v]) => ls.setItem(k, v));
   vm.createContext(ctx);
-  vm.runInContext(bloqueCaja + '\n' + bloqueSync + '\n;this.__api={cajaMonedaSubirSupabase,cajaMonedaAplicarRemoto,sincronizarConfigNegocio,hospGuardarCajaDobleMoneda,hospGuardarCajaMonedaBRL,_cajaMonedaLocal};', ctx);
+  vm.runInContext(bloqueCaja + '\n' + bloqueSync + '\n;this.__api={cajaMonedaSubirSupabase,cajaMonedaAplicarRemoto,sincronizarConfigNegocio,hospGuardarCajaDobleMoneda,hospGuardarCajaMonedaBRL,multiMonedaSubirSupabase,multiMonedaAplicarRemoto};', ctx);
   return { ctx, store, db, posts, toasts, checks, api: ctx.__api };
 }
 const fila = (mapa) => ({ licencia_email: 'hotel@x.com', clave: 'caja_moneda_config', valor: JSON.stringify(mapa) });
+const filaMM = (mapa) => ({ licencia_email: 'hotel@x.com', clave: 'multimoneda_config', valor: JSON.stringify(mapa) });
+const MM_RECEPCION = { mm_activo: '1', mm_use_BRL: '1', mm_use_ARS: '0', mm_use_USD: '0', mm_use_PIX: '1', mm_use_MP: '0', mm_cotBRL: '1200', mm_updAt: '28/09/2026 08:10' };
 const tick = () => new Promise(r => setTimeout(r, 5));
 let fails = 0;
 function check(nombre, cond, extra = '') { console.log((cond ? 'OK   ' : 'FALLA') + ' - ' + nombre + (extra ? '  ' + extra : '')); if (!cond) fails++; }
@@ -115,6 +119,58 @@ function check(nombre, cond, extra = '') { console.log((cond ? 'OK   ' : 'FALLA'
     e.api.hospGuardarCajaMonedaBRL(); await tick();
     const v = JSON.parse(e.posts[0].valor).RECEPCION;
     check('11. exclusion mutua: sube principal=BRL y doble=0', v.principal === 'BRL' && v.doble === '0', JSON.stringify(v));
+  }
+  // 12) Por CAMPO: el equipo solo tiene principal (toco un interruptor) -> igual se restaura 'doble'
+  { const e = makeEnv({ local: { caja_moneda_principal: 'GS' }, rows: [fila({ RECEPCION: { doble: '1', principal: 'GS' } })] });
+    await e.api.sincronizarConfigNegocio(); await tick();
+    check('12. caja por campo: falta doble -> se restaura sin pisar principal', e.store.caja_doble_moneda === '1' && e.store.caja_moneda_principal === 'GS' && e.posts.length === 0);
+  }
+
+  // ── MULTI-MONEDA ──
+  // 13) Navegador borrado: se restauran activacion, monedas y cotizacion
+  { const e = makeEnv({ rows: [filaMM({ RECEPCION: MM_RECEPCION })] });
+    await e.api.sincronizarConfigNegocio(); await tick();
+    check('13. storage vacio: restaura cotizacion y flags de multi-moneda',
+      e.store.mm_cotBRL === '1200' && e.store.mm_activo === '1' && e.store.mm_use_ARS === '0' && e.store.mm_updAt === '28/09/2026 08:10');
+    check('13b. no reescribe el servidor (ya estaba igual)', e.posts.length === 0);
+    check('13c. avisa con un toast', e.toasts.some(t => /multi-moneda/.test(t)));
+  }
+  // 14) CASO CLAVE: solo quedo mm_activo (el atajo EFECTIVO R$ lo activa en silencio) -> igual se restaura la cotizacion
+  { const e = makeEnv({ local: { mm_activo: '1' }, rows: [filaMM({ RECEPCION: MM_RECEPCION })] });
+    await e.api.sincronizarConfigNegocio(); await tick();
+    check('14. solo mm_activo local: se restaura mm_cotBRL', e.store.mm_cotBRL === '1200');
+    check('14b. y el respaldo del servidor NO se pisa con un parcial', e.posts.length === 0);
+  }
+  // 15) El equipo tiene una cotizacion mas nueva: manda el equipo y se sube, sin perder los otros campos
+  { const e = makeEnv({ local: { mm_cotBRL: '1250', mm_updAt: '28/09/2026 14:00' }, rows: [filaMM({ RECEPCION: MM_RECEPCION })] });
+    await e.api.sincronizarConfigNegocio(); await tick();
+    const sub = e.posts.length ? JSON.parse(e.posts[e.posts.length - 1].valor).RECEPCION : {};
+    check('15. cotizacion local (1250) gana y se sube; conserva mm_use_PIX del respaldo', e.store.mm_cotBRL === '1250' && sub.mm_cotBRL === '1250' && sub.mm_use_PIX === '1', JSON.stringify(sub));
+  }
+  // 16) Otra terminal (BAR) no hereda la cotizacion de RECEPCION
+  { const e = makeEnv({ terminal: 'BAR', rows: [filaMM({ RECEPCION: MM_RECEPCION })] });
+    await e.api.sincronizarConfigNegocio(); await tick();
+    check('16. BAR no hereda nada de RECEPCION', e.store.mm_cotBRL === undefined && e.posts.length === 0);
+  }
+  // 17) Sin nada en ningun lado: no inventa valores
+  { const e = makeEnv({});
+    await e.api.sincronizarConfigNegocio(); await tick();
+    check('17. nada en ningun lado: no escribe ni restaura mm_*', e.posts.length === 0 && e.store.mm_cotBRL === undefined);
+  }
+  // 18) Debounce: varias ediciones seguidas de la cotizacion -> UN solo POST, con el ultimo valor
+  { const e = makeEnv({ local: { mm_cotBRL: '1' } });
+    ['12', '120', '1200'].forEach(v => { e.store.mm_cotBRL = v; e.api.multiMonedaSubirSupabase(); });
+    await new Promise(r => setTimeout(r, 1300));
+    const mm = e.posts.filter(p => p.clave === 'multimoneda_config');
+    check('18. 3 ediciones seguidas -> 1 solo POST con 1200', mm.length === 1 && JSON.parse(mm[0].valor).RECEPCION.mm_cotBRL === '1200', 'posts=' + mm.length);
+  }
+  // 19) Caja y multi-moneda no se mezclan: claves separadas en pos_config
+  { const e = makeEnv({ local: { caja_doble_moneda: '1', mm_cotBRL: '1200' } });
+    await e.api.sincronizarConfigNegocio(); await tick();
+    const claves = e.posts.map(p => p.clave).sort();
+    check('19. suben a dos claves distintas', JSON.stringify(claves) === JSON.stringify(['caja_moneda_config', 'multimoneda_config']), JSON.stringify(claves));
+    const c = JSON.parse(e.posts.find(p => p.clave === 'caja_moneda_config').valor).RECEPCION;
+    check('19b. la clave de caja no arrastra campos mm_*', c.mm_cotBRL === undefined && c.doble === '1');
   }
   console.log(fails ? '\n' + fails + ' FALLAS' : '\nTODO OK'); process.exit(fails ? 1 : 0);
 })();

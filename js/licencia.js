@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.130 (2026-09-28)';
+var APP_VERSION = 'v1.16.131 (2026-09-28)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -198,7 +198,13 @@ async function limpiarCacheTenantAnterior(){
    // correlativo de factura pendientes de reponer en el servidor -- son del
    // tenant anterior; reponerlos con la cuenta nueva adelantaría el contador
    // del timbrado equivocado.
-   'caja_doble_moneda','caja_moneda_principal','pos_correlativo_pend']
+   'caja_doble_moneda','caja_moneda_principal','pos_correlativo_pend',
+   // Multi-moneda (ver app.js MULTIMONEDA_KEYS): cotizaciones, monedas
+   // habilitadas y activación del tenant anterior. Sin esto una cuenta nueva
+   // heredaba la cotización del R$ de la anterior y, con el respaldo en
+   // pos_config, la habría subido a SU config como propia.
+   'mm_activo','mm_use_BRL','mm_use_ARS','mm_use_USD','mm_use_PIX','mm_use_MP',
+   'mm_cotBRL','mm_cotARS','mm_cotUSD','mm_updAt']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });

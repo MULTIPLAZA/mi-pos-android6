@@ -183,7 +183,11 @@ function _goCobrarSetup() {
  * equivalente a mano, que es justo lo que este botón evita).
  */
 function selPayEfectivoBRL(){
-  if(localStorage.getItem('mm_activo') !== '1') localStorage.setItem('mm_activo', '1');
+  if(localStorage.getItem('mm_activo') !== '1'){
+    localStorage.setItem('mm_activo', '1');
+    // Ajuste que cambia sin pasar por Configuración: respaldarlo igual
+    if(typeof multiMonedaSubirSupabase === 'function') multiMonedaSubirSupabase();
+  }
   const btnEfectivo = document.querySelector(".pay-btn[onclick*=\"'efectivo'\"]");
   if(btnEfectivo) selPay(btnEfectivo, 'efectivo');
   _mmVals.gs = 0; _mmVals.ars = 0; _mmVals.usd = 0;
