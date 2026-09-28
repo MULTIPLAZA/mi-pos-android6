@@ -955,6 +955,14 @@ async function cargarTimbradoSesion() {
     // (la RPC no existia del lado D1 hasta este fix).
     const d = await supaRPC('get_timbrado_terminal', { p_email: email, p_terminal: terminal });
     if (d && d.nro) {
+      // Facturas ya impresas cuyo avance el servidor todavía no recibió (sin
+      // red al cobrar, ver _corrPendLeer en turno.js): sin sumarlas, este
+      // refresco pisaba el caché con el número viejo del servidor y la
+      // próxima factura salía repetida. Solo tenants Supabase.
+      if (!usaGateway() && typeof _corrPendLeer === 'function') {
+        const _pend = _corrPendLeer(terminal);
+        if (_pend > 0 && d.nro_actual) d.nro_actual = parseInt(d.nro_actual, 10) + _pend;
+      }
       window._timbradoCache = d;
       localStorage.setItem('pos_timbrado_activo', JSON.stringify(d));
       const tims = [{ ...d, asignaciones: [{ terminal, punto_exp: d.punto_exp, nro_actual: d.nro_actual }] }];
@@ -1456,11 +1464,23 @@ async function confirmarPago() {
   const nroTicket = currentTicketNro !== null ? currentTicketNro : ticketCounter;
   if (currentTicketNro === null) incrementTicketCounter();
 
+  // Reservar el número de factura en el servidor ANTES de armarla (ver
+  // reservarNroFactura en turno.js): el número que se imprime es el que el
+  // servidor acaba de entregar, no una lectura del caché. null = sin red o
+  // error → se usa el número del caché (como antes) y el avance queda como
+  // pendiente para reponerlo en el servidor. Va justo antes de getFacturaData()
+  // para no dejar un número consumido si algo aborta el cobro antes.
+  const _timFact = facturaActiva ? (timbradoSeleccionado || getTimbradoActivo()) : null;
+  const _nroReservado = _timFact ? await reservarNroFactura(_timFact) : null;
+  if (_nroReservado) _timFact.nro_actual = _nroReservado;
+
   const facturaData = getFacturaData();
 
-  // Avanzar correlativo si se emitió factura
+  // Avanzar correlativo si se emitió factura (si ya se reservó en el
+  // servidor, solo queda alinear el caché local: el servidor ya avanzó)
   if (facturaData && facturaData.timbrado) {
-    avanzarNroFactura(timbradoSeleccionado || getTimbradoActivo());
+    if (_nroReservado) _setNroActualLocal(_timFact, _nroReservado + 1);
+    else avanzarNroFactura(_timFact);
     timbradoSeleccionado = null;
     timbradoSession      = getTimbradoActivo();
   }

@@ -66,16 +66,118 @@ async function _avanzarNroFacturaImpl(timbrado){
   if(cached){ cached.nro_actual=(cached.nro_actual||1)+1; localStorage.setItem('pos_timbrado_activo',JSON.stringify(cached)); }
   // Confirmar en Supabase y sobrescribir con valor autoritativo del servidor
   if(email && !USAR_DEMO){
+    let confirmado = false;
     try {
       const d = await supaRPC('avanzar_correlativo', { p_email:email, p_terminal:terminal });
       if(d && d.nro_actual){
-        if(window._timbradoCache) window._timbradoCache.nro_actual = d.nro_actual;
+        confirmado = true;
+        // Avances que el servidor todavía no tiene (ver _corrPendLeer): el
+        // próximo número real es lo que dice el servidor + lo pendiente.
+        const nroLocal = parseInt(d.nro_actual,10) + _corrPendLeer(terminal);
+        if(window._timbradoCache) window._timbradoCache.nro_actual = nroLocal;
         const c2 = JSON.parse(localStorage.getItem('pos_timbrado_activo')||'null');
-        if(c2){ c2.nro_actual = d.nro_actual; localStorage.setItem('pos_timbrado_activo',JSON.stringify(c2)); }
+        if(c2){ c2.nro_actual = nroLocal; localStorage.setItem('pos_timbrado_activo',JSON.stringify(c2)); }
         _log('[Correlativo] +1 en Supabase → nro_actual:',d.nro_actual);
       }
     } catch(e){ console.warn('[Correlativo]',e.message); }
+    // El número ya se imprimió y el servidor no se enteró (sin red / error):
+    // anotarlo para reponerlo antes de la próxima reserva. Sin esto, el
+    // próximo refresco del timbrado devolvía el número viejo del servidor y
+    // se imprimía repetido. Solo tenants Supabase (los de Cloudflare/D1 usan
+    // otra tabla de correlativos, ver reservarNroFactura).
+    if(!confirmado && !usaGateway()) _corrPendGuardar(terminal, _corrPendLeer(terminal)+1);
   }
+}
+
+// ── RESERVA ATÓMICA DEL NÚMERO DE FACTURA ────────────────────────────────────
+// Antes: el número se leía del caché local, se imprimía, y RECIÉN DESPUÉS se
+// avanzaba el correlativo en el servidor (avanzarNroFactura, sin esperar). Dos
+// sesiones/pestañas, o una sola con una llamada perdida, podían imprimir el
+// mismo número (Hotel Nico: 0000056, 57 y 62 duplicados, el 64 nunca salió).
+//
+// Ahora avanzar_correlativo es la RESERVA: se espera la respuesta ANTES de
+// armar la factura, y el número impreso es el que el servidor acaba de
+// entregar (devuelve el PRÓXIMO, así que el reservado es nro_actual - 1).
+// Como esa RPC es atómica, dos terminales nunca reciben el mismo número.
+//
+// Si no hay red / el servidor falla, devuelve null y el llamador cae al
+// comportamiento anterior (caché local + avanzarNroFactura), dejando
+// anotado el avance pendiente (pos_correlativo_pend) que se repone en el
+// servidor antes de la próxima reserva. En el peor caso (respuesta perdida
+// después de que el servidor ya avanzó) queda un número SALTADO, nunca uno
+// repetido.
+//
+// Solo tenants Supabase: el gateway D1 incrementa la tabla `correlativos`
+// (arranca en 2, sin mirar el número inicial del timbrado) mientras que
+// get_timbrado_terminal lee timbrado_terminales.nro_actual -- reservar ahí
+// imprimiría numeración fuera del rango del timbrado. Ver workers/mipos-gateway.
+var _CORR_PEND_KEY = 'pos_correlativo_pend';
+var _CORR_RESERVA_TIMEOUT_MS = 8000;
+
+function _corrPendLeer(terminal){
+  try {
+    const p = JSON.parse(localStorage.getItem(_CORR_PEND_KEY)||'null');
+    return (p && p.terminal === terminal && p.n > 0) ? p.n : 0;
+  } catch(e){ return 0; }
+}
+function _corrPendGuardar(terminal, n){
+  try {
+    if(n > 0) localStorage.setItem(_CORR_PEND_KEY, JSON.stringify({ terminal:terminal, n:n }));
+    else localStorage.removeItem(_CORR_PEND_KEY);
+  } catch(e){ /* storage lleno: se pierde solo el aviso de reposición */ }
+}
+
+/** Fija el próximo número en el timbrado dado y en los cachés locales. */
+function _setNroActualLocal(tim, nro){
+  if(tim) tim.nro_actual = nro;
+  const cache = window._timbradoCache;
+  if(cache && (!tim || (String(cache.nro) === String(tim.nro) && String(cache.punto_exp) === String(tim.punto_exp)))) cache.nro_actual = nro;
+  try {
+    const c = JSON.parse(localStorage.getItem('pos_timbrado_activo')||'null');
+    if(c && (!tim || (String(c.nro) === String(tim.nro) && String(c.punto_exp) === String(tim.punto_exp)))){
+      c.nro_actual = nro;
+      localStorage.setItem('pos_timbrado_activo', JSON.stringify(c));
+    }
+  } catch(e){}
+}
+
+async function reservarNroFactura(timbrado){
+  if(!timbrado || USAR_DEMO || usaGateway()) return null;
+  const email = localStorage.getItem('lic_email');
+  if(!email || navigator.onLine === false) return null;
+  const terminal = localStorage.getItem('pos_terminal')||'Terminal 1';
+  // Serializado (mismo patrón que avanzarNroFactura._chain): dos reservas
+  // seguidas en esta pestaña nunca corren en paralelo.
+  const prev = reservarNroFactura._chain || Promise.resolve();
+  const actual = prev.catch(function(){}).then(function(){
+    return Promise.race([
+      _reservarNroFacturaImpl(email, terminal),
+      new Promise(function(res){ setTimeout(function(){ res(null); }, _CORR_RESERVA_TIMEOUT_MS); }),
+    ]);
+  });
+  reservarNroFactura._chain = actual.catch(function(){});
+  return actual;
+}
+
+async function _reservarNroFacturaImpl(email, terminal){
+  try {
+    // 1. Reponer en el servidor los avances hechos sin conexión.
+    // Se relee el contador en cada vuelta (no se lleva uno local): si esta
+    // reserva vence por timeout y sigue corriendo de fondo mientras el
+    // llamador cae a avanzarNroFactura, ambos tocan el mismo contador.
+    for(let i = 0; i < 50 && _corrPendLeer(terminal) > 0; i++){
+      await supaRPC('avanzar_correlativo', { p_email:email, p_terminal:terminal });
+      _corrPendGuardar(terminal, Math.max(0, _corrPendLeer(terminal) - 1));
+    }
+    // 2. Reservar: devuelve el PRÓXIMO número, el de esta factura es uno menos.
+    const d = await supaRPC('avanzar_correlativo', { p_email:email, p_terminal:terminal });
+    const proximo = d ? parseInt(d.nro_actual, 10) : NaN;
+    if(proximo > 1){
+      _log('[Correlativo] reservado', proximo-1, '(próximo:', proximo+')');
+      return proximo - 1;
+    }
+  } catch(e){ console.warn('[Correlativo] reserva:', e.message); }
+  return null;
 }
 
 // ══════════════════════════════════════════════════════
@@ -1105,6 +1207,12 @@ async function fpConfirmar(ventaId){
     toast('⚠ Timbrado ' + tim.nro + ' llegó al límite autorizado (' + tim.hasta + '). Avisá al dueño para gestionar uno nuevo.');
   }
 
+  // Reservar el número en el servidor ANTES de armar la factura (ver
+  // reservarNroFactura). null = sin red/error → se usa el número del caché,
+  // como antes, y avanzarNroFactura de abajo lo registra como pendiente.
+  const nroReservado = await reservarNroFactura(tim);
+  if(nroReservado) tim.nro_actual = nroReservado;
+
   const pad3 = n=>String(n).padStart(3,'0');
   const padN = n=>String(n).padStart(7,'0');
   const nroFact = pad3(tim.sucursal)+'-'+pad3(tim.punto_exp)+'-'+padN(tim.nro_actual||tim.desde);
@@ -1157,14 +1265,19 @@ async function fpConfirmar(ventaId){
       } catch(e){ console.warn('[FacturaPostCobro] Error sincronizando en Supabase:', e.message); }
     }
 
-    // Avanzar numeración del timbrado
-    avanzarNroFactura(tim);
+    // Avanzar numeración del timbrado (si ya se reservó en el servidor, solo
+    // queda alinear el caché local: el servidor ya avanzó)
+    if(nroReservado) _setNroActualLocal(tim, nroReservado + 1);
+    else avanzarNroFactura(tim);
 
     // Cerrar modal y refrescar
     var _facPost=document.getElementById('facPostOv'); if(_facPost)_facPost.remove();
     toast('Factura '+nroFact+' emitida');
     await renderVentasList();
   } catch(e){
+    // El número reservado ya lo consumió el servidor aunque la factura no
+    // llegó a emitirse: queda un hueco (nunca un repetido). Alinear el caché.
+    if(nroReservado) _setNroActualLocal(tim, nroReservado + 1);
     toast('Error al emitir factura: '+e.message);
   }
 }
