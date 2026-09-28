@@ -1,7 +1,7 @@
 // ── Licencia, sesion, login, activacion ──
 
 // SUPA_URL y SUPA_ANON vienen de js/config.js
-var APP_VERSION = 'v1.16.129 (2026-09-28)';
+var APP_VERSION = 'v1.16.130 (2026-09-28)';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MODO TERMINAL — 'caja' (default) o 'satelite'
@@ -189,7 +189,16 @@ async function limpiarCacheTenantAnterior(){
    // Ventana más chica que las de arriba pero mismo riesgo de fondo: un
    // negocio de hospedaje reasignado podía ver (y cobrar) tarifas por tipo
    // de habitación del tenant anterior si esa carga puntual falló por red.
-   'hosp_precios_tipo']
+   'hosp_precios_tipo',
+   // caja_doble_moneda / caja_moneda_principal (ver app.js cajaMonedaSync*):
+   // ajustes de caja del tenant ANTERIOR. Ahora se suben a pos_config con la
+   // cuenta activa; sin limpiarlos acá, el primer arranque de la cuenta
+   // nueva los habría subido a SU config como si fueran suyos.
+   // pos_correlativo_pend (ver turno.js reservarNroFactura): avances de
+   // correlativo de factura pendientes de reponer en el servidor -- son del
+   // tenant anterior; reponerlos con la cuenta nueva adelantaría el contador
+   // del timbrado equivocado.
+   'caja_doble_moneda','caja_moneda_principal','pos_correlativo_pend']
     .forEach(function(k){ localStorage.removeItem(k); });
   ['pos_suc_id','pos_dep_id','pos_terminal','pos_sucursal','pos_deposito','pos_modo_terminal','ali']
     .forEach(function(k){ cookieSet(k, '', -1); });

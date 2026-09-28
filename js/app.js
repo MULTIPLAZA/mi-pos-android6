@@ -17,8 +17,9 @@ async function sincronizarConfigNegocio(){
   try {
     const rows = await supaGet('pos_config',
       'licencia_email=eq.'+encodeURIComponent(email)+
-      '&clave=in.(negocio_config,timbrados_config,timbrados_mapa,facturasend_config)');
+      '&clave=in.(negocio_config,timbrados_config,timbrados_mapa,facturasend_config,'+CAJA_MONEDA_CLAVE+')');
 
+    let _cajaMonedaMapa = {};
     rows.forEach(row => {
       try {
         const val = JSON.parse(row.valor||'{}');
@@ -49,6 +50,7 @@ async function sincronizarConfigNegocio(){
           });
           _log('[Config] Negocio (sync Supabase):', configData.negocio, '| RUC:', configData.ruc);
         }
+        if(row.clave === CAJA_MONEDA_CLAVE) _cajaMonedaMapa = val;
         if(row.clave === 'facturasend_config'){
           // Credenciales FE configuradas desde el Panel Admin. La nube es la
           // fuente de verdad: siempre pisan la copia local de la terminal.
@@ -59,6 +61,9 @@ async function sincronizarConfigNegocio(){
         }
       } catch(e){ console.warn('[Config] Error parsing', row.clave, e.message); }
     });
+    // Ajustes de caja (Gs / R$ / dos monedas): restaurar si este equipo los
+    // perdió, o respaldarlos si el servidor no los tiene (ver cajaMonedaAplicarRemoto).
+    try { cajaMonedaAplicarRemoto(_cajaMonedaMapa); } catch(e){ console.warn('[Caja] Error reconciliando ajustes:', e.message); }
     cargarTimbradoSesion();
   } catch(e){ console.warn('[Config] Error sync:', e.message); }
 
@@ -2411,6 +2416,7 @@ function hospGuardarCajaMonedaBRL(){
     const chkDoble = document.getElementById('cfgCajaDobleMoneda');
     if(chkDoble && chkDoble.checked){ chkDoble.checked = false; localStorage.setItem('caja_doble_moneda', '0'); }
   }
+  cajaMonedaSubirSupabase();
 }
 
 function hospGuardarCajaDobleMoneda(){
@@ -2419,6 +2425,84 @@ function hospGuardarCajaDobleMoneda(){
   if(chk && chk.checked){
     const chkBRL = document.getElementById('cfgCajaMonedaBRL');
     if(chkBRL && chkBRL.checked){ chkBRL.checked = false; localStorage.setItem('caja_moneda_principal', 'GS'); }
+  }
+  cajaMonedaSubirSupabase();
+}
+
+// ── Respaldo en servidor de los ajustes de caja (Gs / R$ / dos monedas) ──
+// Estos dos ajustes vivían SOLO en localStorage. Si el navegador de la PC
+// perdía su almacenamiento (o el ajuste nunca se activó en ese equipo), el
+// Cierre de Caja caía en silencio a la rama de una sola moneda: todo en Gs,
+// "Rendición" en 0, PIX contado como efectivo (caso real: Hotel Nico Palace,
+// 28/09/2026, la recepcionista no veía los reales en el ticket).
+//
+// Se guardan en pos_config clave 'caja_moneda_config' como un mapa por
+// TERMINAL: {"RECEPCION": {doble:'1', principal:'GS'}, ...}. Por terminal y no
+// por negocio porque son ajustes de cómo se cuenta la caja de ESE cajón (el
+// bar y la recepción de un mismo hotel pueden no querer lo mismo).
+//   - Si el dispositivo tiene el ajuste -> manda el dispositivo (se sube si el
+//     servidor no lo tiene o difiere).
+//   - Si el dispositivo NO lo tiene (storage borrado, equipo nuevo) -> se
+//     restaura desde el servidor.
+var CAJA_MONEDA_CLAVE = 'caja_moneda_config';
+
+/** Ajustes de caja de este dispositivo, o null si nunca se configuraron. */
+function _cajaMonedaLocal(){
+  const doble = localStorage.getItem('caja_doble_moneda');
+  const principal = localStorage.getItem('caja_moneda_principal');
+  if(doble === null && principal === null) return null;
+  return { doble: doble, principal: principal };
+}
+
+/** Sube los ajustes de esta terminal al mapa de pos_config (lee-mezcla-escribe). */
+async function cajaMonedaSubirSupabase(){
+  const email = localStorage.getItem('lic_email');
+  if(!email || (typeof USAR_DEMO !== 'undefined' && USAR_DEMO)) return;
+  if(typeof supaGet !== 'function' || typeof supaPost !== 'function') return;
+  const mios = _cajaMonedaLocal();
+  if(!mios) return;
+  const terminal = localStorage.getItem('pos_terminal') || 'Terminal 1';
+  try {
+    // Se relee el mapa antes de escribir para no pisar las entradas de las
+    // OTRAS terminales del mismo negocio.
+    let mapa = {};
+    const rows = await supaGet('pos_config',
+      'licencia_email=eq.'+encodeURIComponent(email)+'&clave=eq.'+CAJA_MONEDA_CLAVE+'&select=valor');
+    if(rows && rows[0]){
+      try { mapa = JSON.parse(rows[0].valor || '{}') || {}; } catch(e){ mapa = {}; }
+    }
+    mapa[terminal] = mios;
+    await supaPost('pos_config',
+      { licencia_email: email, clave: CAJA_MONEDA_CLAVE, valor: JSON.stringify(mapa) },
+      'licencia_email,clave', true);
+    _log('[Caja] Ajustes de moneda respaldados en pos_config para', terminal);
+  } catch(e){
+    // Sin red: queda local y se reintenta en el próximo arranque (la
+    // comparación de cajaMonedaAplicarRemoto detecta que difiere).
+    console.warn('[Caja] No se pudo respaldar el ajuste de moneda:', e.message);
+  }
+}
+
+/**
+ * Reconcilia con lo que dice el servidor (se llama desde
+ * sincronizarConfigNegocio al arrancar). `mapa` = valor parseado de
+ * pos_config.caja_moneda_config, o {} si el servidor no tiene nada.
+ */
+function cajaMonedaAplicarRemoto(mapa){
+  const terminal = localStorage.getItem('pos_terminal') || 'Terminal 1';
+  const remoto = mapa && mapa[terminal];
+  const mios = _cajaMonedaLocal();
+  if(!mios){
+    if(!remoto) return;
+    // Equipo sin el ajuste (storage borrado / equipo nuevo): restaurar.
+    if(remoto.doble !== null && remoto.doble !== undefined) localStorage.setItem('caja_doble_moneda', String(remoto.doble));
+    if(remoto.principal !== null && remoto.principal !== undefined) localStorage.setItem('caja_moneda_principal', String(remoto.principal));
+    _log('[Caja] Ajustes de moneda restaurados desde el servidor para', terminal);
+    if(typeof toast === 'function') toast('Se restauró la configuración de moneda de caja de esta terminal');
+    return;
+  }
+  if(!remoto || remoto.doble !== mios.doble || remoto.principal !== mios.principal){
+    cajaMonedaSubirSupabase();
   }
 }
 
